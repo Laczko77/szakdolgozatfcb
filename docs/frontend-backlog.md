@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 24 |
-| Remaining tasks | 62 |
-| Completion | 28% |
+| Completed tasks | 29 |
+| Remaining tasks | 57 |
+| Completion | 34% |
 
 ---
 
@@ -230,7 +230,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F4 — Autentikáció UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A bejelentkezési és regisztrációs felület megvalósítása: login/regisztráció form, Google OAuth gomb, és az auth állapot kezelése a kliens oldalon.
 
@@ -238,24 +238,24 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F4.1 Login oldal (`src/app/login/page.tsx`):
+- [x] F4.1 Login oldal (`src/app/login/page.tsx`):
   - Középre igazított glass kártya a formmal
   - Email + jelszó mezők, "Belépés" gomb
   - Google OAuth gomb (Google logóval, "Belépés Google-lel")
   - "Nincs fiókod? Regisztrálj" link a regisztrációs oldalra
   - Hibaüzenetek (hibás jelszó, nem létező email) megjelenítése
   - Háttér: a landing page-vel konzisztens sötét háttér
-- [ ] F4.2 Regisztrációs oldal (`src/app/register/page.tsx`):
+- [x] F4.2 Regisztrációs oldal (`src/app/register/page.tsx`):
   - Hasonló elrendezés mint a login, email + jelszó + jelszó megerősítés
   - Google OAuth gomb
   - "Van már fiókod? Jelentkezz be" link
   - Sikeres regisztráció után tájékoztató a megerősítő emailről
-- [ ] F4.3 Auth context és session kezelés (`src/providers/AuthProvider.tsx`):
+- [x] F4.3 Auth context és session kezelés (`src/providers/AuthProvider.tsx`):
   - Supabase `onAuthStateChange` listener
   - `useAuth()` hook: `user`, `profile`, `isAdmin`, `isLoading`, `signOut()`
   - Session automatikus frissítése
-- [ ] F4.4 Védett route-ok kliens oldali kezelése: ha nem bejelentkezett user próbál elérni védett oldalt, redirect a login-ra a visszatérési URL megőrzésével
-- [ ] F4.5 Navbar integrálás: bejelentkezve avatar + dropdown menü (Profil, Kijelentkezés, ha admin: Admin Panel), kijelentkezve "Belépés" gomb
+- [x] F4.4 Védett route-ok kliens oldali kezelése: ha nem bejelentkezett user próbál elérni védett oldalt, redirect a login-ra a visszatérési URL megőrzésével
+- [x] F4.5 Navbar integrálás: bejelentkezve avatar + dropdown menü (Profil, Kijelentkezés, ha admin: Admin Panel), kijelentkezve "Belépés" gomb
 
 **Acceptance Criteria:**
 
