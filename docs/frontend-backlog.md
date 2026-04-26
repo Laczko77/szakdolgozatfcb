@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 53 |
-| Remaining tasks | 33 |
-| Completion | 62% |
+| Completed tasks | 58 |
+| Remaining tasks | 28 |
+| Completion | 67% |
 
 ---
 
@@ -579,7 +579,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F12 — Szavazórendszer & Pontrendszer UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A szavazófelület: aktív szavazások listája, szavazat leadás, eredmények megjelenítése, és a pontrendszer integrálása a profil oldallal.
 
@@ -587,20 +587,20 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F12.1 Szavazások oldal (`src/app/szavazasok/page.tsx`):
+- [x] F12.1 Szavazások oldal (`src/app/szavazasok/page.tsx`):
   - Két szekció: "Aktív szavazások" és "Lezárt szavazások"
   - Szavazás kártya: kérdés, kapcsolódó meccs (ha van), szavazat-szám, státusz badge
-- [ ] F12.2 Szavazat leadás UI:
+- [x] F12.2 Szavazat leadás UI:
   - Kérdés kiemelten, opciók pill/rádió gombokként
   - "Szavazok" CTA gomb
   - Szavazat leadás után: a kiválasztott opció kiemelve, a gomb "Leadva ✓" állapotba vált, nem szavazhat újra
   - Animált megerősítés (checkmark animáció)
-- [ ] F12.3 Szavazás eredmények:
+- [x] F12.3 Szavazás eredmények:
   - Lezárt szavazásoknál: opciónkénti szavazatszám vízszintes bar chart-tal (Barça színekkel)
   - Helyes válasz zöld kiemelés, a user saját szavazata jelölve
   - Pontszerzés jelzése: ha a user helyesen szavazott, "+50 pont" animált badge
-- [ ] F12.4 Dashboard widget integráció: ha van aktív szavazás, a dashboard "Aktív szavazás" widgetben egyből szavazhat
-- [ ] F12.5 Profil "Pontjaim" tab frissítése: szavazásból szerzett pontok megjelennek a tranzakció-történetben
+- [x] F12.4 Dashboard widget integráció: ha van aktív szavazás, a dashboard "Aktív szavazás" widgetben egyből szavazhat
+- [x] F12.5 Profil "Pontjaim" tab frissítése: szavazásból szerzett pontok megjelennek a tranzakció-történetben
 
 **Acceptance Criteria:**
 

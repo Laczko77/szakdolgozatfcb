@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 46    |
-| Remaining tasks     | 22    |
-| Completion          | 68%   |
+| Completed tasks     | 49    |
+| Remaining tasks     | 19    |
+| Completion          | 72%   |
 
 ---
 
@@ -372,7 +372,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 10 — Pont-Áruház & Kuponrendszer
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A pont-áruház backend logikája: az admin kuponokat hoz létre különböző pontértékekhez, a userek beváltják pontjaikból, és a kuponokat felhasználják a webshop/jegy checkout-ban.
 
@@ -380,16 +380,16 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 10.1 Admin kupon endpoint-ok:
+- [x] 10.1 Admin kupon endpoint-ok:
   - `POST /api/admin/coupons` — kupon létrehozása (name, description, discount_type: 'percentage' | 'fixed' | 'free_shipping', discount_value, point_cost)
   - `PUT /api/admin/coupons/[id]` — kupon szerkesztése
-  - `DELETE /api/admin/coupons/[id]` — kupon deaktiválása
-  - `GET /api/admin/coupons` — összes kupon listázása statisztikákkal (hányszor váltották be)
-- [ ] 10.2 User pont-áruház endpoint-ok:
+  - `DELETE /api/admin/coupons/[id]` — kupon deaktiválása (soft delete: is_active=false)
+  - `GET /api/admin/coupons` — összes kupon listázása statisztikákkal (`coupon_redeem_stats` view)
+- [x] 10.2 User pont-áruház endpoint-ok:
   - `GET /api/shop/coupons` — elérhető kuponok listázása (is_active = true)
-  - `POST /api/shop/coupons/[id]/redeem` — kupon beváltása: pontegyenleg ellenőrzése és csökkentése, egyedi kuponkód generálása (`BARCA-XXXX-XXXX` formátum, alfanumerikus), mentés a `redeemed_coupons` táblába
+  - `POST /api/shop/coupons/[id]/redeem` — `redeem_coupon` RPC: atomic pont-csökkentés + `BARCA-XXXX-XXXX` kódgenerálás
   - `GET /api/profile/coupons` — user beváltott kuponjai (is_used szűréssel)
-- [ ] 10.3 Checkout integráció: az `POST /api/orders` endpoint módosítása, hogy fogadjon `coupon_code` paramétert — ellenőrzi a kód érvényességét, alkalmazza a kedvezményt, és `is_used = true`-ra állítja a felhasznált kupont. Ugyanez a `POST /api/tickets/purchase` endpoint-ra is
+- [x] 10.3 Checkout integráció: `POST /api/orders` és `POST /api/tickets/purchase` fogadja a `coupon_code` paramétert — `apply_coupon_to_order` / `consume_coupon` RPC-k atomic módon validálnak + `is_used = true`-ra állítják
 
 **Acceptance Criteria:**
 
