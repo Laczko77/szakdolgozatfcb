@@ -316,6 +316,13 @@ export interface Database {
         }
         Returns: Json
       }
+      resolve_poll: {
+        Args: {
+          p_poll_id: string
+          p_correct_option: number
+        }
+        Returns: Json
+      }
     }
     Enums: Record<string, never>
   }
