@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 20    |
-| Remaining tasks     | 48    |
-| Completion          | 29%   |
+| Completed tasks     | 27    |
+| Remaining tasks     | 41    |
+| Completion          | 40%   |
 
 ---
 
@@ -171,7 +171,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 5 — Webshop Backend (Termékek, Kosár, Rendelés)
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A webshop teljes backend logikája: termékkezelés variánsokkal és készlettel, kosár működés, demo checkout flow, rendeléskezelés és szállítási státuszok.
 
@@ -179,31 +179,31 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 5.1 Admin termékkezelő endpoint-ok (`src/app/api/admin/products/`):
+- [x] 5.1 Admin termékkezelő endpoint-ok (`src/app/api/admin/products/`):
   - `POST /api/admin/products` — új termék létrehozása variánsokkal (méretek, készlet), képfeltöltéssel a `product-images` bucketbe
   - `PUT /api/admin/products/[id]` — termék szerkesztése
   - `DELETE /api/admin/products/[id]` — termék törlése
   - `PUT /api/admin/products/[id]/variants` — variánsok készletének frissítése
-- [ ] 5.2 Publikus termék endpoint-ok:
+- [x] 5.2 Publikus termék endpoint-ok:
   - `GET /api/products` — termékek listázása (lapozás, kategória szűrés, keresés)
   - `GET /api/products/[id]` — termék részletei variánsokkal és átlagos értékeléssel
-- [ ] 5.3 Kosár endpoint-ok (`src/app/api/cart/`):
+- [x] 5.3 Kosár endpoint-ok (`src/app/api/cart/`):
   - `GET /api/cart` — aktuális kosár tartalma
   - `POST /api/cart` — tétel hozzáadása (variant_id, quantity), készletellenőrzéssel
   - `PUT /api/cart/[id]` — mennyiség módosítása
   - `DELETE /api/cart/[id]` — tétel eltávolítása
-- [ ] 5.4 Rendelés endpoint-ok (`src/app/api/orders/`):
+- [x] 5.4 Rendelés endpoint-ok (`src/app/api/orders/`):
   - `POST /api/orders` — demo checkout: kosárból rendelés létrehozása, készlet csökkentése, kosár ürítése, opcionális kupon alkalmazása
   - `GET /api/orders` — user saját rendeléseinek listázása
   - `DELETE /api/orders/[id]` — rendelés lemondása (csak ha status != 'shipped')
-- [ ] 5.5 Admin rendeléskezelő:
+- [x] 5.5 Admin rendeléskezelő:
   - `GET /api/admin/orders` — összes rendelés listázása (szűrhető státuszra)
   - `PUT /api/admin/orders/[id]/status` — státusz módosítása (processing → shipped → delivered)
-- [ ] 5.6 Wishlist endpoint-ok:
+- [x] 5.6 Wishlist endpoint-ok:
   - `GET /api/wishlist` — user kívánságlistája
   - `POST /api/wishlist` — termék hozzáadása
   - `DELETE /api/wishlist/[id]` — termék eltávolítása
-- [ ] 5.7 Értékelés endpoint-ok:
+- [x] 5.7 Értékelés endpoint-ok:
   - `POST /api/products/[id]/reviews` — értékelés írása (1-5 csillag + szöveg), egy user csak egyszer értékelhet egy terméket
   - `GET /api/products/[id]/reviews` — értékelések listázása (csak `is_visible = true`)
   - `PUT /api/admin/reviews/[id]` — admin moderáció (is_visible toggle)

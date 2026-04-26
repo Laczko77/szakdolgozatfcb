@@ -2,3 +2,6 @@
 - [Layout shell mounted globally](project_layout_shell.md) — Navbar / MobileHeader / BottomTabBar / Footer live in src/app/layout.tsx; pages must not render their own headers/footers
 - [Lucide brand icons removed](project_lucide_brand_icons.md) — Twitter/IG/YT not exported; use inline SVG (paths in Footer.tsx)
 - [Landing animation conventions](project_landing_animations.md) — CSS keyframes (pulse-gold, bounce-soft, gold-glow-in, drift, barca-text) live in globals.css; CSS → Framer → GSAP escalation order
+- [AuthProvider canonical](project_auth_provider.md) — useAuth() from src/providers/AuthProvider.tsx is the single auth-state source; useAuthUser is a legacy wrapper
+- [Auth routes /login + /register](project_auth_routes.md) — both ?returnUrl= and ?redirect= accepted; safeReturnUrl() guards open-redirects
+- [Auth UI primitives](project_auth_components.md) — AuthShell/GlassField/PrimaryAuthButton/GoogleButton/ProtectedRoute/UserMenu under src/components/auth/
