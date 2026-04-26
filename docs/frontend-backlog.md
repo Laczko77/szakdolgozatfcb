@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 42 |
-| Remaining tasks | 44 |
-| Completion | 49% |
+| Completed tasks | 48 |
+| Remaining tasks | 38 |
+| Completion | 56% |
 
 ---
 
@@ -272,7 +272,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F5 — Dashboard (Bejelentkezett User Főoldal)
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A bejelentkezett felhasználó "napi központja" — widget-alapú dashboard ami gyors hozzáférést biztosít a fő funkciókhoz.
 
@@ -280,26 +280,26 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F5.1 Dashboard layout (`src/app/dashboard/page.tsx`):
+- [x] F5.1 Dashboard layout (`src/app/dashboard/page.tsx`):
   - Desktop: 3 oszlopos CSS Grid, a widgetek különböző méretűek (span-1, span-2)
   - Mobil: 1 oszlopos stack
   - Üdvözlő szöveg a felhasználó becenéssel ("Szia, [username]! 👋")
-- [ ] F5.2 "Következő meccs" widget (kiemelt, span-2 desktopra):
+- [x] F5.2 "Következő meccs" widget (kiemelt, span-2 desktopra):
   - Két csapat neve/logója, dátum, helyszín
   - Visszaszámláló (nap:óra:perc:mp)
   - "Jegyvásárlás" CTA gomb
   - Ha nincs közelgő meccs: "Nincs közelgő meccs" üzenet
-- [ ] F5.3 "Legfrissebb hírek" widget:
+- [x] F5.3 "Legfrissebb hírek" widget:
   - 3 legújabb cikk mini kártya (kép, cím, dátum)
   - "Összes hír" link
-- [ ] F5.4 "Pontegyenlegem" widget:
+- [x] F5.4 "Pontegyenlegem" widget:
   - Aktuális pontszám nagy számmal
   - Utolsó tranzakció rövid leírása
   - "Pont-áruház" link
-- [ ] F5.5 "Rendeléseim" widget:
+- [x] F5.5 "Rendeléseim" widget:
   - Aktív rendelések száma és legutóbbi rendelés státusza (badge-gel: feldolgozás/feladva/kézbesítve)
   - "Rendeléseim" link a profilra
-- [ ] F5.6 Skeleton loading állapot: minden widgetnek legyen loading skeleton-ja (animált placeholder blokkok) amíg az adat töltődik
+- [x] F5.6 Skeleton loading állapot: minden widgetnek legyen loading skeleton-ja (animált placeholder blokkok) amíg az adat töltődik
 
 **Acceptance Criteria:**
 

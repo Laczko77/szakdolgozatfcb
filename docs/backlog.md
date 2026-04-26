@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 36    |
-| Remaining tasks     | 32    |
-| Completion          | 53%   |
+| Completed tasks     | 41    |
+| Remaining tasks     | 27    |
+| Completion          | 60%   |
 
 ---
 
@@ -297,7 +297,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 8 — Közösségi Feed Backend
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A közösségi feed teljes backend logikája: admin posztok, user kommentek, emoji reakciók posztokra és kommentekre, népszerűségi rendezés, és a kommentek moderálása.
 
@@ -305,22 +305,22 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 8.1 Poszt endpoint-ok:
+- [x] 8.1 Poszt endpoint-ok:
   - `POST /api/admin/posts` — admin poszt létrehozása (content, image feltöltés a `post-images` bucketbe)
   - `PUT /api/admin/posts/[id]` — poszt szerkesztése
   - `DELETE /api/admin/posts/[id]` — poszt törlése
   - `GET /api/posts` — posztok listázása (lapozás, legújabb elöl), minden poszthoz: reakció-összesítő és kommentek száma
-- [ ] 8.2 Komment endpoint-ok:
+- [x] 8.2 Komment endpoint-ok:
   - `POST /api/posts/[id]/comments` — komment írása
   - `DELETE /api/comments/[id]` — saját komment törlése (vagy admin bármelyiket)
   - `GET /api/posts/[id]/comments` — kommentek listázása népszerűségi sorrendben (reakciók száma alapján)
-- [ ] 8.3 Reakció endpoint-ok:
+- [x] 8.3 Reakció endpoint-ok:
   - `POST /api/reactions` — reakció hozzáadása (target_type: 'post' | 'comment', target_id, emoji)
   - `DELETE /api/reactions/[id]` — reakció visszavonása
   - Egy user egy target-re csak egyféle reakciót adhat; ha másikat ad, az előző cserélődik
-- [ ] 8.4 Admin moderáció:
+- [x] 8.4 Admin moderáció:
   - `DELETE /api/admin/comments/[id]` — bármely komment törlése
-- [ ] 8.5 Polling endpoint optimalizálás: a `GET /api/posts` endpoint támogasson `since` paramétert (timestamp), hogy a 3 mp-es polling csak az új/módosult posztokat kérje le
+- [x] 8.5 Polling endpoint optimalizálás: a `GET /api/posts` endpoint támogasson `since` paramétert (timestamp), hogy a 3 mp-es polling csak az új/módosult posztokat kérje le
 
 **Acceptance Criteria:**
 
