@@ -7,4 +7,5 @@
 - [Auth UI primitives](project_auth_components.md) — AuthShell/GlassField/PrimaryAuthButton/GoogleButton/ProtectedRoute/UserMenu under src/components/auth/
 - [CartProvider canonical](project_cart_provider.md) — useCart() from src/providers/CartProvider.tsx is the single source of truth for cart + wishlist + drawer state
 - [Shop component primitives (F8)](project_shop_components.md) — RatingStars, WishlistHeart, VariantPicker, QuantityStepper, CartDrawer, ProductCard, ReviewList/Modal, OrderCancelButton, SuccessConfetti
+- [News component primitives (F6)](project_news_components.md) — CategoryPills, HeroArticle, ArticleCard, ArticleContent, RelatedArticles, NewsEmptyState; detail page is server-rendered, listing is client
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask

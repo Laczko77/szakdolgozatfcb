@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 32    |
-| Remaining tasks     | 36    |
-| Completion          | 47%   |
+| Completed tasks     | 36    |
+| Remaining tasks     | 32    |
+| Completion          | 53%   |
 
 ---
 
@@ -262,7 +262,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 7 — Profilkezelés & Globális Kereső
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A profiloldal backend logikája (adatmódosítás, profilkép, vásárlási előzmények) és a globális kereső ami több táblában keres egyszerre.
 
@@ -270,15 +270,15 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 7.1 Profil endpoint-ok (`src/app/api/profile/`):
+- [x] 7.1 Profil endpoint-ok (`src/app/api/profile/`):
   - `GET /api/profile` — bejelentkezett user profil adatai
   - `PUT /api/profile` — username és avatar módosítása (kép feltöltés a `profile-images` bucketbe)
   - `PUT /api/profile/password` — jelszóváltoztatás (Supabase Auth `updateUser`)
-- [ ] 7.2 Vásárlási előzmények aggregáció:
+- [x] 7.2 Vásárlási előzmények aggregáció:
   - `GET /api/profile/purchases` — rendelések és jegyek együttes listázása, időrend szerint
-- [ ] 7.3 Pontegyenleg endpoint:
+- [x] 7.3 Pontegyenleg endpoint:
   - `GET /api/profile/points` — aktuális pontegyenleg és tranzakció-történet
-- [ ] 7.4 Globális kereső endpoint (`GET /api/search?q=...`):
+- [x] 7.4 Globális kereső endpoint (`GET /api/search?q=...`):
   - Keres az `articles` (title, content), `products` (name, description), `players` (name), és `posts` (content) táblákban
   - Supabase full-text search (`to_tsvector` / `plainto_tsquery`) vagy ILIKE fallback
   - Eredményeket típus szerint csoportosítva adja vissza (articles: [...], products: [...], players: [...], posts: [...])

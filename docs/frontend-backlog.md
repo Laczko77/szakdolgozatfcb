@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 37 |
-| Remaining tasks | 49 |
-| Completion | 43% |
+| Completed tasks | 42 |
+| Remaining tasks | 44 |
+| Completion | 49% |
 
 ---
 
@@ -315,7 +315,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F6 — Hírrendszer UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A hírportál frontend felülete: cikklista kiemelt hero cikkel, kategória szűrés, és cikk olvasó nézet.
 
@@ -323,22 +323,22 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F6.1 Hírek listaoldal (`src/app/hirek/page.tsx`):
+- [x] F6.1 Hírek listaoldal (`src/app/hirek/page.tsx`):
   - Kiemelt hero cikk: nagy, széles glass kártya felül — a legújabb cikk képe, címe gradient overlay-jel a kép alján, dátum és kategória badge
   - Alatta a többi cikk grid-ben: desktop 3 oszlop, tablet 2, mobil 1
   - Cikk kártyák: glass stílus, kép fent, cím, rövid kivonat (első 100 karakter), dátum, kategória pill badge
   - Hover: enyhe scale(1.02) + glass szegély fényesedés
-- [ ] F6.2 Kategória szűrő:
+- [x] F6.2 Kategória szűrő:
   - Horizontálisan görgethető pill gombok a lista felett: "Mind", "Átigazolások", "Meccsösszefoglalók", "Interjúk", "Hírek"
   - Aktív pill arany kiemelés
   - Kattintásra szűrt lista, URL query paraméterrel (`?category=transfers`)
-- [ ] F6.3 Cikk részletes oldal (`src/app/hirek/[id]/page.tsx`):
+- [x] F6.3 Cikk részletes oldal (`src/app/hirek/[id]/page.tsx`):
   - Széles hero kép a tetején (teljes szélességű)
   - Cím: nagy, merész, alatta dátum + kategória + szerző
   - Tartalom: jól olvasható szélességben (max 720px, középre igazítva), szép tipográfia
   - "Vissza a hírekhez" navigáció
-- [ ] F6.4 Lapozás: "Több cikk betöltése" gomb vagy infinite scroll a lista alján
-- [ ] F6.5 Üres állapot kezelése: ha nincs cikk az adott kategóriában, barátságos üzenet illusztrációval
+- [x] F6.4 Lapozás: "Több cikk betöltése" gomb vagy infinite scroll a lista alján
+- [x] F6.5 Üres állapot kezelése: ha nincs cikk az adott kategóriában, barátságos üzenet illusztrációval
 
 **Acceptance Criteria:**
 
