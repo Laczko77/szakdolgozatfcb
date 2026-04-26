@@ -5,6 +5,7 @@ import { ToastProvider } from "@/providers/ToastProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
 
 const bebas = Bebas_Neue({
@@ -72,6 +73,9 @@ export default function RootLayout({
             <main className="flex-1 pt-2 pb-20 md:pt-4 md:pb-0">
               {children}
             </main>
+
+            {/* Site-wide footer (above the mobile tab bar). */}
+            <Footer />
 
             {/* Mobile-only fixed bottom tab bar (sub-md). */}
             <BottomTabBar />
