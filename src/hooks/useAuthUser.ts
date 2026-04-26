@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface AuthUserState {
   user: User | null;
@@ -10,47 +9,16 @@ interface AuthUserState {
 }
 
 /**
- * Subscribes to the Supabase auth session on the browser.
+ * Backward-compatible thin wrapper around the new {@link useAuth} hook.
  *
- * - On mount: reads the current user with `getUser()`.
- * - Then keeps the local state in sync via `onAuthStateChange`, so the
- *   navbar avatar swaps live when the user logs in/out from another tab
- *   or after a server-side redirect.
+ * The single source of truth is now `<AuthProvider />` (mounted in the
+ * root layout); this hook just exposes the user/loading slice for
+ * legacy callers that don't yet need profile/admin information.
  *
- * The Supabase browser client is memoized internally, so calling
- * `createClient()` from multiple components is safe.
+ * Prefer `useAuth()` directly in new code — it gives you the profile,
+ * admin flag, and `signOut()` in addition to user/loading.
  */
 export function useAuthUser(): AuthUserState {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let mounted = true;
-
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (!mounted) return;
-        setUser(data.user ?? null);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setUser(null);
-        setLoading(false);
-      });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  return { user, loading };
+  const { user, isLoading } = useAuth();
+  return { user, loading: isLoading };
 }

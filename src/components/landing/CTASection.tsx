@@ -114,7 +114,7 @@ export default function CTASection() {
         transition={{ duration: 0.55, delay: 0.3, ease: "easeOut" }}
         className="mt-10"
       >
-        <Link href="/belepes" className="glass-button-primary group">
+        <Link href="/register" className="glass-button-primary group">
           <span>Regisztrálj most</span>
           <ArrowRight
             size={16}

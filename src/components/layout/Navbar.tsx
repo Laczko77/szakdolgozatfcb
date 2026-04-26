@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { useAuthUser } from "@/hooks/useAuthUser";
+import { useAuth } from "@/providers/AuthProvider";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   desktopNavLinks,
@@ -32,11 +32,9 @@ export function Navbar() {
   const pathname = usePathname();
   const scrollY = useScrollPosition();
   const reduced = useReducedMotion();
-  const { user } = useAuthUser();
+  const { user } = useAuth();
 
   const scrolled = scrollY > SCROLL_MATERIALIZE_THRESHOLD;
-
-  const initials = useMemo(() => buildInitials(user?.email, user?.user_metadata), [user]);
 
   return (
     <motion.header
@@ -138,24 +136,10 @@ export function Navbar() {
           <ThemeToggle size={18} />
 
           {user ? (
-            <Link
-              href="/profil"
-              aria-label="Profil"
-              title="Profil"
-              className={[
-                "ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full",
-                "bg-[var(--accent-blue)] text-white",
-                "text-xs font-semibold tracking-wide",
-                "transition-transform duration-200 hover:scale-105",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
-                "ring-1 ring-inset ring-white/10",
-              ].join(" ")}
-            >
-              {initials}
-            </Link>
+            <UserMenu />
           ) : (
             <Link
-              href="/belepes"
+              href="/login"
               className={[
                 "ml-2 inline-flex items-center justify-center rounded-full",
                 "px-4 py-1.5 text-sm font-medium",
@@ -173,35 +157,4 @@ export function Navbar() {
       </nav>
     </motion.header>
   );
-}
-
-/**
- * Builds a 1–2 character avatar label from the user's metadata or email.
- * Prefers `display_name` / `full_name`, falls back to the e-mail local-part.
- */
-function buildInitials(
-  email: string | null | undefined,
-  metadata: Record<string, unknown> | undefined,
-): string {
-  const meta = metadata ?? {};
-  const displayName =
-    typeof meta.display_name === "string"
-      ? meta.display_name
-      : typeof meta.full_name === "string"
-        ? meta.full_name
-        : typeof meta.name === "string"
-          ? meta.name
-          : null;
-
-  const source = displayName?.trim() || email?.split("@")[0] || "";
-  if (!source) return "?";
-
-  const parts = source
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (parts.length === 0) return source.charAt(0).toUpperCase();
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
 }
