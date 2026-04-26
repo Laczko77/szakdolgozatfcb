@@ -3,10 +3,12 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import { ThemeProvider, themeFlashPreventionScript } from "@/providers/ThemeProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { CartProvider } from "@/providers/CartProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { Footer } from "@/components/layout/Footer";
+import { CartDrawer } from "@/components/shop/CartDrawer";
 import "./globals.css";
 
 const bebas = Bebas_Neue({
@@ -58,29 +60,35 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>
-              {/* Mobile-only sticky top bar (sub-md). */}
-              <MobileHeader />
+              <CartProvider>
+                {/* Mobile-only sticky top bar (sub-md). */}
+                <MobileHeader />
 
-              {/* Desktop-only floating pill navbar (md+). */}
-              <Navbar />
+                {/* Desktop-only floating pill navbar (md+). */}
+                <Navbar />
 
-              {/*
-                Main content well.
-                - pt-4 on desktop matches the navbar's `top-4` offset.
-                - pt-2 on mobile is enough — MobileHeader is `sticky top-0` and
-                  pushes content naturally; we just need a small breathing room.
-                - pb-20 on mobile reserves space for the fixed bottom tab bar
-                  (~64px tab + safe-area inset).
-              */}
-              <main className="flex-1 pt-2 pb-20 md:pt-4 md:pb-0">
-                {children}
-              </main>
+                {/*
+                  Main content well.
+                  - pt-4 on desktop matches the navbar's `top-4` offset.
+                  - pt-2 on mobile is enough — MobileHeader is `sticky top-0` and
+                    pushes content naturally; we just need a small breathing room.
+                  - pb-20 on mobile reserves space for the fixed bottom tab bar
+                    (~64px tab + safe-area inset).
+                */}
+                <main className="flex-1 pt-2 pb-20 md:pt-4 md:pb-0">
+                  {children}
+                </main>
 
-              {/* Site-wide footer (above the mobile tab bar). */}
-              <Footer />
+                {/* Site-wide footer (above the mobile tab bar). */}
+                <Footer />
 
-              {/* Mobile-only fixed bottom tab bar (sub-md). */}
-              <BottomTabBar />
+                {/* Mobile-only fixed bottom tab bar (sub-md). */}
+                <BottomTabBar />
+
+                {/* Slide-in cart drawer — globally mounted so any page can
+                    openCart() through useCart(). */}
+                <CartDrawer />
+              </CartProvider>
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
