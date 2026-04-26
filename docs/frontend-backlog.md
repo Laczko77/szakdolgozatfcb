@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 48 |
-| Remaining tasks | 38 |
-| Completion | 56% |
+| Completed tasks | 53 |
+| Remaining tasks | 33 |
+| Completion | 62% |
 
 ---
 
@@ -537,7 +537,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F11 — Közösségi Feed UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A közösségi feed felülete: posztok listája, kommentek, emoji reakciók, és 3 másodperces polling az új tartalmakért.
 
@@ -545,24 +545,24 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F11.1 Feed oldal layout (`src/app/kozosseg/page.tsx`):
+- [x] F11.1 Feed oldal layout (`src/app/kozosseg/page.tsx`):
   - Egyoszlopos, középre igazított layout (max 600px, mint Twitter)
   - Posztok glass kártyákban: admin avatar + név, időbélyeg, szöveges tartalom, opcionális kép, reakció sáv, komment szekció
-- [ ] F11.2 Reakció rendszer (`src/components/social/ReactionBar.tsx`):
+- [x] F11.2 Reakció rendszer (`src/components/social/ReactionBar.tsx`):
   - Reakció összegző az elem alatt (emoji + szám párok)
-  - Kattintásra reakció picker "felbuggyan" (5-6 emoji opció, pl. ❤️ 👏 😍 😂 😮 💪)
+  - Kattintásra reakció picker "felbuggyan" (5-6 emoji opció)
   - Saját reakció kiemelve, újra kattintásra visszavonódik, más emoji-ra kattintva cserélődik
   - Smooth animáció a megjelenésnél (scale-in)
-- [ ] F11.3 Komment szekció (`src/components/social/CommentSection.tsx`):
-  - Kommentek alapból összecsukva (pl. "12 komment" link → kinyit)
+- [x] F11.3 Komment szekció (`src/components/social/CommentSection.tsx`):
+  - Kommentek alapból összecsukva (pl. "12 komment" link → kinyit), optimista frissítés
   - Kinyitva: kommentek népszerűségi sorrendben (legtöbb reakció elöl)
   - Komment kártya: avatar, username, szöveg, időbélyeg, reakció sáv (kisebb méretben), törlés gomb (saját kommenteken)
   - Komment írás: input mező a szekció alján, "Küldés" gomb
-- [ ] F11.4 Polling mechanizmus:
-  - 3 másodperces `setInterval` a `since` paraméterrel (utolsó lekérdezés timestamp-je)
+- [x] F11.4 Polling mechanizmus:
+  - 3 másodperces `setInterval` a `since` paraméterrel (utolsó lekérdezés timestamp-je), tab-visibility aware
   - Új posztok/kommentek/reakciók smooth-an jelennek meg (fade-in animáció, a meglévők NEM ugrálnak)
   - A polling csak akkor aktív amikor az oldal fókuszban van (`document.visibilityState`)
-- [ ] F11.5 Poszt kép megjelenítés: kattintásra lightbox (teljes képernyős kép nézet overlay-ben, Escape-re vagy X-re bezáródik)
+- [x] F11.5 Poszt kép megjelenítés: kattintásra lightbox (teljes képernyős kép nézet overlay-ben, Escape/X/backdrop dismiss)
 
 **Acceptance Criteria:**
 

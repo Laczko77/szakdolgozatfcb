@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 41    |
-| Remaining tasks     | 27    |
-| Completion          | 60%   |
+| Completed tasks     | 46    |
+| Remaining tasks     | 22    |
+| Completion          | 68%   |
 
 ---
 
@@ -337,7 +337,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 9 — Szavazórendszer & Pontrendszer
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A szavazórendszer backend logikája: admin szavazás-létrehozás, userek szavaznak, az admin beállítja a helyes választ, és a rendszer automatikusan szétosztja a pontokat a nyerteseknek.
 
@@ -345,17 +345,17 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 9.1 Admin szavazás endpoint-ok:
+- [x] 9.1 Admin szavazás endpoint-ok:
   - `POST /api/admin/polls` — szavazás létrehozása (question, options tömb, opcionális match_id)
   - `PUT /api/admin/polls/[id]` — szavazás szerkesztése
-  - `PUT /api/admin/polls/[id]/resolve` — helyes válasz beállítása: `correct_option` mező kitöltése, `is_active = false`, és automatikus pontszétosztás a helyes szavazóknak (fix 50 pont)
+  - `PUT /api/admin/polls/[id]/resolve` — helyes válasz beállítása: `correct_option` mező kitöltése, `is_active = false`, és automatikus pontszétosztás a helyes szavazóknak (fix 50 pont) — atomic RPC
   - `DELETE /api/admin/polls/[id]` — szavazás törlése
-- [ ] 9.2 User szavazás endpoint-ok:
-  - `GET /api/polls` — aktív szavazások listázása (is_active = true) + lezárt szavazások eredményei
+- [x] 9.2 User szavazás endpoint-ok:
+  - `GET /api/polls` — aktív szavazások listázása (is_active = true) + lezárt szavazások eredményei (`GET /api/polls/[id]/results`)
   - `POST /api/polls/[id]/vote` — szavazat leadása (egy user csak egyszer szavazhat)
   - `GET /api/polls/[id]/results` — szavazás eredményei (opciónkénti szavazatszám, helyes válasz ha lezárult)
-- [ ] 9.3 Pontszétosztás logika (`src/lib/points.ts`):
-  - A `resolve` endpoint hívásakor: lekéri az összes helyes szavazatot, minden nyertes `user_points.balance`-ét növeli 50-nel, és `point_transactions`-be bejegyzi a tranzakciót
+- [x] 9.3 Pontszétosztás logika (`src/lib/points.ts`):
+  - A `resolve` endpoint hívásakor: lekéri az összes helyes szavazatot, minden nyertes `user_points.balance`-ét növeli 50-nel, és `point_transactions`-be bejegyzi a tranzakciót — `poll_results` view, `resolve_poll` RPC
   - Tranzakcionális végrehajtás (Supabase RPC vagy database function)
 
 **Acceptance Criteria:**

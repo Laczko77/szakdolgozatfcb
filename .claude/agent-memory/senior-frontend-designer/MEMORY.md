@@ -9,4 +9,5 @@
 - [Shop component primitives (F8)](project_shop_components.md) — RatingStars, WishlistHeart, VariantPicker, QuantityStepper, CartDrawer, ProductCard, ReviewList/Modal, OrderCancelButton, SuccessConfetti
 - [News component primitives (F6)](project_news_components.md) — CategoryPills, HeroArticle, ArticleCard, ArticleContent, RelatedArticles, NewsEmptyState; detail page is server-rendered, listing is client
 - [Dashboard component primitives (F5)](project_dashboard_components.md) — WidgetShell/Hero/NextMatch/LatestNews/Points/Orders/QuickLinks + useCountdown; protected route, 12-col grid, parallel fetches
+- [Social/feed primitives (F11)](project_social_components.md) — Avatar/RelativeTime/ReactionBar/CommentSection/PostCard/Lightbox/NewPostComposer + useFeedPolling; types in types/social.ts
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask
