@@ -307,7 +307,16 @@ export interface Database {
       cookie_consents:    { Row: CookieConsent;    Insert: CookieConsentInsert;    Update: Partial<CookieConsent> }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      purchase_tickets: {
+        Args: {
+          p_user_id: string
+          p_sector_id: string
+          p_quantity: number
+        }
+        Returns: Json
+      }
+    }
     Enums: Record<string, never>
   }
 }

@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 27    |
-| Remaining tasks     | 41    |
-| Completion          | 40%   |
+| Completed tasks     | 32    |
+| Remaining tasks     | 36    |
+| Completion          | 47%   |
 
 ---
 
@@ -224,7 +224,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 6 — Jegyrendszer Backend
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A jegyrendszer backend logikája: meccsek szinkronizálása az API-Football-ból, admin szektorkezelés, jegyvásárlás automatikus székiosztással és vásárlási limittel.
 
@@ -232,19 +232,19 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 6.1 Meccs szinkronizációs endpoint (`POST /api/admin/matches/sync`): az API-Football-ból lekéri az FC Barcelona következő meccseit és upsert-eli a `matches` táblába
-- [ ] 6.2 Admin szektorkezelő endpoint-ok:
+- [x] 6.1 Meccs szinkronizációs endpoint (`POST /api/admin/matches/sync`): az API-Football-ból lekéri az FC Barcelona következő meccseit és upsert-eli a `matches` táblába
+- [x] 6.2 Admin szektorkezelő endpoint-ok:
   - `POST /api/admin/matches/[id]/sectors` — szektorok létrehozása egy meccshez (sector_name, total_seats, price)
   - `PUT /api/admin/matches/[id]/sectors/[sectorId]` — szektor módosítása (pl. extra jegyek hozzáadása: total_seats növelése)
-- [ ] 6.3 Publikus endpoint-ok:
+- [x] 6.3 Publikus endpoint-ok:
   - `GET /api/matches` — közelgő meccsek listázása
   - `GET /api/matches/[id]` — meccs részletei szektorokkal és szabad helyek számával
-- [ ] 6.4 Jegyvásárlás endpoint (`POST /api/tickets/purchase`):
+- [x] 6.4 Jegyvásárlás endpoint (`POST /api/tickets/purchase`):
   - Bemenet: match_id, sector_id, quantity (1-4)
   - Ellenőrzések: max 4 jegy/user/meccs, van-e elég szabad hely a szektorban
   - Automatikus székszám kiosztás (következő szabad szám)
   - `sold_seats` növelése a szektorban, ha elérte a `total_seats`-et, a szektor lezár
-- [ ] 6.5 User jegy endpoint-ok:
+- [x] 6.5 User jegy endpoint-ok:
   - `GET /api/tickets` — user saját jegyeinek listázása (közelgő és múltbeli meccsek)
 
 **Acceptance Criteria:**

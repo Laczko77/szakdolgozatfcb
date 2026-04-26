@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 29 |
-| Remaining tasks | 57 |
-| Completion | 34% |
+| Completed tasks | 37 |
+| Remaining tasks | 49 |
+| Completion | 43% |
 
 ---
 
@@ -394,7 +394,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F8 — Webshop UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A webshop teljes vásárlási folyamata: terméklista, termékoldal variánsválasztóval, slide-in kosár, checkout, wishlist, és értékelések.
 
@@ -402,33 +402,33 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F8.1 Terméklista oldal (`src/app/shop/page.tsx`):
+- [x] F8.1 Terméklista oldal (`src/app/shop/page.tsx`):
   - Grid: desktop 3-4 oszlop, tablet 2, mobil 1-2
   - Termékkártya: glass kártya, termék kép, név, ár, átlagos értékelés (csillagok), wishlist szív ikon (jobb felső sarok)
   - Hover: scale(1.02) + glass szegély glow + "Kosárba" gomb megjelenik
   - Kategória szűrő pill gombok (ha releváns)
-- [ ] F8.2 Termék részletes oldal (`src/app/shop/[id]/page.tsx`):
+- [x] F8.2 Termék részletes oldal (`src/app/shop/[id]/page.tsx`):
   - Bal oldal: termékkép (ha több kép: galléria, thumbnail-ek alul)
   - Jobb oldal: terméknév, ár, leírás, méretválasztó (pill gombok), színválasztó (színes körök), készletjelző ("12 db raktáron"), mennyiségválasztó (+/- gombok), "Kosárba" CTA gomb (arany glass), wishlist szív gomb
   - Alul: értékelések szekció
-- [ ] F8.3 Variáns logika: méret + szín kiválasztásakor a készlet az adott variánshoz frissül, ha nincs készleten az adott variáns: a pill/kör szürkére vált és nem kattintható
-- [ ] F8.4 Kosár drawer (`src/components/shop/CartDrawer.tsx`):
+- [x] F8.3 Variáns logika: méret + szín kiválasztásakor a készlet az adott variánshoz frissül, ha nincs készleten az adott variáns: a pill/kör szürkére vált és nem kattintható
+- [x] F8.4 Kosár drawer (`src/components/shop/CartDrawer.tsx`):
   - Desktop: jobb oldalról kicsúszó panel (slide-in drawer), 400px széles
   - Mobil: fullscreen overlay
   - Tartalom: tételek listája (kép, név, variáns, mennyiség +/- gombok, törlés, ár), összesítő (részösszeg, összesen), "Pénztár" gomb
   - Üres kosár állapot: barátságos üzenet + "Shop böngészése" link
   - Kosár ikon a navbar-ban badge-gel (tételek száma)
-- [ ] F8.5 Checkout oldal (`src/app/shop/checkout/page.tsx`):
+- [x] F8.5 Checkout oldal (`src/app/shop/checkout/page.tsx`):
   - 2 lépéses flow:
     - 1. lépés: Szállítási adatok form (név, cím, telefonszám — szimulált, nincs szállítási költség) + opcionális kuponkód mező
     - 2. lépés: Rendelés összegző (tételek, árak, kupon kedvezmény ha van, végösszeg) + "Megrendelés (demo)" gomb
   - Sikeres rendelés: megerősítő oldal konfettivel vagy checkmark animációval
-- [ ] F8.6 Wishlist szív animáció: kattintásra a szív "megtelik" (üres körvonal → teli piros, scale animáció mint Instagram like). A wishlist oldal a profil alatt érhető el
-- [ ] F8.7 Értékelés rendszer:
+- [x] F8.6 Wishlist szív animáció: kattintásra a szív "megtelik" (üres körvonal → teli piros, scale animáció mint Instagram like). A wishlist oldal a profil alatt érhető el
+- [x] F8.7 Értékelés rendszer:
   - Termékoldal alján: értékelések listája (avatar, username, 5 csillag, szöveg, dátum)
   - "Értékelés írása" gomb → glass modal: csillag választó (kattintható 1-5) + szöveges mező + "Küldés" gomb
   - Ha a user már értékelt: "Már értékelted" üzenet
-- [ ] F8.8 Rendelés lemondás: a profil rendelések listájában "Lemondás" gomb, de csak ha a státusz nem "feladva" — a gomb megerősítő modal-lal védett
+- [x] F8.8 Rendelés lemondás: a profil rendelések listájában "Lemondás" gomb, de csak ha a státusz nem "feladva" — a gomb megerősítő modal-lal védett
 
 **Acceptance Criteria:**
 

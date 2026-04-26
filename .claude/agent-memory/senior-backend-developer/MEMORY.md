@@ -1,0 +1,1 @@
+- [RPC for atomic mutations](rpc_atomic_pattern.md) — when to reach for a Postgres function instead of multi-step JS
