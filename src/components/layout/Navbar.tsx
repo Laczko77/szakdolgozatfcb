@@ -8,6 +8,7 @@ import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAuth } from "@/providers/AuthProvider";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { CartIconButton } from "@/components/shop/CartIconButton";
 import { ThemeToggle } from "./ThemeToggle";
 import {
   desktopNavLinks,
@@ -132,6 +133,8 @@ export function Navbar() {
           >
             <Search size={18} strokeWidth={1.75} />
           </button>
+
+          <CartIconButton size={18} />
 
           <ThemeToggle size={18} />
 

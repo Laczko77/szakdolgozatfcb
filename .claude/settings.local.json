@@ -14,7 +14,8 @@
       "Bash(find /mnt -name \"SKILL.md\" -path \"*frontend-design*\")",
       "Bash(npx eslint *)",
       "Bash(grep -iE '^\\(external-link|share|share-2|send|globe|link|at-sign|hash|message-square|message-circle\\)\\\\.mjs$')",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(git stash *)"
     ]
   }
 }

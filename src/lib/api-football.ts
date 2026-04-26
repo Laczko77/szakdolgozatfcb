@@ -77,6 +77,49 @@ export interface PlayerApiResponse {
   statistics: PlayerApiStatistics[]
 }
 
+// ----------------------------------------------------------------------------
+// Fixture types — narrowed subset of the API-Football /fixtures response.
+// ----------------------------------------------------------------------------
+
+export interface FixtureApiVenue {
+  id: number | null
+  name: string | null
+  city: string | null
+}
+
+export interface FixtureApiStatus {
+  long: string | null
+  short: string | null
+  elapsed: number | null
+}
+
+export interface FixtureApiCore {
+  id: number
+  date: string // ISO 8601
+  timezone: string | null
+  timestamp: number | null
+  venue: FixtureApiVenue
+  status: FixtureApiStatus
+}
+
+export interface FixtureApiTeam {
+  id: number
+  name: string
+  logo: string | null
+  winner: boolean | null
+}
+
+export interface FixtureApiTeams {
+  home: FixtureApiTeam
+  away: FixtureApiTeam
+}
+
+export interface FixtureApiResponse {
+  fixture: FixtureApiCore
+  league: { id: number; name: string; season: number } & Record<string, unknown>
+  teams: FixtureApiTeams
+}
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -211,4 +254,32 @@ export async function fetchPlayerStats(
     season,
   })
   return data.response[0] ?? null
+}
+
+/**
+ * Fetch FC Barcelona fixtures.
+ *
+ * Two modes:
+ *   - `next`: pull the next N upcoming fixtures (cheapest call, single page).
+ *   - `season`: pull the entire season schedule.
+ *
+ * If both are passed, `next` wins. The /fixtures endpoint accepts either, but
+ * not on the same call; we keep the helper minimal and let the caller pick.
+ */
+export async function fetchBarcaFixtures(opts: {
+  next?: number
+  season?: number
+}): Promise<FixtureApiResponse[]> {
+  const params: Record<string, string | number> = { team: FCB_TEAM_ID }
+  if (typeof opts.next === 'number' && opts.next > 0) {
+    params.next = opts.next
+  } else if (typeof opts.season === 'number') {
+    params.season = opts.season
+  } else {
+    // Default: next 10 upcoming fixtures.
+    params.next = 10
+  }
+
+  const data = await apiFetch<FixtureApiResponse>('/fixtures', params)
+  return data.response
 }

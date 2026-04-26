@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { CartIconButton } from "@/components/shop/CartIconButton";
 import { ThemeToggle } from "./ThemeToggle";
 
 /**
@@ -52,6 +53,8 @@ export function MobileHeader() {
         >
           <Search size={20} strokeWidth={1.75} />
         </button>
+
+        <CartIconButton size={20} />
 
         <ThemeToggle size={20} />
       </div>
