@@ -8,6 +8,11 @@ import {
   requireAuthApi,
   successResponse,
 } from '@/lib/api-utils'
+import {
+  COUPONS_BUSINESS_RULE_SQLSTATE,
+  applyCouponToOrder,
+  applyDiscount,
+} from '@/lib/coupons'
 import type {
   Order,
   OrderItem,
@@ -47,6 +52,11 @@ export async function POST(request: NextRequest) {
   const shippingAddress = parseShippingAddress(body)
   if (shippingAddress instanceof Error) {
     return errorResponse(shippingAddress.message, 400)
+  }
+
+  const couponCode = parseOptionalCouponCode(body)
+  if (couponCode instanceof Error) {
+    return errorResponse(couponCode.message, 400)
   }
 
   // Service-role client: needed to bypass RLS while we run the multi-step
@@ -101,16 +111,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 3. Compute total
-  const totalPrice = cart.reduce((sum, item) => {
+  // 3. Compute subtotal
+  const subtotal = cart.reduce((sum, item) => {
     const price = item.variant?.product?.price ?? 0
     return sum + price * item.quantity
   }, 0)
 
-  // 4. Create order
+  // 4. Create order with the pre-coupon subtotal — we apply the coupon
+  //    after the order row exists so apply_coupon_to_order() can FK-link
+  //    redeemed_coupons.id into orders.coupon_id atomically.
   const orderInsert: TablesInsert<'orders'> = {
     user_id: user.id,
-    total_price: Number(totalPrice.toFixed(2)),
+    total_price: Number(subtotal.toFixed(2)),
     shipping_address: shippingAddress,
     coupon_id: null,
   }
@@ -150,6 +162,52 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // 5b. Apply coupon (optional). Done before stock decrement so a bad code
+  //     bails out cleanly without us having to restore inventory.
+  let finalTotal = Number(subtotal.toFixed(2))
+  let appliedDiscount = 0
+  let appliedCouponCode: string | null = null
+  if (couponCode) {
+    const apply = await applyCouponToOrder(order.id, user.id, couponCode)
+    if (apply instanceof Error) {
+      // Roll back: remove order_items and the order row.
+      await supabase.from('order_items').delete().eq('order_id', order.id)
+      await supabase.from('orders').delete().eq('id', order.id)
+      const code = (apply as Error & { code?: string }).code
+      if (code === COUPONS_BUSINESS_RULE_SQLSTATE) {
+        return errorResponse(apply.message, 409)
+      }
+      return errorResponse(`Kupon alkalmazása sikertelen: ${apply.message}`, 500)
+    }
+
+    const computed = applyDiscount(
+      subtotal,
+      apply.discount_type,
+      apply.discount_value
+    )
+    finalTotal = computed.final
+    appliedDiscount = computed.discount
+    appliedCouponCode = couponCode
+
+    // Persist the discounted total. apply_coupon_to_order already set
+    // orders.coupon_id; we only patch total_price here.
+    const { error: totalError } = await supabase
+      .from('orders')
+      .update({ total_price: finalTotal } as never)
+      .eq('id', order.id)
+
+    if (totalError) {
+      await supabase.from('order_items').delete().eq('order_id', order.id)
+      await supabase.from('orders').delete().eq('id', order.id)
+      return errorResponse(
+        `Rendelés végösszegének mentése sikertelen: ${totalError.message}`,
+        500
+      )
+    }
+    order.total_price = finalTotal
+    order.coupon_id = apply.redeemed_id
+  }
+
   // 6. Decrement stock per variant. Done sequentially so we can roll back
   //    cleanly on conflict (e.g. concurrent checkout taking the last unit).
   const stockUpdates: Array<{ variantId: string; previousStock: number }> = []
@@ -186,19 +244,29 @@ export async function POST(request: NextRequest) {
     .delete()
     .eq('user_id', user.id)
 
+  const responsePayload = {
+    order,
+    coupon: appliedCouponCode
+      ? {
+          code: appliedCouponCode,
+          discount: appliedDiscount,
+        }
+      : null,
+  }
+
   if (clearError) {
     // The order is already committed at this point; surface a warning but
     // don't roll back — leaving the cart populated is recoverable.
     return successResponse(
       {
-        order,
+        ...responsePayload,
         warning: `A kosár ürítése sikertelen: ${clearError.message}`,
       },
       201
     )
   }
 
-  return successResponse({ order }, 201)
+  return successResponse(responsePayload, 201)
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +312,23 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function parseOptionalCouponCode(raw: unknown): string | null | Error {
+  if (typeof raw !== 'object' || raw === null) {
+    // Same error path as parseShippingAddress; still return Error to be safe.
+    return new Error('Érvénytelen kérés tartalom')
+  }
+  const obj = raw as Record<string, unknown>
+  if (obj.coupon_code === undefined || obj.coupon_code === null) {
+    return null
+  }
+  if (typeof obj.coupon_code !== 'string') {
+    return new Error('A "coupon_code" mezőnek szövegnek kell lennie')
+  }
+  const trimmed = obj.coupon_code.trim()
+  if (trimmed.length === 0) return null
+  return trimmed
+}
 
 function parseShippingAddress(raw: unknown): ShippingAddress | Error {
   if (typeof raw !== 'object' || raw === null) {

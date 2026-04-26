@@ -5,6 +5,11 @@ import {
   requireAuthApi,
   successResponse,
 } from '@/lib/api-utils'
+import {
+  COUPONS_BUSINESS_RULE_SQLSTATE,
+  applyDiscount,
+  consumeCoupon,
+} from '@/lib/coupons'
 import type { MatchSector, Ticket } from '@/types/database'
 
 /**
@@ -51,11 +56,11 @@ export async function POST(request: NextRequest) {
   // sector for the match-id sanity check without round-tripping RLS.
   const supabase = createServiceRoleClient()
 
-  // Sanity-check that the sector belongs to the claimed match before charging
-  // through the RPC. Returns a friendlier error than a generic "not found".
+  // Sanity-check that the sector belongs to the claimed match + grab price
+  // for the (optional) coupon math we run after a successful purchase.
   const { data: sector, error: sectorError } = await supabase
     .from('match_sectors')
-    .select('id, match_id')
+    .select('id, match_id, price')
     .eq('id', parsed.sector_id)
     .maybeSingle()
 
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest) {
   if ((sector as Pick<MatchSector, 'match_id'>).match_id !== parsed.match_id) {
     return errorResponse('A szektor nem ehhez a meccshez tartozik', 400)
   }
+  const sectorPrice = Number((sector as Pick<MatchSector, 'price'>).price)
 
   // Call the RPC. The Database['public']['Functions'] type is declared in
   // src/types/database.ts; we cast at the SDK boundary to match the pattern
@@ -97,7 +103,56 @@ export async function POST(request: NextRequest) {
   // RPC returns a JSONB array of inserted ticket rows.
   const tickets = (Array.isArray(data) ? data : []) as Ticket[]
 
-  return successResponse({ tickets }, 201)
+  // Compute the un-discounted total. The schema has no tickets.coupon_id, so
+  // the coupon is tracked on the redeemed_coupons row only (is_used = true).
+  const subtotal = sectorPrice * parsed.quantity
+  let finalTotal = Number(subtotal.toFixed(2))
+  let appliedDiscount = 0
+  let appliedCouponCode: string | null = null
+
+  if (parsed.coupon_code) {
+    const apply = await consumeCoupon(user.id, parsed.coupon_code)
+    if (apply instanceof Error) {
+      // Tickets are already minted at this point. Surface the coupon error
+      // as a non-fatal warning so the caller still gets the tickets.
+      const code = (apply as Error & { code?: string }).code
+      const message =
+        code === COUPONS_BUSINESS_RULE_SQLSTATE
+          ? apply.message
+          : `Kupon alkalmazása sikertelen: ${apply.message}`
+      return successResponse(
+        {
+          tickets,
+          subtotal: finalTotal,
+          total: finalTotal,
+          coupon: null,
+          warning: message,
+        },
+        201
+      )
+    }
+
+    const computed = applyDiscount(
+      subtotal,
+      apply.discount_type,
+      apply.discount_value
+    )
+    finalTotal = computed.final
+    appliedDiscount = computed.discount
+    appliedCouponCode = parsed.coupon_code
+  }
+
+  return successResponse(
+    {
+      tickets,
+      subtotal: Number(subtotal.toFixed(2)),
+      total: finalTotal,
+      coupon: appliedCouponCode
+        ? { code: appliedCouponCode, discount: appliedDiscount }
+        : null,
+    },
+    201
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +163,7 @@ type PurchasePayload = {
   match_id: string
   sector_id: string
   quantity: number
+  coupon_code: string | null
 }
 
 function parsePurchasePayload(raw: unknown): PurchasePayload | Error {
@@ -131,9 +187,21 @@ function parsePurchasePayload(raw: unknown): PurchasePayload | Error {
     return new Error('A "quantity" 1 és 4 között kell legyen')
   }
 
+  let couponCode: string | null = null
+  if (obj.coupon_code !== undefined && obj.coupon_code !== null) {
+    if (typeof obj.coupon_code !== 'string') {
+      return new Error('A "coupon_code" mezőnek szövegnek kell lennie')
+    }
+    const trimmed = obj.coupon_code.trim()
+    if (trimmed.length > 0) {
+      couponCode = trimmed
+    }
+  }
+
   return {
     match_id: obj.match_id,
     sector_id: obj.sector_id,
     quantity: obj.quantity,
+    coupon_code: couponCode,
   }
 }
