@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --yes)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Read(//mnt/skills/public/**)",
+      "Read(//c/mnt/skills/public/**)",
+      "Read(//c//**)",
+      "Bash(yes \"\")",
+      "Bash(npx --yes shadcn@latest add button card dialog form select badge table input label)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(find /mnt -name \"SKILL.md\" -path \"*frontend-design*\")",
+      "Bash(npx eslint *)"
+    ]
+  }
+}

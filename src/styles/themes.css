@@ -1,0 +1,82 @@
+/* ============================================================================
+   FC Barcelona Szurkolói Portál — Theme Tokens
+   "Lebegő elemek végtelen sötét térben"
+   Dark mode is the default. Light mode activates via [data-theme="light"].
+   ============================================================================ */
+
+:root,
+[data-theme="dark"] {
+  /* Surface */
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1a2233;
+
+  /* Glass tokens */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  --glass-bg-strong: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.18);
+
+  /* Brand accents */
+  --accent-blue: #1d4ed8; /* vivid blue (dark mode) */
+  --accent-blue-subtle: #003366;
+  --accent-red: #dc2626; /* vivid red */
+  --accent-red-subtle: #8c0038;
+  --accent-gold: #f59e0b; /* vivid gold */
+  --accent-gold-subtle: #c4a34d;
+
+  /* Text */
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #4b5563;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.5);
+  --shadow-glow-blue: 0 0 24px rgba(29, 78, 216, 0.3);
+  --shadow-glow-gold: 0 0 24px rgba(245, 158, 11, 0.3);
+  --shadow-glow-red: 0 0 24px rgba(220, 38, 38, 0.3);
+
+  /* Radii */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-pill: 9999px;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg-primary: #faf9f6;
+  --bg-secondary: #f0ebe3;
+  --bg-tertiary: #e8e0d6;
+
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-bg-hover: rgba(0, 0, 0, 0.05);
+  --glass-bg-strong: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-hover: rgba(0, 0, 0, 0.18);
+
+  --accent-blue: #154284;
+  --accent-blue-subtle: #1d4ed8;
+  --accent-red: #a50044;
+  --accent-red-subtle: #dc2626;
+  --accent-gold: #d4a84b;
+  --accent-gold-subtle: #f59e0b;
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 48px rgba(0, 0, 0, 0.16);
+  --shadow-glow-blue: 0 0 24px rgba(21, 66, 132, 0.2);
+  --shadow-glow-gold: 0 0 24px rgba(212, 168, 75, 0.2);
+  --shadow-glow-red: 0 0 24px rgba(165, 0, 68, 0.2);
+
+  color-scheme: light;
+}

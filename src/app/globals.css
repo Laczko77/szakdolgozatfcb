@@ -1,0 +1,265 @@
+@import "tailwindcss";
+@import "../styles/themes.css";
+
+/* ============================================================================
+   Tailwind v4 — Theme registration
+   Maps CSS custom properties to Tailwind utility classes so we can use
+   bg-primary, text-secondary, border-glass, shadow-glass-md, etc.
+   ============================================================================ */
+
+@theme inline {
+  /* Surface colors */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+
+  /* Glass tokens (usable as bg-glass, border-glass, etc.) */
+  --color-glass: var(--glass-bg);
+  --color-glass-hover: var(--glass-bg-hover);
+  --color-glass-strong: var(--glass-bg-strong);
+  --color-glass-border: var(--glass-border);
+  --color-glass-border-hover: var(--glass-border-hover);
+
+  /* Text colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  /* Accent colors */
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-subtle: var(--accent-blue-subtle);
+  --color-accent-red: var(--accent-red);
+  --color-accent-red-subtle: var(--accent-red-subtle);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-subtle: var(--accent-gold-subtle);
+
+  /* Shadows */
+  --shadow-glass-sm: var(--shadow-sm);
+  --shadow-glass-md: var(--shadow-md);
+  --shadow-glass-lg: var(--shadow-lg);
+  --shadow-glow-blue: var(--shadow-glow-blue);
+  --shadow-glow-gold: var(--shadow-glow-gold);
+  --shadow-glow-red: var(--shadow-glow-red);
+
+  /* Radii */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-pill: 9999px;
+
+  /* Typography */
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+/* ============================================================================
+   Base layer — body defaults, smooth theme transitions, scrollbars
+   ============================================================================ */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    transition:
+      background-color 300ms ease,
+      color 300ms ease;
+  }
+
+  /* Custom scrollbar — barely-there in dark, soft in light */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--glass-border-hover);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+
+  ::selection {
+    background: var(--accent-gold);
+    color: #0a0e1a;
+  }
+
+  .font-display {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.01em;
+  }
+}
+
+/* ============================================================================
+   Liquid glass utilities — the visual signature of the portal
+   ============================================================================ */
+
+@layer components {
+  /* --- Subtle glass card (lists, content blocks) --- */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-lg);
+    transition:
+      background-color 300ms ease,
+      border-color 300ms ease,
+      transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      box-shadow 300ms ease;
+  }
+
+  .glass-card-hover:hover,
+  .glass-card.glass-card-hover:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow:
+      var(--shadow-lg),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  /* --- Strong glass card (CTAs, hero cards, modals) --- */
+  .glass-card-strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(50px) saturate(160%);
+    -webkit-backdrop-filter: blur(50px) saturate(160%);
+    border: 1px solid var(--glass-border-hover);
+    box-shadow:
+      var(--shadow-lg),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-lg);
+  }
+
+  /* --- Pill buttons --- */
+  .glass-button-primary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--accent-gold);
+    color: var(--text-primary);
+    font-family: var(--font-display), system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.875rem;
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+  }
+  .glass-button-primary:hover {
+    background: var(--glass-bg-hover);
+    box-shadow:
+      var(--shadow-glow-gold),
+      var(--shadow-md),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+  }
+  .glass-button-primary:active {
+    transform: translateY(0);
+  }
+
+  .glass-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-family: var(--font-body), system-ui, sans-serif;
+    font-size: 0.875rem;
+    transition: all 300ms ease;
+    cursor: pointer;
+  }
+  .glass-button-secondary:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+  }
+
+  /* --- Navbar-specific glass --- */
+  .glass-nav {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* --- Animated gradient border (premium accent) ---
+     Place class on a relative element with a non-zero border-radius. --- */
+  .glass-border-gradient {
+    position: relative;
+    overflow: hidden;
+  }
+  .glass-border-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(255, 255, 255, 0.1) 25%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0.1) 75%,
+      rgba(255, 255, 255, 0.35) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+}
+
+/* ============================================================================
+   Reduced-motion guardrails
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
