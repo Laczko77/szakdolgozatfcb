@@ -28,6 +28,7 @@ export const desktopNavLinks: readonly NavLink[] = [
   { label: "Jegyek", href: "/jegyek" },
   { label: "Játékosok", href: "/jatekosok" },
   { label: "Közösség", href: "/kozosseg" },
+  { label: "Szavazások", href: "/szavazasok" },
 ] as const;
 
 /** Mobile bottom tab bar — exactly five tabs. */

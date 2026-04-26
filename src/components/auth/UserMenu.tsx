@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Coins,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -175,6 +176,13 @@ export function UserMenu({ className }: UserMenuProps) {
                 onSelect={() => setOpen(false)}
               >
                 Vezérlőpult
+              </MenuItem>
+              <MenuItem
+                href="/pontjaim"
+                icon={<Coins size={15} />}
+                onSelect={() => setOpen(false)}
+              >
+                Pontjaim
               </MenuItem>
               <MenuItem
                 href="/beallitasok"

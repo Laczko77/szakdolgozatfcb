@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Article, Match, PointTransaction } from "@/types/database";
 import type { OrderWithItems } from "@/lib/shop-api";
+import type { EnrichedPoll } from "@/lib/polls-api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 import { fetchOrders } from "@/lib/shop-api";
@@ -11,12 +12,14 @@ import {
   fetchNextMatch,
   fetchPoints,
 } from "@/lib/dashboard-api";
+import { fetchPolls } from "@/lib/polls-api";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { NextMatchWidget } from "@/components/dashboard/NextMatchWidget";
 import { LatestNewsWidget } from "@/components/dashboard/LatestNewsWidget";
 import { PointsWidget } from "@/components/dashboard/PointsWidget";
 import { OrdersWidget } from "@/components/dashboard/OrdersWidget";
+import { ActivePollWidget } from "@/components/dashboard/ActivePollWidget";
 import { QuickLinks } from "@/components/dashboard/QuickLinks";
 import {
   DashboardHeroSkeleton,
@@ -58,6 +61,8 @@ interface DashboardData {
   pointsLoaded: boolean;
   orders: OrderWithItems[];
   ordersLoaded: boolean;
+  activePoll: EnrichedPoll | null;
+  pollLoaded: boolean;
 }
 
 const initialData: DashboardData = {
@@ -71,6 +76,8 @@ const initialData: DashboardData = {
   pointsLoaded: false,
   orders: [],
   ordersLoaded: false,
+  activePoll: null,
+  pollLoaded: false,
 };
 
 export default function DashboardPage() {
@@ -156,6 +163,26 @@ function DashboardContent() {
               : "Rendelések betöltése sikertelen",
           );
         }),
+
+      fetchPolls({ status: "active" }, controller.signal)
+        .then((polls) => {
+          // Newest active poll only — matches the F12.4 spec ("legfrissebb").
+          setData((prev) => ({
+            ...prev,
+            activePoll: polls[0] ?? null,
+            pollLoaded: true,
+          }));
+        })
+        .catch((err: unknown) => {
+          if (controller.signal.aborted) return;
+          setData((prev) => ({ ...prev, pollLoaded: true }));
+          // Polls failing should never break the dashboard — quiet error.
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Aktív szavazás betöltése sikertelen",
+          );
+        }),
     ];
 
     void Promise.all(tasks);
@@ -231,8 +258,41 @@ function DashboardContent() {
           <WidgetSkeleton className="lg:col-span-4" rows={3} />
         )}
 
-        {/* Row 3 — Quick links (full width) */}
-        <QuickLinks index={4} className="lg:col-span-12" />
+        {/* Row 3 — Active poll (full width) */}
+        {data.pollLoaded ? (
+          <ActivePollWidget
+            poll={data.activePoll}
+            index={4}
+            onVoteCast={() => {
+              // Re-fetch the poll + points so the widget collapses to its
+              // "voted" state and the points balance reflects any reward.
+              void Promise.all([
+                fetchPolls({ status: "active" }).then((polls) =>
+                  setData((prev) => ({
+                    ...prev,
+                    activePoll: polls[0] ?? null,
+                  })),
+                ),
+                fetchPoints().then((res) =>
+                  setData((prev) => ({
+                    ...prev,
+                    pointsBalance: res.balance.balance,
+                    pointsTotalEarned: res.balance.total_earned,
+                    lastPointTransaction: res.transactions[0] ?? null,
+                  })),
+                ),
+              ]).catch(() => {
+                /* swallow — toasts in the children already surface failure */
+              });
+            }}
+            className="lg:col-span-12"
+          />
+        ) : (
+          <WidgetSkeleton className="lg:col-span-12" rows={3} />
+        )}
+
+        {/* Row 4 — Quick links (full width) */}
+        <QuickLinks index={5} className="lg:col-span-12" />
       </div>
     </div>
   );

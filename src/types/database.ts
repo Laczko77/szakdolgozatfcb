@@ -323,6 +323,28 @@ export interface Database {
         }
         Returns: Json
       }
+      redeem_coupon: {
+        Args: {
+          p_user_id: string
+          p_coupon_id: string
+        }
+        Returns: Json
+      }
+      apply_coupon_to_order: {
+        Args: {
+          p_order_id: string
+          p_user_id: string
+          p_code: string
+        }
+        Returns: Json
+      }
+      consume_coupon: {
+        Args: {
+          p_user_id: string
+          p_code: string
+        }
+        Returns: Json
+      }
     }
     Enums: Record<string, never>
   }
