@@ -1,0 +1,2 @@
+- [Tailwind v4 CSS-first config](project_tailwind_v4.md) — no tailwind.config.ts; tokens registered via @theme inline in globals.css
+- [Layout shell mounted globally](project_layout_shell.md) — Navbar / MobileHeader / BottomTabBar live in src/app/layout.tsx; pages must not render their own headers
