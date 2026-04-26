@@ -1,2 +1,4 @@
 - [Tailwind v4 CSS-first config](project_tailwind_v4.md) — no tailwind.config.ts; tokens registered via @theme inline in globals.css
-- [Layout shell mounted globally](project_layout_shell.md) — Navbar / MobileHeader / BottomTabBar live in src/app/layout.tsx; pages must not render their own headers
+- [Layout shell mounted globally](project_layout_shell.md) — Navbar / MobileHeader / BottomTabBar / Footer live in src/app/layout.tsx; pages must not render their own headers/footers
+- [Lucide brand icons removed](project_lucide_brand_icons.md) — Twitter/IG/YT not exported; use inline SVG (paths in Footer.tsx)
+- [Landing animation conventions](project_landing_animations.md) — CSS keyframes (pulse-gold, bounce-soft, gold-glow-in, drift, barca-text) live in globals.css; CSS → Framer → GSAP escalation order

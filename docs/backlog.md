@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 15    |
-| Remaining tasks     | 53    |
-| Completion          | 22%   |
+| Completed tasks     | 20    |
+| Remaining tasks     | 48    |
+| Completion          | 29%   |
 
 ---
 
@@ -135,13 +135,13 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - Publikus endpoint lapozottan visszaadja a cikkeket, szűrhető kategóriára
 - Nem-admin user a POST/PUT/DELETE endpoint-okra 403-at kap
 
-**Dependencies:** Iteration 2
+**Dependencies:** Iteration 2 
 
 ---
 
 ### Iteration 4 — Játékos Adatbázis & API-Football Integráció
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A játékos adatbázis felépítése, az API-Football integráció megvalósítása admin-indított szinkronizációval, és a publikus lekérdezési endpoint-ok elkészítése.
 
@@ -149,15 +149,15 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 4.1 API-Football kliens modul létrehozása (`src/lib/api-football.ts`): API kulcs kezelés, alap fetch wrapper, rate limiting figyelembevétele (napi 100 request limit)
-- [ ] 4.2 Admin szinkronizációs endpoint (`POST /api/admin/players/sync`): lekéri az FC Barcelona aktuális keretét az API-Football-ból, és upsert-eli a `players` táblába (név, pozíció, szám, kép, statisztikák). Csak az aktuális szezon adatai
-- [ ] 4.3 Admin kézi szerkesztő endpoint (`PUT /api/admin/players/[id]`): az admin tud bio-t írni, képet módosítani, egyedi mezőket szerkeszteni
-- [ ] 4.4 Publikus endpoint-ok:
+- [x] 4.1 API-Football kliens modul létrehozása (`src/lib/api-football.ts`): API kulcs kezelés, alap fetch wrapper, rate limiting figyelembevétele (napi 100 request limit)
+- [x] 4.2 Admin szinkronizációs endpoint (`POST /api/admin/players/sync`): lekéri az FC Barcelona aktuális keretét az API-Football-ból, és upsert-eli a `players` táblába (név, pozíció, szám, kép, statisztikák). Csak az aktuális szezon adatai
+- [x] 4.3 Admin kézi szerkesztő endpoint (`PUT /api/admin/players/[id]`): az admin tud bio-t írni, képet módosítani, egyedi mezőket szerkeszteni
+- [x] 4.4 Publikus endpoint-ok:
   - `GET /api/players` — teljes keret listázása (szűrhető pozíció szerint)
   - `GET /api/players/[id]` — egy játékos részletes adatai statisztikákkal
-- [ ] 4.5 API-Football environment variable beállítása (`API_FOOTBALL_KEY`), FC Barcelona `team_id = 529` rögzítése konstansként, és a szinkronizáció logolása (hány játékos frissítve, hibák)
+- [x] 4.5 API-Football environment variable beállítása (`API_FOOTBALL_KEY`), FC Barcelona `team_id = 529` rögzítése konstansként, és a szinkronizáció logolása (hány játékos frissítve, hibák)
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** 
 
 - A szinkronizációs endpoint sikeresen lekéri és elmenti az FC Barcelona játékosait
 - A statisztikák (gólok, gólpasszok, meccsek, sárga/piros lapok) megfelelően tárolódnak a JSONB mezőben

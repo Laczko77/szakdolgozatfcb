@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 17 |
-| Remaining tasks | 69 |
-| Completion | 20% |
+| Completed tasks | 24 |
+| Remaining tasks | 62 |
+| Completion | 28% |
 
 ---
 
@@ -172,7 +172,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F3 — Landing Page
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A portál "belépő élménye" — egy kreatív, animált landing page ami WOW érzetet ad: animált Camp Nou háttér, scroll-triggered szekciók, játékos carousel, és csatlakozásra buzdító elemek.
 
@@ -180,34 +180,34 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F3.1 Hero szekció:
+- [x] F3.1 Hero szekció:
   - Teljes viewport-magasságú szekció (`min-h-screen`)
   - Háttér: AI-animált Camp Nou videó (`<video autoPlay muted loop playsInline>`) sötét overlay-jel. Mobilon fallback statikus képre (`<picture>` / media query, a videó nem töltődik)
   - Headline: *"Més que un club"* megjelenik (fade-in vagy SVG path animáció), alatta gépelő effekttel a magyar szöveg: *"Több, mint egy klub. Több, mint egy portál."*
   - CTA gomb: *"Fedezd fel"* / *"Csatlakozz"* — liquid glass pill gomb, pulzáló arany szegéllyel
   - Scroll indicator ikon az alján (lefelé mutató nyíl, enyhe bounce animáció)
-- [ ] F3.2 About szekció:
+- [x] F3.2 About szekció:
   - Rövid leírás a portálról (2-3 mondat), scroll-triggered fade-in-nel jelenik meg
   - 2-3 kiemelt kulcsszó (pl. *"közösség"*, *"szenvedély"*, *"Barça"*) késleltetett animációval: a szöveg megjelenik, majd ~300ms késleltetéssel a kiemelt szavak arany glow-val "felvillannak" (Framer Motion `staggerChildren`)
-- [ ] F3.3 Játékos carousel szekció (**GSAP ScrollTrigger**):
+- [x] F3.3 Játékos carousel szekció (**GSAP ScrollTrigger**):
   - 3-4 játékos teljes képernyős pinned scroll carousel — GSAP ScrollTrigger `pin` + `scrub` használatával
   - Minden "slide" egy teljes viewport-magasságú szekció: háttérben a játékos arca (ráközelítve, blur-ölve és sötétítve), előtérben egy glass kártya a játékos nevével, mezszámával, pozíciójával és 3-4 fő statisztikával, mellette a játékos kisebb teljes alakos képe
   - Görgetésre a szekció pin-elődik (megáll), a háttérkép crossfade-del átvált a következő játékosra, a kártya tartalma cserélődik (GSAP timeline + scrub)
   - A teljes GSAP logika egyetlen komponensben él (`src/components/landing/PlayerCarousel.tsx`)
   - Hardkódolt adatok az MVP-ben (később API-ból töltődik)
   - Mobilon: egyszerűsített verzió — vertikális stack a játékos kártyákkal, GSAP pin nélkül (mobil `ScrollTrigger.isTouch` feltétellel)
-- [ ] F3.4 Csatlakozási CTA szekció:
+- [x] F3.4 Csatlakozási CTA szekció:
   - Egy mondat (pl. *"Légy része a [közösségnek]"*) ahol egy szó 2-3 másodpercenként cserélődik szinonimákra (közösségnek → szenvedélynek → történelemnek → családnak), fade-out/slide-up animációval (`AnimatePresence`)
   - Alatta regisztrációs CTA gomb
-- [ ] F3.5 FC Barcelona felirat:
+- [x] F3.5 FC Barcelona felirat:
   - Nagy, merész display font felirat: *"FC BARCELONA"*
   - Alapállapot: blaugrana kék szín
   - Hover-re: gradient átmenet kékből pirosba (`background-clip: text`, `background-position` animáció transition-nel)
-- [ ] F3.6 Footer komponens:
+- [x] F3.6 Footer komponens:
   - Egyszerű footer: portál neve, copyright, 3-4 link (Impresszum, Adatvédelem, Kapcsolat), közösségi média ikonok
   - Sötét tónus, subtilis glass vagy solid háttér
   - Responsive: mobilon stack-elt elrendezés
-- [ ] F3.7 Performance optimalizáció:
+- [x] F3.7 Performance optimalizáció:
   - Videó lazy loading (csak viewport-ba érve tölt)
   - Képek `next/image`-gel optimalizálva
   - Framer Motion animációk `whileInView`-val (nem tölt minden animáció egyszerre)
