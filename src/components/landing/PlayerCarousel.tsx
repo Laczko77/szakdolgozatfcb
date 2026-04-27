@@ -19,7 +19,10 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
  * pinning. We never even register ScrollTrigger in those cases, which keeps
  * the scroll behavior native and avoids iOS Safari's pin quirks.
  *
- * NOTE: hardcoded data per F3 spec — the live API hookup lands in F7.
+ * Data: F7.5 wired this up to live data. The page.tsx server component
+ * fetches the top 3 players and passes them as `players`. If the DB is
+ * empty (fresh install, before the admin sync runs) we fall back to the
+ * hardcoded set so the landing page still has something to show.
  */
 
 interface Player {
@@ -67,8 +70,21 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-export default function PlayerCarousel() {
+export interface PlayerCarouselProps {
+  /**
+   * Optional live data. When omitted (or shorter than 2 entries), the
+   * component falls back to the hardcoded set so the carousel still
+   * renders something on a fresh install.
+   */
+  players?: ReadonlyArray<Player>;
+}
+
+export default function PlayerCarousel({ players }: PlayerCarouselProps = {}) {
   const reduced = useReducedMotion();
+
+  // Require at least two players for the pinned scroll to make sense —
+  // anything less and we use the canonical hardcoded fallback.
+  const data = players && players.length >= 2 ? players : HARDCODED_PLAYERS;
 
   // We don't bother feature-detecting here at the React level — we
   // delegate it to ScrollTrigger.isTouch() inside useGSAP so the SSR-safe
@@ -78,8 +94,8 @@ export default function PlayerCarousel() {
       aria-label="A keret"
       className="relative w-full"
     >
-      <DesktopPinned reduced={reduced} />
-      <MobileStack />
+      <DesktopPinned reduced={reduced} players={data} />
+      <MobileStack players={data} />
     </section>
   );
 }
@@ -88,7 +104,13 @@ export default function PlayerCarousel() {
    Desktop: pinned + scrub
    ──────────────────────────────────────────────────────────────────────── */
 
-function DesktopPinned({ reduced }: { reduced: boolean }) {
+function DesktopPinned({
+  reduced,
+  players,
+}: {
+  reduced: boolean;
+  players: ReadonlyArray<Player>;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -103,13 +125,13 @@ function DesktopPinned({ reduced }: { reduced: boolean }) {
         trigger: containerRef.current,
         pin: true,
         start: "top top",
-        end: `+=${HARDCODED_PLAYERS.length * 100}%`,
+        end: `+=${players.length * 100}%`,
         scrub: 1,
         anticipatePin: 1,
         onUpdate: (self) => {
           const idx = Math.min(
-            HARDCODED_PLAYERS.length - 1,
-            Math.floor(self.progress * HARDCODED_PLAYERS.length),
+            players.length - 1,
+            Math.floor(self.progress * players.length),
           );
           setActiveIndex((prev) => (prev === idx ? prev : idx));
         },
@@ -117,10 +139,10 @@ function DesktopPinned({ reduced }: { reduced: boolean }) {
 
       return () => trigger.kill();
     },
-    { scope: containerRef, dependencies: [reduced] },
+    { scope: containerRef, dependencies: [reduced, players.length] },
   );
 
-  const active = HARDCODED_PLAYERS[activeIndex];
+  const active = players[activeIndex];
 
   return (
     <div
@@ -183,7 +205,7 @@ function DesktopPinned({ reduced }: { reduced: boolean }) {
         </AnimatePresence>
 
         <ProgressDots
-          count={HARDCODED_PLAYERS.length}
+          count={players.length}
           active={activeIndex}
         />
       </div>
@@ -195,13 +217,13 @@ function DesktopPinned({ reduced }: { reduced: boolean }) {
    Mobile: vertical stack
    ──────────────────────────────────────────────────────────────────────── */
 
-function MobileStack() {
+function MobileStack({ players }: { players: ReadonlyArray<Player> }) {
   return (
     <div className="flex w-full flex-col gap-12 px-4 py-16 md:hidden">
       <h2 className="font-display text-center text-4xl tracking-wide text-[var(--text-primary)]">
         A keret
       </h2>
-      {HARDCODED_PLAYERS.map((player, i) => (
+      {players.map((player, i) => (
         <MobilePlayerCard key={player.name} player={player} priority={i === 0} />
       ))}
     </div>
