@@ -1,1 +1,2 @@
 - [RPC for atomic mutations](rpc_atomic_pattern.md) — when to reach for a Postgres function instead of multi-step JS
+- [Iter5 webshop RLS gap](rls_iter5_gap.md) — cart/orders/wishlist/reviews/order_items had no policies until migration 012

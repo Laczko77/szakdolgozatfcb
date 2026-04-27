@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 62 |
-| Remaining tasks | 24 |
-| Completion | 72% |
+| Completed tasks | 65 |
+| Remaining tasks | 21 |
+| Completion | 76% |
 
 ---
 
@@ -650,7 +650,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F14 — Cookie Consent & Analitika Frontend
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** GDPR cookie consent banner, oldalnézettség tracking implementálása, és az adatvezérelt termékajánlások megjelenítése.
 
@@ -658,16 +658,16 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F14.1 Cookie consent banner (`src/components/common/CookieBanner.tsx`):
+- [x] F14.1 Cookie consent banner (`src/components/common/CookieBanner.tsx`):
   - Az oldal alján megjelenő glass sáv: rövid GDPR szöveg, "Elfogadom" és "Elutasítom" gombok
   - Csak első látogatáskor jelenik meg (cookie/localStorage ellenőrzés)
   - Elfogadás: UUID cookie generálása, consent mentése a backend-re, banner eltűnik
   - Elutasítás: banner eltűnik, nem történik tracking
-- [ ] F14.2 Page view tracking hook (`src/hooks/usePageTracking.ts`):
+- [x] F14.2 Page view tracking hook (`src/hooks/usePageTracking.ts`):
   - Automatikusan rögzíti az oldalnézettséget minden route váltásnál (Next.js `usePathname`)
   - Csak ha a user elfogadta a cookie-kat
   - Termék oldalon a `product_id`-t is rögzíti
-- [ ] F14.3 Adatvezérelt ajánlások megjelenítése:
+- [x] F14.3 Adatvezérelt ajánlások megjelenítése:
   - A webshop főoldalon: "Népszerű termékek" szekció a legnézettebb/legjobban értékelt termékekkel
   - A dashboard-on: opcionális "Ajánlott neked" widget (ha van elég adat)
 

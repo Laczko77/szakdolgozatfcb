@@ -12,4 +12,5 @@
 - [Social/feed primitives (F11)](project_social_components.md) — Avatar/RelativeTime/ReactionBar/CommentSection/PostCard/Lightbox/NewPostComposer + useFeedPolling; types in types/social.ts
 - [Polls/Points primitives (F12)](project_polls_components.md) — PollCard (3-state machine), PollResultBar, PointsEarnedBadge, ActivePollWidget, PointsTransactionList; /szavazasok + /pontjaim routes
 - [Coupons primitives (F13)](project_coupons_components.md) — CouponCard (ticket cut-outs), RedeemConfirmModal, CouponCodeReveal, RedeemedCouponCard; /pont-aruhaz + /kuponjaim; previewDiscount mirrors lib/coupons.ts
+- [Consent + tracking primitives (F14)](project_consent_components.md) — ConsentProvider, CookieBanner, usePageTracking, PopularProducts, RecommendedProductsWidget; analytics-api.ts + consent.ts
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask

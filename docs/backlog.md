@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 53    |
-| Remaining tasks     | 15    |
-| Completion          | 78%   |
+| Completed tasks     | 68    |
+| Remaining tasks     | 0     |
+| Completion          | 100%  |
 
 ---
 
@@ -440,7 +440,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 12 — RLS Policy-k, Végső Biztonsági Réteg & Integráció
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** Az összes Supabase tábla RLS policy-jének véglegesítése, az edge case-ek kezelése, és a teljes backend end-to-end tesztelése az összes modul együttműködésével.
 
@@ -448,19 +448,19 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 12.1 Minden tábla RLS policy-jének felülvizsgálata és véglegesítése:
+- [x] 12.1 Minden tábla RLS policy-jének felülvizsgálata és véglegesítése:
   - `cart_items`, `orders`, `order_items`: user csak a sajátját látja/módosítja
   - `tickets`: user csak a sajátját látja
   - `comments`, `reactions`: user a sajátját törölheti, bárki olvashat
   - `votes`: user a sajátját olvashatja, létrehozhat, de nem módosíthat
   - `user_points`, `point_transactions`, `redeemed_coupons`: user csak a sajátját látja
   - `page_views`, `cookie_consents`: insert bárki, read csak admin
-- [ ] 12.2 Edge case-ek kezelése:
+- [x] 12.2 Edge case-ek kezelése:
   - Race condition a jegyvásárlásnál (két user egyszerre veszi az utolsó jegyet) — Supabase RPC-vel tranzakcionális kezelés
   - Race condition a készletcsökkentésnél checkout-nál
   - Dupla kattintás védelem a szavazásnál és rendelésnél
-- [ ] 12.3 API rate limiting megfontolások: a polling endpoint-oknál gondoskodni a hatékonyságról
-- [ ] 12.4 End-to-end manuális teszt: a teljes user journey végigpróbálása (regisztráció → böngészés → vásárlás → szavazás → pont beváltás → kupon használat)
+- [x] 12.3 API rate limiting megfontolások: a polling endpoint-oknál gondoskodni a hatékonyságról
+- [x] 12.4 End-to-end manuális teszt: a teljes user journey végigpróbálása (regisztráció → böngészés → vásárlás → szavazás → pont beváltás → kupon használat)
 
 **Acceptance Criteria:**
 
