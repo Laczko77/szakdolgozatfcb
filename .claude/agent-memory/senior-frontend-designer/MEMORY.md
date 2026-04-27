@@ -18,3 +18,5 @@
 - [Profile + Search primitives (F10)](project_profile_components.md) — ProfileHero/Tabs/Orders/Tickets/Coupons/Points/SettingsTab + CommandPalette + SearchProvider; /profil?tab= shell with Ctrl+K palette
 - [Admin panel architecture (F15)](project_admin_panel.md) — hand-rolled admin/* primitives, Tiptap editor, public chrome opt-out via pathname guards; shadcn/ui NOT wired
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask
+- [Global error + 404 pages](project_global_error_pages.md) — src/app/not-found.tsx (server) + src/app/error.tsx (client); on-brand glass fallbacks
+- [Glass perf polish (F16)](project_glass_perf_polish.md) — globals.css now has @supports backdrop-filter fallback, mobile blur dial-down (≤640px), will-change on .glass-card

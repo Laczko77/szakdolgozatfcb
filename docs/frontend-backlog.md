@@ -59,10 +59,10 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 102 |
-| Completed tasks | 92 |
-| Remaining tasks | 10 |
-| Completion | 90% |
+| Total tasks | 106 |
+| Completed tasks | 102 |
+| Remaining tasks | 4 |
+| Completion | 96% |
 
 ---
 
@@ -755,22 +755,22 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F16 — Responsive Polish & Végső Tesztelés
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** Az összes oldal responsive viselkedésének véglegesítése, cross-browser tesztelés, performance optimalizáció, és a teljes user journey end-to-end tesztelése.
 
 **Tasks:**
 
-- [ ] F16.1 Responsive audit: minden oldal átnézése 3 breakpoint-on (mobil 375px, tablet 768px, desktop 1280px), javítások ahol szükséges
-- [ ] F16.2 Liquid glass performance audit: mobilon max 5-6 glass elem viewport-ban egyszerre, listaoldalakon solid háttér glass helyett, performance mérés
-- [ ] F16.3 `backdrop-filter` fallback: régebbi böngészőkben (ahol nem támogatott) solid háttérszín fallback `@supports` media query-vel
-- [ ] F16.4 Dark/light mode végső ellenőrzés: minden oldal mindkét témában vizuálisan helyes, kontraszt WCAG AA, nincs "elfelejtett" elem ami nem követi a témát
-- [ ] F16.5 Animáció finomhangolás: minden Framer Motion animáció `prefers-reduced-motion` media query-t tiszteletben tartja (csökkentett mozgás preferencia esetén nincs animáció)
-- [ ] F16.6 Lighthouse audit: minden fő oldal minimum 80-as mobile score (Performance, Accessibility, Best Practices, SEO)
-- [ ] F16.7 End-to-end user journey teszt: regisztráció → landing page → dashboard → hírek böngészés → webshop vásárlás → jegyvásárlás → szavazás → pont beváltás → kupon használat → profil ellenőrzés
-- [ ] F16.8 End-to-end admin journey teszt: login → cikk létrehozás → termék + variáns létrehozás → meccs szinkronizálás → szektor létrehozás → poszt írás → szavazás létrehozás és lezárás → kupon létrehozás → analitika megtekintés
-- [ ] F16.9 Error state-ek ellenőrzése: 404 oldal, hálózati hiba kezelés, üres listák, betöltési hibák — mindenhol legyen barátságos hibaüzenet
-- [ ] F16.10 Loading state-ek ellenőrzése: minden adatot betöltő oldal/komponens skeleton loader-t mutat, nem üres képernyőt
+- [x] F16.1 Responsive audit: minden oldal átnézése 3 breakpoint-on (mobil 375px, tablet 768px, desktop 1280px), javítások ahol szükséges
+- [x] F16.2 Liquid glass performance audit: mobilon max 5-6 glass elem viewport-ban egyszerre, listaoldalakon solid háttér glass helyett, performance mérés
+- [x] F16.3 `backdrop-filter` fallback: régebbi böngészőkben (ahol nem támogatott) solid háttérszín fallback `@supports` media query-vel
+- [x] F16.4 Dark/light mode végső ellenőrzés: minden oldal mindkét témában vizuálisan helyes, kontraszt WCAG AA, nincs "elfelejtett" elem ami nem követi a témát
+- [x] F16.5 Animáció finomhangolás: minden Framer Motion animáció `prefers-reduced-motion` media query-t tiszteletben tartja (csökkentett mozgás preferencia esetén nincs animáció)
+- [x] F16.6 Lighthouse audit: minden fő oldal minimum 80-as mobile score (Performance, Accessibility, Best Practices, SEO)
+- [x] F16.7 End-to-end user journey teszt: regisztráció → landing page → dashboard → hírek böngészés → webshop vásárlás → jegyvásárlás → szavazás → pont beváltás → kupon használat → profil ellenőrzés
+- [x] F16.8 End-to-end admin journey teszt: login → cikk létrehozás → termék + variáns létrehozás → meccs szinkronizálás → szektor létrehozás → poszt írás → szavazás létrehozás és lezárás → kupon létrehozás → analitika megtekintés
+- [x] F16.9 Error state-ek ellenőrzése: 404 oldal, hálózati hiba kezelés, üres listák, betöltési hibák — mindenhol legyen barátságos hibaüzenet
+- [x] F16.10 Loading state-ek ellenőrzése: minden adatot betöltő oldal/komponens skeleton loader-t mutat, nem üres képernyőt
 
 **Acceptance Criteria:**
 
@@ -783,4 +783,42 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Dependencies:** Iteration F1-F15 (mind)
 
+---
+
+### Iteration F17 — Frontend Módosítások a Web Scraping Átálláshoz
+ 
+**Status:** TODO
+ 
+**Goal:** Az API-Football → FBref/Transfermarkt web scraping átállás (Backend Iteration X) által érintett frontend elemek frissítése. Mivel a backend endpoint-ok interfésze és az adatbázis séma változatlan marad, a frontend hatás minimális: az admin szinkronizáció UX-ének adaptálása a lassabb scraping folyamathoz, a hibaüzenetek kezelésének frissítése, és az UI szövegek aktualizálása.
+ 
+**Backend dependency:** Backend Iteration X (Web Scraping átállás)
+ 
+**Tasks:**
+ 
+- [ ] F17.1 Admin szinkronizáció gombok UX frissítése (`src/app/admin/jatekosok/page.tsx`, `src/app/admin/meccsek/page.tsx`):
+  - A "Játékosok szinkronizálása" és "Meccsek szinkronizálása" gombok loading állapotának kibővítése: a scraping lényegesen lassabb mint az API hívás volt (FBref rate limiting miatt min. 3 mp/request), ezért a sima spinner helyett egy **progress-jellegű visszajelzés** szükséges
+  - Loading szöveg váltás: "Szinkronizálás..." → "Adatok gyűjtése az FBref-ről... Ez akár 1-2 percet is igénybe vehet." (hogy az admin ne gondolja hogy lefagyott)
+  - A gomb inaktív marad a teljes scraping folyamat alatt (dupla kattintás védelem)
+- [ ] F17.2 Scraping hibaüzenetek kezelése:
+  - A backend új típusú hibákat adhat vissza (pl. "Az FBref oldal struktúrája megváltozott", "A Transfermarkt nem elérhető", "Részleges siker: 22/25 játékos scrapelve")
+  - Ezek a hibaüzenetek glass toast értesítésként jelenjenek meg az admin felületen:
+    - Teljes siker → zöld toast: "✅ Szinkronizáció sikeres: [X] játékos / [Y] meccs frissítve"
+    - Részleges siker → sárga toast: "⚠️ Részleges siker: [X]/[Y] játékos scrapelve. Részletek a logban."
+    - Teljes kudarc → piros toast: "❌ Szinkronizáció sikertelen: [hibaüzenet]. A meglévő adatok érintetlenek."
+- [ ] F17.3 Admin felületi szövegek aktualizálása:
+  - Minden "API-Football"-ra hivatkozó szöveg, tooltip, placeholder cseréje: "API-Football" → "FBref / Transfermarkt"
+  - A szinkronizáció gombok melletti info tooltip frissítése: "Az adatok az FBref és Transfermarkt oldalakról kerülnek lekérésre. A folyamat 1-2 percet vehet igénybe az oldal rate limiting szabályai miatt."
+- [ ] F17.4 Admin szinkronizáció eredmény összegző:
+  - Sikeres szinkronizáció után egy rövid összegző megjelenítése a gomb alatt vagy modal-ban: hány játékos/meccs frissült, hány kép töltődött le, futásidő, esetleges figyelmeztetések
+  - Ez segít az adminnak megérteni mi történt, és észrevenni ha valami kimaradt
+**Acceptance Criteria:**
+ 
+- A szinkronizáció gombok loading állapota informatív szöveget mutat, nem csak egy végtelen spinnert
+- Az admin nem tudja duplán kattintani a gombot szinkronizáció közben
+- A scraping hibák értelmes, magyar nyelvű toast üzenetként jelennek meg
+- Semmilyen "API-Football" hivatkozás nem maradt a felületen
+- Az összegző visszajelzés mutatja a szinkronizáció eredményét
+- A publikus felhasználói felület (játékos lista, meccsek, jegyek) változatlanul működik — a user semmit nem vesz észre az átállásból
+**Dependencies:** Iteration F1 (toast rendszer), F15 (admin panel)
+ 
 ---

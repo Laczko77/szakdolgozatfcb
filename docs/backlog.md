@@ -10,10 +10,10 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 68    |
+| Total tasks         | 76    |
 | Completed tasks     | 68    |
-| Remaining tasks     | 0     |
-| Completion          | 100%  |
+| Remaining tasks     | 8     |
+| Completion          | 90%  |
 
 ---
 
@@ -470,5 +470,54 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - Admin journey is végigfut (cikk → termék → szektor → poszt → szavazás → lezárás → analitika)
 
 **Dependencies:** Iteration 3–11 (mind)
+
+---
+
+### Iteration 13 — Átállás Web Scraping-re (API-Football kiváltása)
+
+**Status:** TODO
+
+**Goal:** Az API-Football integráció teljes kiváltása saját web scraper modullal, amely az FBref-ről gyűjti a játékos statisztikákat és meccs adatokat, a Transfermarkt-ról pedig a játékos képeket és keret információkat. A meglévő admin szinkronizációs endpoint-ok belső logikája változik, a publikus API-k és az adatbázis-séma érintetlen marad.
+
+**UI required:** No
+
+**Tasks:**
+
+- [ ] 13.1 Szükséges csomagok telepítése: `cheerio` (HTML parsing), `axios` (HTTP kérések)
+- [ ] 13.2 Scraper alapmodul létrehozása (`src/lib/scraper/parser.ts`): közös segédfüggvények HTML táblák parse-olásához, request delay kezeléshez (minimum 3 mp kérések között, az FBref rate limiting elkerülésére), és hibakezeléshez (retry logika, timeout)
+- [ ] 13.3 FBref scraper implementálása (`src/lib/scraper/fbref.ts`):
+  - `scrapePlayerStats()` — FC Barcelona játékos statisztikák kinyerése az aktuális szezonra
+    - Forrás URL: `https://fbref.com/en/squads/206d90db/Barcelona-Stats`
+    - Kinyerendő adatok: játékos neve, pozíciója, mezszáma, életkora, játszott meccsek, kezdő/csere, játékpercek, gólok, gólpasszok, sárga lapok, piros lapok
+    - A HTML `<table>` elemekből a `stats_standard` id-jú táblát kell célozni
+  - `scrapeMatchResults()` — FC Barcelona meccs eredmények és menetrend kinyerése
+    - Forrás URL: `https://fbref.com/en/squads/206d90db/2025-2026/matchlogs/c12/schedule/Barcelona-Scores-and-Fixtures-La-Liga`
+    - Kinyerendő adatok: dátum, hazai/idegen, ellenfél, eredmény (gól-gól), helyszín, bajnokság
+    - Közelgő (még nem lejátszott) meccsek is kellenek a jegyrendszerhez
+- [ ] 13.4 Transfermarkt scraper implementálása (`src/lib/scraper/transfermarkt.ts`):
+  - `scrapePlayerImages()` — játékos profilképek URL-jeinek kinyerése
+    - Forrás URL: `https://www.transfermarkt.com/fc-barcelona/kader/verein/131/saison_id/2025`
+    - Kinyerendő adatok: játékos neve (FBref adatokkal való összekapcsoláshoz), profilkép URL
+    - A képeket le kell tölteni és feltölteni a `player-images` Supabase Storage bucketbe (nem hotlinkelni a Transfermarkt-ról)
+  - Fontos: a Transfermarkt User-Agent header-t igényel a request-ekhez, enélkül blokkol
+- [ ] 13.5 Scraper index modul (`src/lib/scraper/index.ts`): exportálja a fenti függvényeket egységes interfészen keresztül
+- [ ] 13.6 Meglévő admin endpoint-ok átírása:
+  - `POST /api/admin/players/sync` — az API-Football kliens hívást cserélni a `scrapePlayerStats()` + `scrapePlayerImages()` hívásra. A kapott adatokat ugyanúgy upsert-eli a `players` táblába. A kézi admin szerkesztések (bio, egyedi mezők) továbbra sem íródnak felül szinkronizációkor
+  - `POST /api/admin/matches/sync` — az API-Football meccs lekérést cserélni a `scrapeMatchResults()` hívásra. A kapott meccseket ugyanúgy upsert-eli a `matches` táblába
+- [ ] 13.7 API-Football kliens eltávolítása: `src/lib/api-football.ts` törlése, `API_FOOTBALL_KEY` environment variable eltávolítása a `.env.local`-ból és a dokumentációból
+- [ ] 13.8 Hibakezelés és logging: a scraper minden futásnál logoljon (hány játékos/meccs scrapelve, hibák listája, futásidő). Ha a scraping sikertelen (pl. az oldal struktúrája változott), az endpoint adjon vissza értelmes hibaüzenetet az adminnak, és ne írja felül a meglévő adatokat
+
+**Acceptance Criteria:**
+
+- A `POST /api/admin/players/sync` endpoint sikeresen scrapeli és elmenti az FC Barcelona teljes keretét statisztikákkal és képekkel
+- A `POST /api/admin/matches/sync` endpoint sikeresen scrapeli a lejátszott és közelgő meccseket
+- A publikus endpoint-ok (`GET /api/players`, `GET /api/players/[id]`, `GET /api/matches`, `GET /api/matches/[id]`) változatlanul működnek
+- A játékos képek a Supabase Storage `player-images` bucketben tárolódnak, nem külső URL-ként
+- Az admin kézi szerkesztései (bio, egyedi adatok) megmaradnak szinkronizáció után is
+- A scraper hibakezelése működik: ha az FBref/Transfermarkt nem elérhető vagy a struktúra változott, az admin értelmes hibaüzenetet kap, és a meglévő adatok sértetlenek maradnak
+- Az `api-football.ts` modul és a kapcsolódó environment variable el van távolítva
+- A request-ek között minimum 3 másodperc delay van az FBref rate limiting elkerülésére
+
+**Dependencies:** Iteration 1 (Supabase séma), Iteration 2 (Auth, admin védelem)
 
 ---
