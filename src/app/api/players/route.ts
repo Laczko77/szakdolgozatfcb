@@ -7,11 +7,16 @@ import type { Player } from '@/types/database'
 /**
  * GET /api/players
  *
- * Public endpoint. Returns the FC Barcelona squad for the requested season.
+ * Public endpoint. Returns the FC Barcelona squad.
  *
  * Query params:
  *   - position (optional): one of "Goalkeeper" | "Defender" | "Midfielder" | "Attacker"
- *   - season   (optional): integer; defaults to the most recent season present in the table
+ *   - season   (optional): integer; when omitted, ALL players are returned
+ *     regardless of the season they were last synced under. The previous
+ *     behaviour of auto-filtering to the single latest season hid players
+ *     whose `season` field happened to be older than the most-recent sync
+ *     run, which is misleading for a "current squad" page — we now defer
+ *     to whatever rows the admin chose to keep in the table.
  *
  * Sorting: position groups follow PLAYER_POSITIONS order (GK → DEF → MID → ATT),
  * then jersey number ascending within each group. We sort in JS because Postgres
@@ -39,29 +44,11 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient()
 
-  // If no season was supplied we resolve "latest" by reading the max(season)
-  // value from the table. Done as a separate query to keep the main query
-  // simple and indexable.
-  if (season === null) {
-    const { data: latest, error: latestError } = await supabase
-      .from('players')
-      .select('season')
-      .not('season', 'is', null)
-      .order('season', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (latestError) {
-      return errorResponse(
-        `Szezon lekérése sikertelen: ${latestError.message}`,
-        500
-      )
-    }
-    const latestRow = latest as Pick<Player, 'season'> | null
-    season = latestRow?.season ?? null
-  }
-
-  let query = supabase.from('players').select('*')
+  // Explicit upper bound: a senior squad never exceeds ~50 players. We pin
+  // the limit to 200 to defend against the PostgREST `max-rows` cap (which
+  // otherwise silently truncates the result set — observed 13/33 rows
+  // returned in production when no limit was provided).
+  let query = supabase.from('players').select('*').limit(200)
   if (season !== null) {
     query = query.eq('season', season)
   }

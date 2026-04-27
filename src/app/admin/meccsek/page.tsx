@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Pencil, Plus, RefreshCw } from "lucide-react";
+import { CalendarDays, Info, Pencil, Plus, RefreshCw } from "lucide-react";
 
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
@@ -44,6 +44,7 @@ import {
   AdminTableSkeleton,
 } from "@/components/admin/AdminTable";
 import { adminFetch, adminFetchRaw, AdminApiError } from "@/lib/admin-fetch";
+import { cn } from "@/lib/utils";
 import type { Match, MatchSector } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -117,17 +118,21 @@ export default function AdminMatchesPage() {
     setSyncMessage(null);
     setError(null);
     try {
-      await adminFetch("/api/admin/matches/sync", {
-        method: "POST",
-        body: JSON.stringify({ next: 20 }),
-      });
-      setSyncMessage("Sikeres szinkronizálás");
+      const result = await adminFetch<{ synced: number; errors: string[] }>(
+        "/api/admin/matches/sync",
+        {
+          method: "POST",
+          body: JSON.stringify({ next: 20 }),
+        },
+      );
+      const count = result?.synced ?? 0;
+      setSyncMessage(`Szinkronizáció sikeres: ${count} meccs frissítve`);
       await loadMatches();
     } catch (err) {
       setError(
         err instanceof AdminApiError
-          ? `Szinkronizálás sikertelen: ${err.message}`
-          : "Szinkronizálás sikertelen",
+          ? `Szinkronizáció sikertelen: ${err.message}`
+          : "Szinkronizáció sikertelen",
       );
     } finally {
       setSyncing(false);
@@ -155,9 +160,29 @@ export default function AdminMatchesPage() {
         </div>
         <AdminButton onClick={handleSync} loading={syncing}>
           <RefreshCw className="h-4 w-4" />
-          Meccsek szinkronizálása
+          {syncing ? "Szinkronizálás folyamatban..." : "Meccsek szinkronizálása"}
         </AdminButton>
       </header>
+
+      <div
+        role="note"
+        className={cn(
+          "flex items-start gap-3 rounded-md border border-[var(--glass-border)]",
+          "bg-[var(--bg-tertiary)]/60 px-4 py-3 text-xs text-[var(--text-secondary)]",
+        )}
+      >
+        <Info
+          className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-gold)]"
+          aria-hidden
+        />
+        <p>
+          Az adatok a{" "}
+          <span className="font-medium text-[var(--text-primary)]">
+            football-data.org
+          </span>{" "}
+          API-ról kerülnek lekérésre.
+        </p>
+      </div>
 
       {syncMessage ? (
         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">
@@ -204,7 +229,7 @@ export default function AdminMatchesPage() {
                     <AdminTableEmpty
                       icon={<CalendarDays className="h-5 w-5" />}
                       title="Nincs mérkőzés"
-                      description="Indítsd el a szinkronizálást az API-Football által szolgáltatott meccsek lekéréséhez."
+                      description="Indítsd el a szinkronizálást a football-data.org által szolgáltatott meccsek lekéréséhez."
                     />
                   </td>
                 </tr>

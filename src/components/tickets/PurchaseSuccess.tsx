@@ -8,6 +8,7 @@ import type { Match, Ticket } from "@/types/database";
 import type { SectorWithAvailability } from "@/lib/tickets-api";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TeamCrest } from "./TeamCrest";
 
 interface PurchaseSuccessProps {
   match: Match;
@@ -243,16 +244,30 @@ function DigitalTicketCard({
             </span>
           </div>
 
-          <div className="space-y-1">
-            <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
-              {match.home_team}
-            </p>
-            <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <TeamCrest
+                url={match.home_team_crest}
+                teamName={match.home_team}
+                size={40}
+              />
+              <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
+                {match.home_team}
+              </p>
+            </div>
+            <p className="pl-[16px] font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
               vs.
             </p>
-            <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
-              {match.away_team}
-            </p>
+            <div className="flex items-center gap-3">
+              <TeamCrest
+                url={match.away_team_crest}
+                teamName={match.away_team}
+                size={40}
+              />
+              <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
+                {match.away_team}
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-1 sm:grid-cols-3">

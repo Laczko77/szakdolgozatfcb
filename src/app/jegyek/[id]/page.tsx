@@ -22,6 +22,7 @@ import { StadiumMap } from "@/components/tickets/StadiumMap";
 import { SectorListAlt } from "@/components/tickets/SectorListAlt";
 import { TicketSelectionPanel } from "@/components/tickets/TicketSelectionPanel";
 import { PurchaseSuccess } from "@/components/tickets/PurchaseSuccess";
+import { TeamCrest } from "@/components/tickets/TeamCrest";
 import { cn } from "@/lib/utils";
 
 /**
@@ -231,11 +232,47 @@ export default function MatchDetailPage() {
         </div>
 
         <h1 className="font-display text-5xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-6xl lg:text-7xl">
-          {match.home_team}
-          <span className="block text-base font-normal uppercase tracking-[0.4em] text-[var(--text-muted)] sm:my-2">
-            vs.
+          <span className="flex items-center gap-4 sm:gap-5">
+            <TeamCrest
+              url={match.home_team_crest}
+              teamName={match.home_team}
+              size={64}
+              priority
+              className="hidden shrink-0 sm:inline-flex sm:h-[72px] sm:w-[72px]"
+            />
+            <TeamCrest
+              url={match.home_team_crest}
+              teamName={match.home_team}
+              size={48}
+              priority
+              className="inline-flex shrink-0 sm:hidden"
+            />
+            <span className="min-w-0 truncate">{match.home_team}</span>
           </span>
-          {match.away_team}
+
+          <span className="my-3 flex items-center gap-3 text-base font-normal uppercase tracking-[0.4em] text-[var(--text-muted)] sm:my-4">
+            <span aria-hidden className="h-px w-8 bg-[var(--glass-border)] sm:w-12" />
+            <span>vs.</span>
+            <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)]" />
+          </span>
+
+          <span className="flex items-center gap-4 sm:gap-5">
+            <TeamCrest
+              url={match.away_team_crest}
+              teamName={match.away_team}
+              size={64}
+              priority
+              className="hidden shrink-0 sm:inline-flex sm:h-[72px] sm:w-[72px]"
+            />
+            <TeamCrest
+              url={match.away_team_crest}
+              teamName={match.away_team}
+              size={48}
+              priority
+              className="inline-flex shrink-0 sm:hidden"
+            />
+            <span className="min-w-0 truncate">{match.away_team}</span>
+          </span>
         </h1>
 
         <p className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]">

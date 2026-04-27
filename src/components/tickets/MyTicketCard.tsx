@@ -5,6 +5,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import type { TicketWithRelations } from "@/lib/tickets-api";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TeamCrest } from "./TeamCrest";
 
 interface MyTicketCardProps {
   ticket: TicketWithRelations;
@@ -72,11 +73,33 @@ export function MyTicketCard({
             {isPast ? "Lejátszott" : "Közelgő"} mérkőzés
           </p>
 
-          <h3 className="font-display text-xl tracking-wide text-[var(--text-primary)] sm:text-2xl">
-            {match
-              ? `${match.home_team} vs. ${match.away_team}`
-              : "Ismeretlen mérkőzés"}
-          </h3>
+          {match ? (
+            <h3 className="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-display text-xl tracking-wide text-[var(--text-primary)] sm:text-2xl">
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <TeamCrest
+                  url={match.home_team_crest}
+                  teamName={match.home_team}
+                  size={28}
+                />
+                <span className="truncate">{match.home_team}</span>
+              </span>
+              <span className="font-display text-[10px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+                vs.
+              </span>
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <TeamCrest
+                  url={match.away_team_crest}
+                  teamName={match.away_team}
+                  size={28}
+                />
+                <span className="truncate">{match.away_team}</span>
+              </span>
+            </h3>
+          ) : (
+            <h3 className="font-display text-xl tracking-wide text-[var(--text-primary)] sm:text-2xl">
+              Ismeretlen mérkőzés
+            </h3>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1.5">

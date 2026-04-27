@@ -3,15 +3,15 @@
 /**
  * F15.6 — Admin: játékosok kezelése.
  *
- * - Sync: POST /api/admin/players/sync (név/pozíció/szám/kép API-Football
- *   alapján — admin kézi mező csak `bio` és `image_url`).
+ * - Sync: POST /api/admin/players/sync (név/pozíció/szám/statisztikák
+ *   football-data.org alapján — admin kézi mező csak `bio` és `image_url`).
  * - Lista: GET /api/players
  * - Szerkesztés: PUT /api/admin/players/[id] (multipart, mezők: bio, image)
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ImageOff, Pencil, RefreshCw, Users } from "lucide-react";
+import { ImageOff, Info, Pencil, RefreshCw, Users } from "lucide-react";
 
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
@@ -46,6 +46,7 @@ import {
   AdminTableSkeleton,
 } from "@/components/admin/AdminTable";
 import { adminFetch, adminFetchRaw, AdminApiError } from "@/lib/admin-fetch";
+import { cn } from "@/lib/utils";
 import type { Player } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -91,17 +92,21 @@ export default function AdminPlayersPage() {
     setSyncMessage(null);
     setError(null);
     try {
-      await adminFetch("/api/admin/players/sync", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      setSyncMessage("Sikeres szinkronizálás");
+      const result = await adminFetch<{ synced: number; errors: string[] }>(
+        "/api/admin/players/sync",
+        {
+          method: "POST",
+          body: JSON.stringify({}),
+        },
+      );
+      const count = result?.synced ?? 0;
+      setSyncMessage(`Szinkronizáció sikeres: ${count} játékos frissítve`);
       await loadPlayers();
     } catch (err) {
       setError(
         err instanceof AdminApiError
-          ? `Szinkronizálás sikertelen: ${err.message}`
-          : "Szinkronizálás sikertelen",
+          ? `Szinkronizáció sikertelen: ${err.message}`
+          : "Szinkronizáció sikertelen",
       );
     } finally {
       setSyncing(false);
@@ -126,15 +131,36 @@ export default function AdminPlayersPage() {
             Játékosok
           </h1>
           <p className="text-sm text-[var(--text-secondary)]">
-            FC Barcelona keret. Az API-Football által kezelt mezők
-            felülíródnak szinkronizáláskor — csak a bio és a kép szerkeszthető.
+            FC Barcelona keret. A szinkronizáláskor automatikusan frissülő mezők
+            felülíródnak — csak a bio és a kép szerkeszthető kézzel.
           </p>
         </div>
         <AdminButton onClick={handleSync} loading={syncing}>
           <RefreshCw className="h-4 w-4" />
-          Játékosok szinkronizálása
+          {syncing ? "Szinkronizálás folyamatban..." : "Játékosok szinkronizálása"}
         </AdminButton>
       </header>
+
+      <div
+        role="note"
+        className={cn(
+          "flex items-start gap-3 rounded-md border border-[var(--glass-border)]",
+          "bg-[var(--bg-tertiary)]/60 px-4 py-3 text-xs text-[var(--text-secondary)]",
+        )}
+      >
+        <Info
+          className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-gold)]"
+          aria-hidden
+        />
+        <p>
+          Az adatok a{" "}
+          <span className="font-medium text-[var(--text-primary)]">
+            football-data.org
+          </span>{" "}
+          API-ról kerülnek lekérésre. A játékos képek az admin panelen manuálisan
+          tölthetők fel.
+        </p>
+      </div>
 
       {syncMessage ? (
         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">

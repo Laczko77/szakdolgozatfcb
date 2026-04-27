@@ -140,9 +140,13 @@ export interface Match {
   api_football_id: number | null
   home_team: string
   away_team: string
+  home_team_crest: string | null
+  away_team_crest: string | null
   date: string
   venue: string | null
   status: string | null
+  score: string | null
+  competition: string | null
 }
 
 export interface MatchSector {

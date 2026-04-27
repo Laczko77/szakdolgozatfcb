@@ -10,6 +10,7 @@ import {
   MatchStatusBadge,
   type MatchStatusKind,
 } from "./MatchStatusBadge";
+import { TeamCrest } from "./TeamCrest";
 
 interface MatchCardProps {
   match: Match;
@@ -83,29 +84,49 @@ export function MatchCard({ match, index = 0, status }: MatchCardProps) {
           )}
         </div>
 
-        {/* Matchup */}
-        <div className="mt-6 space-y-1">
-          <p
-            className={cn(
-              "font-display text-2xl leading-[1.05] tracking-wide",
-              "text-[var(--text-primary)] sm:text-3xl",
-              "transition-colors duration-300",
-              !isPast && "group-hover:text-[var(--accent-gold)]",
-            )}
-          >
-            {match.home_team}
-          </p>
-          <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
-            vs.
-          </p>
-          <p
-            className={cn(
-              "font-display text-2xl leading-[1.05] tracking-wide",
-              "text-[var(--text-primary)] sm:text-3xl",
-            )}
-          >
-            {match.away_team}
-          </p>
+        {/* Matchup — crest + name pairs, stacked with a vs. divider */}
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-3">
+            <TeamCrest
+              url={match.home_team_crest}
+              teamName={match.home_team}
+              size={36}
+            />
+            <p
+              className={cn(
+                "min-w-0 truncate font-display text-2xl leading-[1.05] tracking-wide",
+                "text-[var(--text-primary)] sm:text-3xl",
+                "transition-colors duration-300",
+                !isPast && "group-hover:text-[var(--accent-gold)]",
+              )}
+            >
+              {match.home_team}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pl-[14px]">
+            <span aria-hidden className="h-px w-5 bg-[var(--glass-border)]" />
+            <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
+              vs.
+            </p>
+            <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)]" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <TeamCrest
+              url={match.away_team_crest}
+              teamName={match.away_team}
+              size={36}
+            />
+            <p
+              className={cn(
+                "min-w-0 truncate font-display text-2xl leading-[1.05] tracking-wide",
+                "text-[var(--text-primary)] sm:text-3xl",
+              )}
+            >
+              {match.away_team}
+            </p>
+          </div>
         </div>
 
         {/* Footer */}

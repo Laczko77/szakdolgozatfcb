@@ -6,40 +6,45 @@ import {
   successResponse,
 } from '@/lib/api-utils'
 import {
-  ApiFootballConfigError,
-  fetchBarcaPlayers,
-  type PlayerApiResponse,
-  type PlayerApiStatistics,
-} from '@/lib/api-football'
-import { uploadFile } from '@/lib/storage'
-import { FCB_TEAM_ID, STORAGE_BUCKETS } from '@/lib/constants'
+  CHAMPIONS_LEAGUE_COMPETITION_ID,
+  FootballDataConfigError,
+  FootballDataRequestError,
+  LA_LIGA_COMPETITION_ID,
+  currentSeasonStartYear,
+  getScorers,
+  getSquad,
+  type NormalizedScorer,
+  type SquadPlayer,
+} from '@/lib/football-data'
 import type { Json, TablesInsert } from '@/types/database'
 
 /**
  * POST /api/admin/players/sync
  *
- * Admin-triggered job: pulls the current FC Barcelona squad from API-Football
- * for a given season and upserts every player into `public.players`.
+ * Admin-triggered job: pulls the current FC Barcelona squad from
+ * football-data.org and aggregates La Liga + Champions League scoring
+ * statistics, then upserts every player into `public.players`.
  *
  * Conflict resolution: `api_football_id` (UNIQUE in schema). On re-run we
- * overwrite name/position/number/image_url/stats/season, but we DO NOT touch
- * `bio` — that field is owned by the admin manual editor (Task 4.3).
+ * overwrite name/position/number/stats/season — but we DO NOT touch
+ * `bio` or `image_url`. Those fields are owned by the admin manual editor
+ * (PUT /api/admin/players/[id]).
  *
- * Photo handling: API-Football serves player photos from their own CDN. We
- * mirror them into the `player-images` bucket so we (a) survive their CDN
- * outages and (b) don't leak referrer traffic. Re-uploading is skipped when
- * the existing `image_url` already points at our Supabase project.
- *
- * Body: `{ season?: number }`. Default season = current calendar year if we
- * are past July, otherwise previous year (UEFA seasons span autumn → spring).
+ * Body: `{ season?: number }`. Default season = `currentSeasonStartYear()`.
  */
+
+const MIN_SEASON = 2000
+const MAX_SEASON = 2100
+const LOG_PREFIX = '[players/sync]'
 
 export async function POST(request: NextRequest) {
   const guard = await requireAdminApi()
   if (guard instanceof NextResponse) return guard
 
-  // ---- Parse body -----------------------------------------------------------
-  let season: number = defaultSeason()
+  const startedAt = Date.now()
+
+  // ---- Parse body ---------------------------------------------------------
+  let season: number = currentSeasonStartYear()
   try {
     const text = await request.text()
     if (text.trim().length > 0) {
@@ -51,7 +56,11 @@ export async function POST(request: NextRequest) {
         typeof (parsed as { season?: unknown }).season === 'number'
       ) {
         const candidate = (parsed as { season: number }).season
-        if (Number.isInteger(candidate) && candidate >= 2000 && candidate <= 2100) {
+        if (
+          Number.isInteger(candidate) &&
+          candidate >= MIN_SEASON &&
+          candidate <= MAX_SEASON
+        ) {
           season = candidate
         }
       }
@@ -60,40 +69,64 @@ export async function POST(request: NextRequest) {
     return errorResponse('Érvénytelen JSON tartalom', 400)
   }
 
-  // ---- Fetch from API-Football ---------------------------------------------
-  let apiPlayers: PlayerApiResponse[]
+  // ---- Fetch from football-data.org --------------------------------------
+  let squad: SquadPlayer[]
+  let laLigaScorers: NormalizedScorer[]
+  let championsLeagueScorers: NormalizedScorer[]
+
   try {
-    apiPlayers = await fetchBarcaPlayers(season)
+    squad = await getSquad()
+    laLigaScorers = await getScorers(LA_LIGA_COMPETITION_ID, season)
+    championsLeagueScorers = await getScorers(
+      CHAMPIONS_LEAGUE_COMPETITION_ID,
+      season
+    )
   } catch (err) {
-    if (err instanceof ApiFootballConfigError) {
+    if (err instanceof FootballDataConfigError) {
       return errorResponse(
-        'Az API-Football kulcs nincs beállítva (API_FOOTBALL_KEY)',
+        'A football-data.org API kulcs nincs beállítva (FOOTBALL_DATA_API_KEY)',
         503
+      )
+    }
+    if (err instanceof FootballDataRequestError) {
+      return errorResponse(
+        `football-data.org nem elérhető: ${err.message}`,
+        502
       )
     }
     return errorResponse(
       err instanceof Error
-        ? `API-Football hiba: ${err.message}`
-        : 'API-Football hiba',
+        ? `football-data.org hiba: ${err.message}`
+        : 'football-data.org hiba',
       502
     )
   }
 
-  if (apiPlayers.length === 0) {
+  if (squad.length === 0) {
+    console.log(`${LOG_PREFIX} squad empty, nothing to sync`)
     return successResponse({ synced: 0, errors: [], season })
   }
 
-  // ---- Look up existing rows so we know which photos to (re)upload ---------
-  const supabase = createServiceRoleClient()
-  const apiIds = apiPlayers.map((p) => p.player.id)
+  // ---- Aggregate scorer stats by FCB player id ---------------------------
+  // Only scorers whose player.id matches a squad member contribute. Fallback
+  // to zeros when a player did not appear in either competition.
+  const statsByPlayerId = aggregateScorerStats(
+    squad,
+    laLigaScorers,
+    championsLeagueScorers
+  )
 
-  type ExistingRow = {
-    api_football_id: number | null
-    image_url: string | null
-  }
+  const playersWithStatsCount = Array.from(statsByPlayerId.values()).filter(
+    (s) => s.appearances > 0 || s.goals > 0 || s.assists > 0
+  ).length
+
+  // ---- Look up existing rows so we can preserve bio/image_url ------------
+  const supabase = createServiceRoleClient()
+  const apiIds = squad.map((p) => p.id)
+
   const { data: existingRaw, error: fetchError } = await supabase
     .from('players')
-    .select('api_football_id, image_url')
+    .select('api_football_id')
     .in('api_football_id', apiIds)
 
   if (fetchError) {
@@ -103,59 +136,45 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const existingByApiId = new Map<number, ExistingRow>()
-  for (const row of (existingRaw ?? []) as ExistingRow[]) {
-    if (row.api_football_id !== null) {
-      existingByApiId.set(row.api_football_id, row)
-    }
+  const existingIds = new Set<number>()
+  for (const row of (existingRaw ?? []) as Array<{
+    api_football_id: number | null
+  }>) {
+    if (row.api_football_id !== null) existingIds.add(row.api_football_id)
   }
 
-  // ---- Process each player --------------------------------------------------
+  // ---- Upsert each squad member ------------------------------------------
   const errors: string[] = []
   let synced = 0
 
-  for (const item of apiPlayers) {
-    const apiPlayer = item.player
-
+  for (const member of squad) {
     try {
-      // Pick the FC Barcelona statistics block (an aggregated row may include
-      // entries for the national team or previous clubs in the same season).
-      const fcbStats =
-        item.statistics.find((s) => s.team.id === FCB_TEAM_ID) ??
-        item.statistics[0] ??
-        null
+      const stats = statsByPlayerId.get(member.id) ?? emptyStats()
 
-      const existing = existingByApiId.get(apiPlayer.id) ?? null
-      const imageUrl = await resolveImageUrl(
-        apiPlayer.photo,
-        existing?.image_url ?? null,
-        apiPlayer.id
-      )
-
-      const insert: TablesInsert<'players'> = {
-        api_football_id: apiPlayer.id,
-        name: apiPlayer.name,
-        position: fcbStats?.games.position ?? null,
-        number: fcbStats?.games.number ?? null,
-        image_url: imageUrl,
-        bio: null, // intentionally omitted from update set below
-        stats: buildStatsJson(fcbStats),
+      // Build the insert payload. For existing players we omit `bio` and
+      // `image_url` so the admin's manual edits survive a re-sync; for
+      // brand-new players we initialize both to null.
+      const isExisting = existingIds.has(member.id)
+      const fullPayload: TablesInsert<'players'> = {
+        api_football_id: member.id,
+        name: member.name,
+        position: member.position,
+        number: member.shirtNumber,
+        image_url: null,
+        bio: null,
+        stats: stats as unknown as Json,
         season,
         updated_at: new Date().toISOString(),
       }
 
-      // Upsert by api_football_id. We must NOT overwrite `bio` on conflict —
-      // PostgREST's `onConflict` upsert overwrites all supplied columns by
-      // default, so we omit `bio` from the insert when the row already exists
-      // and use ignoreDuplicates: false (i.e. UPDATE on conflict).
-      const payload: TablesInsert<'players'> = existing
-        ? // existing row: don't touch bio
-          (() => {
-            const { bio: _bio, ...rest } = insert
+      const payload: TablesInsert<'players'> = isExisting
+        ? (() => {
+            const { image_url: _img, bio: _bio, ...rest } = fullPayload
+            void _img
             void _bio
             return rest as TablesInsert<'players'>
           })()
-        : insert
+        : fullPayload
 
       const { error: upsertError } = await supabase
         .from('players')
@@ -166,7 +185,7 @@ export async function POST(request: NextRequest) {
 
       if (upsertError) {
         errors.push(
-          `Játékos #${apiPlayer.id} (${apiPlayer.name}): ${upsertError.message}`
+          `Játékos #${member.id} (${member.name}): ${upsertError.message}`
         )
         continue
       }
@@ -174,12 +193,23 @@ export async function POST(request: NextRequest) {
       synced += 1
     } catch (err) {
       errors.push(
-        `Játékos #${apiPlayer.id} (${apiPlayer.name}): ${
+        `Játékos #${member.id} (${member.name}): ${
           err instanceof Error ? err.message : 'ismeretlen hiba'
         }`
       )
     }
   }
+
+  const elapsedMs = Date.now() - startedAt
+  console.log(
+    `${LOG_PREFIX} season=${season} squadSize=${squad.length} synced=${synced} ` +
+      `withStats=${playersWithStatsCount} errors=${errors.length} ` +
+      `elapsedMs=${elapsedMs}`
+  )
+  console.log(
+    `${LOG_PREFIX} note: games_started, minutes, yellow_cards, red_cards are ` +
+      `not provided by /competitions/{id}/scorers — stored as 0`
+  )
 
   return successResponse({ synced, errors, season })
 }
@@ -188,103 +218,51 @@ export async function POST(request: NextRequest) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Default season for API-Football player queries.
- *
- * The free API plan only provides access to seasons 2022–2024. Hard-coded to
- * 2024 (the last available season) so sync works on the free tier. Update when
- * the plan is upgraded or API-Football expands free access.
- */
-function defaultSeason(): number {
-  return 2024
+interface PlayerStatsPayload {
+  goals: number
+  assists: number
+  appearances: number
+  games_started: number
+  minutes: number
+  yellow_cards: number
+  red_cards: number
 }
 
-/**
- * Decide whether to mirror the API-Football photo into our bucket.
- *
- * - If the existing image_url already points at our Supabase project, keep it.
- * - Otherwise, download the API-Football photo and upload it. The new public
- *   URL is returned.
- * - On any failure (no photo, network error, upload error) we fall back to
- *   the original API-Football URL so the player row still has *something*.
- */
-async function resolveImageUrl(
-  apiPhotoUrl: string | null,
-  existingImageUrl: string | null,
-  apiPlayerId: number
-): Promise<string | null> {
-  if (existingImageUrl && isOurStorageUrl(existingImageUrl)) {
-    return existingImageUrl
-  }
-  if (!apiPhotoUrl) return existingImageUrl ?? null
-
-  try {
-    const res = await fetch(apiPhotoUrl, { cache: 'no-store' })
-    if (!res.ok) {
-      console.warn(
-        `[players/sync] Photo download failed (${res.status}) for player ${apiPlayerId}`
-      )
-      return apiPhotoUrl
-    }
-
-    const contentType = res.headers.get('content-type') ?? 'image/png'
-    const arrayBuffer = await res.arrayBuffer()
-    const ext = extensionFromContentType(contentType)
-    const fileName = `player-${apiPlayerId}.${ext}`
-    const file = new File([arrayBuffer], fileName, { type: contentType })
-
-    return await uploadFile(STORAGE_BUCKETS.playerImages, file)
-  } catch (err) {
-    console.warn(
-      `[players/sync] Photo mirror failed for player ${apiPlayerId}:`,
-      err instanceof Error ? err.message : err
-    )
-    return apiPhotoUrl
-  }
-}
-
-function isOurStorageUrl(url: string): boolean {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!supabaseUrl) return false
-  try {
-    const parsed = new URL(url)
-    const ours = new URL(supabaseUrl)
-    return parsed.host === ours.host
-  } catch {
-    return false
-  }
-}
-
-function extensionFromContentType(ct: string): string {
-  const lower = ct.toLowerCase()
-  if (lower.includes('jpeg') || lower.includes('jpg')) return 'jpg'
-  if (lower.includes('png')) return 'png'
-  if (lower.includes('webp')) return 'webp'
-  if (lower.includes('gif')) return 'gif'
-  return 'png'
-}
-
-/**
- * Compact, frontend-friendly stats payload. Nullables are coerced to 0 so
- * the UI can render numbers without defensive guards.
- */
-function buildStatsJson(stats: PlayerApiStatistics | null): Json {
-  if (!stats) {
-    return {
-      goals: 0,
-      assists: 0,
-      appearances: 0,
-      minutes: 0,
-      yellow_cards: 0,
-      red_cards: 0,
-    }
-  }
+function emptyStats(): PlayerStatsPayload {
   return {
-    goals: stats.goals.total ?? 0,
-    assists: stats.goals.assists ?? 0,
-    appearances: stats.games.appearences ?? 0,
-    minutes: stats.games.minutes ?? 0,
-    yellow_cards: stats.cards.yellow ?? 0,
-    red_cards: stats.cards.red ?? 0,
+    goals: 0,
+    assists: 0,
+    appearances: 0,
+    games_started: 0,
+    minutes: 0,
+    yellow_cards: 0,
+    red_cards: 0,
   }
+}
+
+/**
+ * Build a `playerId → stats` map summing La Liga + Champions League rows
+ * for every squad member. Players who do not appear in either scorers
+ * list end up with an all-zero stats payload (they have not yet scored,
+ * assisted or played enough to be ranked — not a hard error).
+ */
+function aggregateScorerStats(
+  squad: SquadPlayer[],
+  laLigaScorers: NormalizedScorer[],
+  championsLeagueScorers: NormalizedScorer[]
+): Map<number, PlayerStatsPayload> {
+  const result = new Map<number, PlayerStatsPayload>()
+  for (const member of squad) {
+    result.set(member.id, emptyStats())
+  }
+
+  for (const scorer of [...laLigaScorers, ...championsLeagueScorers]) {
+    const target = result.get(scorer.playerId)
+    if (!target) continue // scorer is not on the FCB squad — skip
+    target.goals += scorer.goals
+    target.assists += scorer.assists
+    target.appearances += scorer.playedMatches
+  }
+
+  return result
 }

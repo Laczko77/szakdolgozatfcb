@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarDays, MapPin, Ticket } from "lucide-react";
 import type { Match } from "@/types/database";
 import { useCountdown } from "@/hooks/useCountdown";
+import { TeamCrest } from "@/components/tickets/TeamCrest";
 import { cn } from "@/lib/utils";
 import { WidgetShell } from "./WidgetShell";
 
@@ -48,6 +49,34 @@ export function NextMatchWidget({
         <EmptyState />
       ) : (
         <div className="space-y-6">
+          {/* Matchup crests — small visual anchor before the countdown.
+              Sits above the numeric grid so the brand logos read first. */}
+          <div className="flex items-center gap-3 text-sm sm:gap-4">
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <TeamCrest
+                url={match.home_team_crest}
+                teamName={match.home_team}
+                size={32}
+              />
+              <span className="truncate font-display tracking-wide text-[var(--text-primary)] text-base sm:text-lg">
+                {match.home_team}
+              </span>
+            </span>
+            <span aria-hidden className="font-display text-[10px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+              vs.
+            </span>
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <TeamCrest
+                url={match.away_team_crest}
+                teamName={match.away_team}
+                size={32}
+              />
+              <span className="truncate font-display tracking-wide text-[var(--text-primary)] text-base sm:text-lg">
+                {match.away_team}
+              </span>
+            </span>
+          </div>
+
           {/* Countdown grid */}
           <div className="grid grid-cols-4 gap-2 sm:gap-3">
             <CountdownCell value={countdown.days} label="nap" />

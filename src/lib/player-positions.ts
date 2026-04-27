@@ -1,7 +1,7 @@
 /**
  * Hungarian labels for the four canonical player positions.
  *
- * The backend stores positions as the API-Football English strings
+ * The backend stores positions as the football-data.org English strings
  * ("Goalkeeper", "Defender", "Midfielder", "Attacker") so they stay
  * stable across syncs. The frontend translates at display time.
  *

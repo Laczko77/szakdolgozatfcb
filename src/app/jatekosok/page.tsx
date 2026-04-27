@@ -261,7 +261,7 @@ function readPositionFromQuery(raw: string | null): PositionFilterValue {
  * Bucket the squad into the four canonical positions, returning [position,
  * players] tuples in canonical order. When a single position is selected
  * we return only that bucket. Players whose `position` doesn't match any
- * known value are silently dropped (admin sync stores the API-Football
+ * known value are silently dropped (admin sync stores the football-data.org
  * value verbatim, so this should be empty in practice).
  */
 function groupByPosition(

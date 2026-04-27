@@ -39,21 +39,12 @@ export function isArticleCategory(value: unknown): value is ArticleCategory {
 }
 
 // ----------------------------------------------------------------------------
-// API-Football
-// ----------------------------------------------------------------------------
-
-/** FC Barcelona team ID in the API-Football (api-sports.io) dataset. */
-export const FCB_TEAM_ID = 529
-
-/** Base URL for API-Football v3 (api-sports.io direct endpoint, not RapidAPI). */
-export const API_FOOTBALL_BASE = 'https://v3.football.api-sports.io'
-
-// ----------------------------------------------------------------------------
 // Player positions
 //
-// Canonical ordering used by the public /api/players list. API-Football returns
-// position strings like "Goalkeeper", "Defender", "Midfielder", "Attacker";
-// we store them verbatim and order by their index here.
+// Canonical ordering used by the public /api/players list. The football-data.org
+// integration normalizes its raw position strings ("Goalkeeper" / "Defence" /
+// "Midfield" / "Offence") to these canonical labels before persisting (see
+// src/lib/football-data.ts).
 // ----------------------------------------------------------------------------
 
 export const PLAYER_POSITIONS = [
