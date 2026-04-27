@@ -7,6 +7,7 @@ import { Search } from "lucide-react";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAuth } from "@/providers/AuthProvider";
+import { useSearchPalette } from "@/providers/SearchProvider";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { CartIconButton } from "@/components/shop/CartIconButton";
 import { ThemeToggle } from "./ThemeToggle";
@@ -34,6 +35,7 @@ export function Navbar() {
   const scrollY = useScrollPosition();
   const reduced = useReducedMotion();
   const { user } = useAuth();
+  const { open: openSearch } = useSearchPalette();
 
   const scrolled = scrollY > SCROLL_MATERIALIZE_THRESHOLD;
 
@@ -118,20 +120,29 @@ export function Navbar() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            aria-label="Keresés"
-            title="Keresés"
+            aria-label="Keresés (Ctrl+K)"
+            title="Keresés (Ctrl+K)"
+            onClick={openSearch}
             className={[
-              "inline-flex h-9 w-9 items-center justify-center rounded-full",
+              "inline-flex items-center gap-1.5 rounded-full",
+              "h-9 pl-2.5 pr-2",
               "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+              "border border-transparent hover:border-[var(--glass-border)]",
               "hover:bg-[var(--glass-bg-hover)] transition-colors duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
             ].join(" ")}
-            // F10 will wire this up to the global command palette.
-            onClick={() => {
-              /* placeholder — implemented in iteration F10 */
-            }}
           >
             <Search size={18} strokeWidth={1.75} />
+            <kbd
+              className={[
+                "hidden lg:inline-flex items-center gap-0.5",
+                "rounded border border-[var(--glass-border)] bg-[var(--glass-bg)]",
+                "px-1 py-0.5 font-display text-[9px] tracking-wider text-[var(--text-muted)]",
+              ].join(" ")}
+              aria-hidden
+            >
+              ⌘K
+            </kbd>
           </button>
 
           <CartIconButton size={18} />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { useSearchPalette } from "@/providers/SearchProvider";
 import { CartIconButton } from "@/components/shop/CartIconButton";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -13,6 +14,7 @@ import { ThemeToggle } from "./ThemeToggle";
  * in the bottom tab bar; this header is intentionally lean.
  */
 export function MobileHeader() {
+  const { open: openSearch } = useSearchPalette();
   return (
     <header
       className={[
@@ -41,9 +43,7 @@ export function MobileHeader() {
           type="button"
           aria-label="Keresés"
           title="Keresés"
-          onClick={() => {
-            /* placeholder — implemented in iteration F10 */
-          }}
+          onClick={openSearch}
           className={[
             "inline-flex h-9 w-9 items-center justify-center rounded-full",
             "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",

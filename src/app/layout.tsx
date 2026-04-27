@@ -5,6 +5,7 @@ import { ToastProvider } from "@/providers/ToastProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { CartProvider } from "@/providers/CartProvider";
 import { ConsentProvider } from "@/providers/ConsentProvider";
+import { SearchProvider } from "@/providers/SearchProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
@@ -12,6 +13,7 @@ import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/shop/CartDrawer";
 import { CookieBanner } from "@/components/common/CookieBanner";
 import { PageTrackingMount } from "@/components/common/PageTrackingMount";
+import { CommandPalette } from "@/components/search/CommandPalette";
 import "./globals.css";
 
 const bebas = Bebas_Neue({
@@ -65,6 +67,7 @@ export default function RootLayout({
             <ToastProvider>
               <CartProvider>
                 <ConsentProvider>
+                  <SearchProvider>
                   {/* Mobile-only sticky top bar (sub-md). */}
                   <MobileHeader />
 
@@ -101,6 +104,12 @@ export default function RootLayout({
                       component that pings /api/tracking/pageview on every
                       route change once consent is granted. */}
                   <PageTrackingMount />
+
+                  {/* Global command palette — F10.6. Mounted once at the
+                      app root so any page can open it via Ctrl/Cmd+K or
+                      the SearchProvider's `open()` method. */}
+                  <CommandPalette />
+                  </SearchProvider>
                 </ConsentProvider>
               </CartProvider>
             </ToastProvider>

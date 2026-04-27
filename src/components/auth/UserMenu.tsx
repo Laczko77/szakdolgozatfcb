@@ -185,7 +185,7 @@ export function UserMenu({ className }: UserMenuProps) {
                 Pontjaim
               </MenuItem>
               <MenuItem
-                href="/beallitasok"
+                href="/profil?tab=settings"
                 icon={<Settings size={15} />}
                 onSelect={() => setOpen(false)}
               >
