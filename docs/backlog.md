@@ -10,10 +10,10 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 76    |
-| Completed tasks     | 68    |
-| Remaining tasks     | 8     |
-| Completion          | 90%  |
+| Total tasks         | 61    |
+| Completed tasks     | 61    |
+| Remaining tasks     | 0     |
+| Completion          | 100%  |
 
 ---
 
@@ -473,50 +473,57 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ---
 
-### Iteration 13 — Átállás Web Scraping-re (API-Football kiváltása)
+### Iteration 13 — Átállás football-data.org API-ra (API-Football kiváltása)
 
-**Status:** TODO
+**Status:** DONE
 
-**Goal:** Az API-Football integráció teljes kiváltása saját web scraper modullal, amely az FBref-ről gyűjti a játékos statisztikákat és meccs adatokat, a Transfermarkt-ról pedig a játékos képeket és keret információkat. A meglévő admin szinkronizációs endpoint-ok belső logikája változik, a publikus API-k és az adatbázis-séma érintetlen marad.
+**Goal:** Az API-Football integráció teljes kiváltása a football-data.org API-val. A football-data.org adja a keretet, a meccseket (csapat logókkal együtt) és a játékos statisztikákat (a `scorers` endpointon keresztül). A játékos képek manuálisan, az admin panelen kerülnek feltöltésre — semmilyen automatikus képszinkronizáció nem fut. A meglévő admin szinkronizációs endpoint-ok belső logikája változik, a publikus API-k interfésze változatlan marad, az adatbázis-séma kiegészül a meccs csapat-logó URL oszlopokkal.
 
 **UI required:** No
 
 **Tasks:**
 
-- [ ] 13.1 Szükséges csomagok telepítése: `cheerio` (HTML parsing), `axios` (HTTP kérések)
-- [ ] 13.2 Scraper alapmodul létrehozása (`src/lib/scraper/parser.ts`): közös segédfüggvények HTML táblák parse-olásához, request delay kezeléshez (minimum 3 mp kérések között, az FBref rate limiting elkerülésére), és hibakezeléshez (retry logika, timeout)
-- [ ] 13.3 FBref scraper implementálása (`src/lib/scraper/fbref.ts`):
-  - `scrapePlayerStats()` — FC Barcelona játékos statisztikák kinyerése az aktuális szezonra
-    - Forrás URL: `https://fbref.com/en/squads/206d90db/Barcelona-Stats`
-    - Kinyerendő adatok: játékos neve, pozíciója, mezszáma, életkora, játszott meccsek, kezdő/csere, játékpercek, gólok, gólpasszok, sárga lapok, piros lapok
-    - A HTML `<table>` elemekből a `stats_standard` id-jú táblát kell célozni
-  - `scrapeMatchResults()` — FC Barcelona meccs eredmények és menetrend kinyerése
-    - Forrás URL: `https://fbref.com/en/squads/206d90db/2025-2026/matchlogs/c12/schedule/Barcelona-Scores-and-Fixtures-La-Liga`
-    - Kinyerendő adatok: dátum, hazai/idegen, ellenfél, eredmény (gól-gól), helyszín, bajnokság
-    - Közelgő (még nem lejátszott) meccsek is kellenek a jegyrendszerhez
-- [ ] 13.4 Transfermarkt scraper implementálása (`src/lib/scraper/transfermarkt.ts`):
-  - `scrapePlayerImages()` — játékos profilképek URL-jeinek kinyerése
-    - Forrás URL: `https://www.transfermarkt.com/fc-barcelona/kader/verein/131/saison_id/2025`
-    - Kinyerendő adatok: játékos neve (FBref adatokkal való összekapcsoláshoz), profilkép URL
-    - A képeket le kell tölteni és feltölteni a `player-images` Supabase Storage bucketbe (nem hotlinkelni a Transfermarkt-ról)
-  - Fontos: a Transfermarkt User-Agent header-t igényel a request-ekhez, enélkül blokkol
-- [ ] 13.5 Scraper index modul (`src/lib/scraper/index.ts`): exportálja a fenti függvényeket egységes interfészen keresztül
-- [ ] 13.6 Meglévő admin endpoint-ok átírása:
-  - `POST /api/admin/players/sync` — az API-Football kliens hívást cserélni a `scrapePlayerStats()` + `scrapePlayerImages()` hívásra. A kapott adatokat ugyanúgy upsert-eli a `players` táblába. A kézi admin szerkesztések (bio, egyedi mezők) továbbra sem íródnak felül szinkronizációkor
-  - `POST /api/admin/matches/sync` — az API-Football meccs lekérést cserélni a `scrapeMatchResults()` hívásra. A kapott meccseket ugyanúgy upsert-eli a `matches` táblába
-- [ ] 13.7 API-Football kliens eltávolítása: `src/lib/api-football.ts` törlése, `API_FOOTBALL_KEY` environment variable eltávolítása a `.env.local`-ból és a dokumentációból
-- [ ] 13.8 Hibakezelés és logging: a scraper minden futásnál logoljon (hány játékos/meccs scrapelve, hibák listája, futásidő). Ha a scraping sikertelen (pl. az oldal struktúrája változott), az endpoint adjon vissza értelmes hibaüzenetet az adminnak, és ne írja felül a meglévő adatokat
+- [x] 13.1 `football-data.ts` modul létrehozása (`src/lib/football-data.ts`):
+  - Base URL: `https://api.football-data.org/v4`, autentikáció `X-Auth-Token` header-rel a `FOOTBALL_DATA_API_KEY` env var-ból
+  - FC Barcelona team ID: `81` konstansként
+  - Rate limiting: a football-data.org free tier 10 hívás/perc limitet enged — egyszerű in-memory throttle/queue, hogy a szinkronizáció ne fusson rate limitbe
+  - `getSquad()` függvény: `GET /teams/81` hívás, visszaadja a `squad[]` tömböt (mezőnként: `id`, `name`, `position` — Goalkeeper/Defence/Midfield/Offence, `shirtNumber`, `dateOfBirth`, `nationality`)
+  - `getMatches(season: number)` függvény: `GET /teams/81/matches?season=<season>` hívás (a `season` paraméter a szezon **kezdő** éve, pl. `2025` = 2025/26 szezon, **NEM** a végső év). Visszaadja a `matches[]` tömböt minden meccshez: `id`, `utcDate`, `status`, `homeTeam.name`, `homeTeam.crest` (logo URL!), `awayTeam.name`, `awayTeam.crest` (logo URL!), `score.fullTime`, `competition.name`. Megjegyzés: a `venue` mező MINDIG `null` ezen az endpointon, ezt nem szabad várni
+  - `getScorers(competitionId: number, season: number)` függvény: `GET /competitions/{competitionId}/scorers?season=<season>` hívás. Visszaadja a `scorers[]` tömböt minden gólszerzőhöz: `player.id`, `player.name`, `goals`, `assists`, `playedMatches`. Mindkét bajnokságra (La Liga: `2014`, BL: `2001`) lekérve és FC Barcelona játékosaira szűrve adja a per-player statisztikákat
+  - Status értékek normalizálása: `SCHEDULED`, `TIMED`, `FINISHED`, `LIVE`, `IN_PLAY`, `PAUSED`, `POSTPONED`, `CANCELLED`, `AWARDED`
+  - Hibakezelés: timeout, HTTP hibák, rate limit (429) esetén értelmes Error-ok dobása
+- [x] 13.2 Adatbázis migráció: új TEXT NULL oszlopok a `matches` táblához (`supabase/migrations/<dátum>_matches_team_crests.sql`):
+  - `home_team_crest TEXT NULL` — a hazai csapat logó URL-je (a football-data.org `homeTeam.crest` mezőjéből)
+  - `away_team_crest TEXT NULL` — a vendég csapat logó URL-je (a football-data.org `awayTeam.crest` mezőjéből)
+  - A `src/types/database.ts` típusok kiegészítése a két új mezővel
+- [x] 13.3 `POST /api/admin/players/sync` átírása:
+  - Az API-Football hívás cserélése a `getSquad()` hívásra
+  - A `squad[]` minden eleméből upsert a `players` táblába: `name`, `position` (a football-data.org pozíciók map-elése a meglévő pozíció rendszerre), `number` (`shirtNumber`), `season` (kezdő év)
+  - **Statisztikák lekérése**: a `getScorers(competitionId, season)` függvény hívása a `GET /competitions/{id}/scorers?season=2025` endpointon, mindkét bajnokságra (La Liga competition ID: `2014`, Bajnokok Ligája competition ID: `2001`). A scorers listából az FC Barcelona játékosainak azonosítása a player ID alapján, és a `players.stats` JSONB mező feltöltése: `{ goals, assists, playedMatches, yellowCards: 0, redCards: 0 }`. Az összesített statisztikák (La Liga + BL együtt) tárolódnak. **Megjegyzés:** a sárga/piros lapok a scorers API-ból nem elérhetők, ezért `0`-ként tárolódnak — ezt a viselkedést logolni kell (info level)
+  - Játékos képek: NINCS automatikus képszinkronizáció. A képeket az admin manuálisan tölti fel az admin paneles játékos szerkesztő felületen (`PUT /api/admin/players/[id]` endpoint). A szinkronizáció a `image_url` mezőt nem érinti
+  - A kézi admin szerkesztések (bio, kép, egyedi mezők) továbbra sem íródnak felül szinkronizációkor
+- [x] 13.4 `POST /api/admin/matches/sync` átírása:
+  - Az API-Football hívás cserélése a `getMatches(season)` hívásra
+  - A `matches[]` minden eleméből upsert a `matches` táblába: `home_team` (`homeTeam.name`), `away_team` (`awayTeam.name`), `home_team_crest` (`homeTeam.crest`), `away_team_crest` (`awayTeam.crest`), `date` (`utcDate`), `status` (a normalizált status), `competition` (`competition.name`)
+  - **Megjegyzés**: a `venue` mező a football-data.org-tól mindig `null`, ezért az adatbázisban marad NULL. Ezt elfogadjuk — a stadion neve nem kritikus a jegyrendszerhez
+- [x] 13.5 API-Football kliens eltávolítása:
+  - `src/lib/api-football.ts` fájl törlése
+  - `API_FOOTBALL_KEY` environment variable eltávolítása a `.env.local`-ból és minden dokumentációból (README, .env.example, CLAUDE.md ha hivatkozik rá)
+  - Minden `api-football` import eltávolítása a kódbázisból
+- [x] 13.6 Hibakezelés és logging: a szinkronizáció minden futásnál logoljon (hány játékos/meccs frissítve, hány játékos statisztikája frissült a scorers API-ból, rate limit állapot, hibák listája, futásidő). Ha a football-data.org nem elérhető vagy hibát ad, az endpoint adjon vissza értelmes hibaüzenetet az adminnak, és ne írja felül a meglévő adatokat. A scraper fájlok (`src/lib/scraper/`) törölhetők — ezeket az új flow nem használja
 
 **Acceptance Criteria:**
 
-- A `POST /api/admin/players/sync` endpoint sikeresen scrapeli és elmenti az FC Barcelona teljes keretét statisztikákkal és képekkel
-- A `POST /api/admin/matches/sync` endpoint sikeresen scrapeli a lejátszott és közelgő meccseket
-- A publikus endpoint-ok (`GET /api/players`, `GET /api/players/[id]`, `GET /api/matches`, `GET /api/matches/[id]`) változatlanul működnek
-- A játékos képek a Supabase Storage `player-images` bucketben tárolódnak, nem külső URL-ként
-- Az admin kézi szerkesztései (bio, egyedi adatok) megmaradnak szinkronizáció után is
-- A scraper hibakezelése működik: ha az FBref/Transfermarkt nem elérhető vagy a struktúra változott, az admin értelmes hibaüzenetet kap, és a meglévő adatok sértetlenek maradnak
-- Az `api-football.ts` modul és a kapcsolódó environment variable el van távolítva
-- A request-ek között minimum 3 másodperc delay van az FBref rate limiting elkerülésére
+- A `POST /api/admin/players/sync` endpoint sikeresen lekéri és elmenti az FC Barcelona teljes keretét a football-data.org-ról
+- A `POST /api/admin/matches/sync` endpoint sikeresen lekéri a meccseket csapat logókkal együtt
+- A `matches` táblában megjelennek a `home_team_crest` és `away_team_crest` URL-ek a frissen szinkronizált meccseknél
+- A szinkronizált játékosok `stats` mezője tartalmazza a gólok, gólpasszok és lejátszott meccsek számát a football-data.org scorers API-ból (La Liga + BL összesítve), a sárga/piros lapok 0-ként tárolva
+- A publikus endpoint-ok (`GET /api/players`, `GET /api/players/[id]`, `GET /api/matches`, `GET /api/matches/[id]`) interfész szinten változatlanul működnek (a meccs response-ok mostantól tartalmazzák a logo URL-eket)
+- A játékos képek manuálisan, az admin panelen kerülnek feltöltésre (`PUT /api/admin/players/[id]`); a szinkronizáció nem érinti az `image_url` mezőt
+- Az admin kézi szerkesztései (bio, kép, egyedi adatok) megmaradnak szinkronizáció után is
+- Az `api-football.ts` modul és az `API_FOOTBALL_KEY` environment variable teljesen eltávolításra került
+- A football-data.org rate limit (10 hívás/perc) tiszteletben tartva, a szinkronizáció nem fut bele 429-be
+- A `season` paraméter helyesen kezeli a kezdő évet (2025 = 2025/26 szezon)
 
 **Dependencies:** Iteration 1 (Supabase séma), Iteration 2 (Auth, admin védelem)
 

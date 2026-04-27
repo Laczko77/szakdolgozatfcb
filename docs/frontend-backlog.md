@@ -59,10 +59,10 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 106 |
-| Completed tasks | 102 |
-| Remaining tasks | 4 |
-| Completion | 96% |
+| Total tasks | 107 |
+| Completed tasks | 107 |
+| Remaining tasks | 0 |
+| Completion | 100% |
 
 ---
 
@@ -785,40 +785,48 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ---
 
-### Iteration F17 — Frontend Módosítások a Web Scraping Átálláshoz
- 
-**Status:** TODO
- 
-**Goal:** Az API-Football → FBref/Transfermarkt web scraping átállás (Backend Iteration X) által érintett frontend elemek frissítése. Mivel a backend endpoint-ok interfésze és az adatbázis séma változatlan marad, a frontend hatás minimális: az admin szinkronizáció UX-ének adaptálása a lassabb scraping folyamathoz, a hibaüzenetek kezelésének frissítése, és az UI szövegek aktualizálása.
- 
-**Backend dependency:** Backend Iteration X (Web Scraping átállás)
- 
+### Iteration F17 — Frontend Módosítások a football-data.org Átálláshoz
+
+**Status:** DONE
+
+**Goal:** Az API-Football → football-data.org átállás (Backend Iteration 13) által érintett frontend elemek frissítése. A backend endpoint-ok interfésze nagyrészt változatlan marad, viszont a meccs adatokban mostantól csapat logó URL-ek (`home_team_crest`, `away_team_crest`) is érkeznek, amiket meg kell jeleníteni. A játékos statisztikák valódi értékeket tartalmaznak (gólok, gólpasszok, lejátszott meccsek a football-data.org scorers API-ból), így a meglévő stat-vizualizációk élnek. A felületi szövegek aktualizálása szintén szükséges.
+
+**Backend dependency:** Backend Iteration 13 (football-data.org átállás)
+
 **Tasks:**
- 
-- [ ] F17.1 Admin szinkronizáció gombok UX frissítése (`src/app/admin/jatekosok/page.tsx`, `src/app/admin/meccsek/page.tsx`):
-  - A "Játékosok szinkronizálása" és "Meccsek szinkronizálása" gombok loading állapotának kibővítése: a scraping lényegesen lassabb mint az API hívás volt (FBref rate limiting miatt min. 3 mp/request), ezért a sima spinner helyett egy **progress-jellegű visszajelzés** szükséges
-  - Loading szöveg váltás: "Szinkronizálás..." → "Adatok gyűjtése az FBref-ről... Ez akár 1-2 percet is igénybe vehet." (hogy az admin ne gondolja hogy lefagyott)
-  - A gomb inaktív marad a teljes scraping folyamat alatt (dupla kattintás védelem)
-- [ ] F17.2 Scraping hibaüzenetek kezelése:
-  - A backend új típusú hibákat adhat vissza (pl. "Az FBref oldal struktúrája megváltozott", "A Transfermarkt nem elérhető", "Részleges siker: 22/25 játékos scrapelve")
-  - Ezek a hibaüzenetek glass toast értesítésként jelenjenek meg az admin felületen:
-    - Teljes siker → zöld toast: "✅ Szinkronizáció sikeres: [X] játékos / [Y] meccs frissítve"
-    - Részleges siker → sárga toast: "⚠️ Részleges siker: [X]/[Y] játékos scrapelve. Részletek a logban."
-    - Teljes kudarc → piros toast: "❌ Szinkronizáció sikertelen: [hibaüzenet]. A meglévő adatok érintetlenek."
-- [ ] F17.3 Admin felületi szövegek aktualizálása:
-  - Minden "API-Football"-ra hivatkozó szöveg, tooltip, placeholder cseréje: "API-Football" → "FBref / Transfermarkt"
-  - A szinkronizáció gombok melletti info tooltip frissítése: "Az adatok az FBref és Transfermarkt oldalakról kerülnek lekérésre. A folyamat 1-2 percet vehet igénybe az oldal rate limiting szabályai miatt."
-- [ ] F17.4 Admin szinkronizáció eredmény összegző:
-  - Sikeres szinkronizáció után egy rövid összegző megjelenítése a gomb alatt vagy modal-ban: hány játékos/meccs frissült, hány kép töltődött le, futásidő, esetleges figyelmeztetések
-  - Ez segít az adminnak megérteni mi történt, és észrevenni ha valami kimaradt
+
+- [x] F17.1 Admin szinkronizáció gombok UX frissítése (`src/app/admin/jatekosok/page.tsx`, `src/app/admin/meccsek/page.tsx`):
+  - A "Játékosok szinkronizálása" és "Meccsek szinkronizálása" gombok loading állapotának finomítása: a football-data.org sokkal gyorsabb mint a scraping volt (10 hívás/perc rate limit, de tipikusan 1-2 hívás elég egy szinkronizációhoz), ezért a sima spinner + rövid loading szöveg elegendő
+  - Loading szöveg: "Szinkronizálás folyamatban..." (másodpercek-tíz másodperc nagyságrend)
+  - A gomb inaktív marad a szinkronizáció alatt (dupla kattintás védelem)
+- [x] F17.2 Csapat logók megjelenítése a meccs felületeken:
+  - **Meccs kártyák** (`src/app/jegyek/page.tsx`, dashboard "Következő meccs" widget — F5.2, közösségi feed meccs hivatkozások): a `home_team_crest` és `away_team_crest` URL-eket meg kell jeleníteni a csapatnevek mellett (`<Image>` komponens, kis méretű kerek vagy négyzetes logó)
+  - **Jegy oldal** (`src/app/jegyek/[id]/page.tsx`): a meccs hero szekciójában a két csapat logója nagyobb méretben jelenjen meg
+  - **Megvásárolt jegyek** (`src/app/profil` Jegyeim tab): a jegy kártyán a csapat logók is látszódjanak
+  - Fallback: ha a `home_team_crest` vagy `away_team_crest` `null`, helyette egy default placeholder ikon vagy a csapatnév kezdőbetűi jelenjenek meg
+- [x] F17.3 Admin felületi szövegek aktualizálása:
+  - Minden "API-Football"-ra hivatkozó szöveg, tooltip, placeholder cseréje: "API-Football" → "football-data.org"
+  - A szinkronizáció gombok melletti info tooltip frissítése: "Az adatok a football-data.org API-ról kerülnek lekérésre. A játékos képeket az admin manuálisan tölti fel a játékos szerkesztő felületen."
+- [x] F17.4 Szinkronizáció eredmény toast-ok:
+  - Sikeres szinkronizáció → zöld toast: "Szinkronizáció sikeres: [X] játékos / [Y] meccs frissítve"
+  - Részleges siker → sárga toast: "Szinkronizáció kész: [X] játékos frissítve, [figyelmeztetés]"
+  - Hiba → piros toast: "Szinkronizáció sikertelen: [hibaüzenet]. A meglévő adatok érintetlenek."
+- [x] F17.5 TypeScript típusok frissítése:
+  - A `Match` típus (vagy ekvivalens) kiegészítése `home_team_crest: string | null` és `away_team_crest: string | null` mezőkkel a `src/types/database.ts`-ben (vagy ahol a meccs típus deklarálva van)
+  - A meccs adatokat fogyasztó komponensek típushibák nélkül használják az új mezőket
+
 **Acceptance Criteria:**
- 
-- A szinkronizáció gombok loading állapota informatív szöveget mutat, nem csak egy végtelen spinnert
+
+- A szinkronizáció gombok loading állapota tiszta és informatív
 - Az admin nem tudja duplán kattintani a gombot szinkronizáció közben
-- A scraping hibák értelmes, magyar nyelvű toast üzenetként jelennek meg
+- A meccs kártyákon és a jegy oldalon mindkét csapat logója megjelenik (ha a backend visszaadja az URL-t)
+- A logo fallback (null érték esetén) értelmes placeholder-t mutat
+- A játékos kártyák és profil oldalak megjelenítik a valódi statisztikákat (gólok, gólpasszok, lejátszott meccsek) a football-data.org scorers API-ból
 - Semmilyen "API-Football" hivatkozás nem maradt a felületen
-- Az összegző visszajelzés mutatja a szinkronizáció eredményét
-- A publikus felhasználói felület (játékos lista, meccsek, jegyek) változatlanul működik — a user semmit nem vesz észre az átállásból
-**Dependencies:** Iteration F1 (toast rendszer), F15 (admin panel)
+- A szinkronizáció eredménye toast-ban jelenik meg (sikeres / részleges / hibás)
+- A publikus felhasználói felület (jegyvásárlás, játékos lista) hibamentesen működik az új adatokkal
+- A játékos képek az admin által manuálisan feltöltött képek; ha egy játékoshoz nincs feltöltve kép, default avatar/placeholder látszik
+
+**Dependencies:** Iteration F1 (toast rendszer), F7 (játékos UI), F9 (jegy UI), F15 (admin panel), Backend Iteration 13
  
 ---

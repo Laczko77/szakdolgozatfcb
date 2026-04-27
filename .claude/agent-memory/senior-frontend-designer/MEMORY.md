@@ -20,3 +20,4 @@
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask
 - [Global error + 404 pages](project_global_error_pages.md) — src/app/not-found.tsx (server) + src/app/error.tsx (client); on-brand glass fallbacks
 - [Glass perf polish (F16)](project_glass_perf_polish.md) — globals.css now has @supports backdrop-filter fallback, mobile blur dial-down (≤640px), will-change on .glass-card
+- [TeamCrest primitive (F17)](project_team_crest.md) — single component for home/away crests; football-data.org CDN whitelisted in next.config.ts; gold-initials fallback
