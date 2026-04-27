@@ -5,9 +5,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Sparkles,
+  Tag,
+  X as XIcon,
+} from "lucide-react";
 import type { ShippingAddress } from "@/types/database";
 import { createOrder } from "@/lib/shop-api";
+import {
+  fetchMyCoupons,
+  formatDiscount,
+  previewDiscount,
+  type RedeemedCouponWithDef,
+} from "@/lib/coupons-api";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCart } from "@/providers/CartProvider";
 import { useToast } from "@/providers/ToastProvider";
@@ -36,17 +49,16 @@ const initialForm: FormState = {
 /**
  * Two-step checkout flow.
  *
- * Step 1 — Shipping form + optional coupon code.  We collect the address
- *          locally; coupon validation is a future iteration (F13), so the
- *          field accepts free text and is purely visual here.
+ * Step 1 — Shipping form + optional coupon code.  Coupons are now
+ *          actually wired up (F13.4): we client-side-preview the discount
+ *          using the caller's redeemed_coupons list so the summary shows
+ *          a realistic total before submission.  Final validation happens
+ *          server-side inside `applyCouponToOrder`.
  *
  * Step 2 — Order summary with line items, totals, "Megrendelés (demo)"
  *          button.  On success we navigate to the success page; on
  *          failure we surface the error and stay on step 2 so the user
  *          can retry.
- *
- * The page is wrapped in `<ProtectedRoute>` because the underlying
- * `/api/orders` endpoint is auth-gated.
  */
 export default function CheckoutPage() {
   return (
@@ -59,7 +71,7 @@ export default function CheckoutPage() {
 function CheckoutContent() {
   const router = useRouter();
   const reduced = useReducedMotion();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const toast = useToast();
   const { cartItems, cartTotal, cartCount, clearLocalCart } = useCart();
 
@@ -70,8 +82,12 @@ function CheckoutContent() {
   );
   const [submitting, setSubmitting] = useState(false);
 
+  // Caller's redeemed coupons — used for client-side preview of the
+  // discount on the entered code.  We deliberately fetch on mount so the
+  // user can paste a code and immediately see it apply.
+  const [myCoupons, setMyCoupons] = useState<RedeemedCouponWithDef[]>([]);
+
   // Pre-fill the full name from the profile if we have one — small UX win.
-  // Deferred via microtask so the setState is not synchronous in the effect.
   useEffect(() => {
     if (profile?.username && !form.full_name) {
       queueMicrotask(() =>
@@ -81,9 +97,28 @@ function CheckoutContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.username]);
 
+  // Fetch the user's active (is_used = false) redeemed coupons so we can
+  // preview the discount the moment they type/paste a code.
+  useEffect(() => {
+    if (!user?.id) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const list = await fetchMyCoupons({
+          isUsed: false,
+          signal: controller.signal,
+        });
+        setMyCoupons(list);
+      } catch {
+        // Silent failure — preview is a nice-to-have.  Server still
+        // validates on submit.
+      }
+    })();
+    return () => controller.abort();
+  }, [user?.id]);
+
   // If the cart empties (e.g. last item removed in a different tab),
-  // bounce back to /shop with a friendly note.  We deliberately don't
-  // do this if we're on step 2 mid-submit.
+  // bounce back to /shop with a friendly note.
   useEffect(() => {
     if (cartCount === 0 && !submitting) {
       router.replace("/shop");
@@ -105,7 +140,62 @@ function CheckoutContent() {
     e.preventDefault();
     if (!validate()) return;
     setStep(2);
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+    if (typeof window !== "undefined")
+      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+  };
+
+  // -------------------------------------------------------------------------
+  // Coupon preview
+  //
+  // The redeemed_coupons row owned by this user already carries the
+  // discount_type/discount_value via the joined coupon definition. We
+  // match the entered code (case-insensitive, trimmed) against this list
+  // and preview the discount on the cart subtotal.
+  //
+  // States:
+  //   - empty       → no preview
+  //   - matched     → "Kedvezmény alkalmazva" + line in summary
+  //   - not_matched → "Ismeretlen kuponkód" warning (after debounce)
+  // -------------------------------------------------------------------------
+
+  const couponPreview = useMemo(() => {
+    const code = form.coupon.trim().toUpperCase();
+    if (!code) {
+      return {
+        kind: "empty" as const,
+        discount: 0,
+        finalTotal: cartTotal,
+      };
+    }
+    const match = myCoupons.find(
+      (c) => c.code.toUpperCase() === code && c.coupon !== null,
+    );
+    if (!match || !match.coupon) {
+      return {
+        kind: "unknown" as const,
+        discount: 0,
+        finalTotal: cartTotal,
+      };
+    }
+    const computed = previewDiscount(
+      cartTotal,
+      match.coupon.discount_type,
+      match.coupon.discount_value,
+    );
+    return {
+      kind: "matched" as const,
+      coupon: match.coupon,
+      discount: computed.discount,
+      finalTotal: computed.final,
+    };
+  }, [form.coupon, myCoupons, cartTotal]);
+
+  const onPickCoupon = (code: string) => {
+    setForm((p) => ({ ...p, coupon: code }));
+  };
+
+  const onClearCoupon = () => {
+    setForm((p) => ({ ...p, coupon: "" }));
   };
 
   const onPlaceOrder = async () => {
@@ -121,9 +211,18 @@ function CheckoutContent() {
       };
       if (form.phone.trim()) shipping.phone = form.phone.trim();
 
-      const result = await createOrder({ shipping_address: shipping });
+      const couponCode = form.coupon.trim();
+      const result = await createOrder({
+        shipping_address: shipping,
+        coupon_code: couponCode || null,
+      });
       if (result.warning) {
         toast.info(result.warning);
+      }
+      if (result.coupon) {
+        toast.success(
+          `Kupon alkalmazva: −${result.coupon.discount.toLocaleString("hu-HU")} Ft`,
+        );
       }
       clearLocalCart();
       router.replace(`/shop/checkout/success?orderId=${result.order.id}`);
@@ -134,14 +233,6 @@ function CheckoutContent() {
       setSubmitting(false);
     }
   };
-
-  const couponPreview = useMemo(() => {
-    // Coupons are wired in F13 — for now we just echo a small visual hint
-    // so the user knows the field is accepted.
-    return form.coupon.trim().length > 0
-      ? `Kupon mentve: ${form.coupon.trim().toUpperCase()} (érvényesítés a következő iterációban)`
-      : null;
-  }, [form.coupon]);
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
@@ -246,12 +337,16 @@ function CheckoutContent() {
 
                 <hr className="my-2 border-[var(--glass-border)]" />
 
-                <Field
-                  id="coupon"
-                  label="Kuponkód (nem kötelező)"
+                {/* Coupon block */}
+                <CouponField
                   value={form.coupon}
-                  onChange={(v) => setForm((p) => ({ ...p, coupon: v }))}
-                  hint={couponPreview ?? undefined}
+                  onChange={(v) =>
+                    setForm((p) => ({ ...p, coupon: v.toUpperCase() }))
+                  }
+                  onClear={onClearCoupon}
+                  preview={couponPreview}
+                  myCoupons={myCoupons}
+                  onPick={onPickCoupon}
                 />
 
                 <button
@@ -383,27 +478,199 @@ function CheckoutContent() {
                 <dt>Szállítás</dt>
                 <dd className="text-[var(--text-primary)]">Ingyenes</dd>
               </div>
-              {form.coupon && (
-                <div className="flex justify-between text-[var(--text-secondary)]">
-                  <dt>Kupon</dt>
-                  <dd className="text-[var(--text-primary)]">
-                    {form.coupon.toUpperCase()}
-                  </dd>
-                </div>
-              )}
+
+              {/* Discount line — only when a valid coupon is matched */}
+              <AnimatePresence>
+                {couponPreview.kind === "matched" && (
+                  <motion.div
+                    key="discount-line"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex justify-between"
+                  >
+                    <dt className="flex items-center gap-1.5 text-[var(--accent-gold)]">
+                      <Tag size={12} aria-hidden />
+                      Kupon ({form.coupon})
+                    </dt>
+                    <dd className="font-display tabular-nums text-[var(--accent-gold)]">
+                      −{formatPrice(couponPreview.discount)}
+                    </dd>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <hr className="my-3 border-[var(--glass-border)]" />
               <div className="flex items-baseline justify-between">
                 <dt className="font-display text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)]">
                   Végösszeg
                 </dt>
                 <dd className="font-display text-2xl tracking-wide text-[var(--accent-gold)]">
-                  {formatPrice(cartTotal)}
+                  {formatPrice(couponPreview.finalTotal)}
                 </dd>
               </div>
+              {couponPreview.kind === "matched" && (
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  {formatDiscount(
+                    couponPreview.coupon.discount_type,
+                    couponPreview.coupon.discount_value,
+                  )}{" "}
+                  kedvezmény alkalmazva.
+                </p>
+              )}
             </dl>
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Coupon field with validation feedback + "use one of mine" picker.
+// ---------------------------------------------------------------------------
+
+interface CouponFieldProps {
+  value: string;
+  onChange: (next: string) => void;
+  onClear: () => void;
+  preview:
+    | { kind: "empty"; discount: number; finalTotal: number }
+    | { kind: "unknown"; discount: number; finalTotal: number }
+    | {
+        kind: "matched";
+        coupon: NonNullable<RedeemedCouponWithDef["coupon"]>;
+        discount: number;
+        finalTotal: number;
+      };
+  myCoupons: RedeemedCouponWithDef[];
+  onPick: (code: string) => void;
+}
+
+function CouponField({
+  value,
+  onChange,
+  onClear,
+  preview,
+  myCoupons,
+  onPick,
+}: CouponFieldProps) {
+  const usable = myCoupons.filter((c) => !c.is_used && c.coupon !== null);
+  const showPicker = usable.length > 0 && value.trim().length === 0;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        htmlFor="coupon"
+        className="font-display text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)]"
+      >
+        Kuponkód (nem kötelező)
+      </label>
+      <div className="relative">
+        <Tag
+          size={14}
+          className={cn(
+            "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2",
+            preview.kind === "matched"
+              ? "text-[var(--accent-gold)]"
+              : "text-[var(--text-muted)]",
+          )}
+          aria-hidden
+        />
+        <input
+          id="coupon"
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="BARCA-XXXX-XXXX"
+          autoComplete="off"
+          autoCapitalize="characters"
+          className={cn(
+            "w-full rounded-md pl-9 pr-9 py-2.5 text-sm tracking-[0.18em] tabular-nums",
+            "border bg-[var(--glass-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+            "transition-colors focus:outline-none",
+            preview.kind === "matched"
+              ? "border-[var(--accent-gold)] focus:border-[var(--accent-gold)]"
+              : preview.kind === "unknown"
+                ? "border-[var(--accent-red)]/60 focus:border-[var(--accent-red)]"
+                : "border-[var(--glass-border)] focus:border-[var(--accent-gold)]",
+          )}
+        />
+        {value.length > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label="Kuponkód törlése"
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2",
+              "rounded-full p-1 text-[var(--text-muted)]",
+              "transition-colors hover:bg-[var(--glass-bg-hover)] hover:text-[var(--text-primary)]",
+            )}
+          >
+            <XIcon size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Inline status */}
+      {preview.kind === "matched" && (
+        <p className="flex items-center gap-1.5 text-xs text-[var(--accent-gold)]">
+          <Check size={12} strokeWidth={2.4} aria-hidden />
+          {preview.coupon.name} —{" "}
+          {formatDiscount(
+            preview.coupon.discount_type,
+            preview.coupon.discount_value,
+          )}{" "}
+          kedvezmény alkalmazva
+        </p>
+      )}
+      {preview.kind === "unknown" && value.trim().length >= 4 && (
+        <p className="text-xs text-[var(--accent-red)]">
+          Ezt a kuponkódot nem találjuk a fiókodban. Ellenőrizd a kódot, vagy
+          válts be új kupont a{" "}
+          <Link
+            href="/pont-aruhaz"
+            className="underline underline-offset-2 hover:text-[var(--text-primary)]"
+          >
+            pont-áruházban
+          </Link>
+          .
+        </p>
+      )}
+
+      {/* "Use one of yours" picker */}
+      {showPicker && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            Saját kuponjaid:
+          </span>
+          {usable.slice(0, 3).map((rc) => (
+            <button
+              key={rc.id}
+              type="button"
+              onClick={() => onPick(rc.code)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[11px] font-display",
+                "tracking-[0.16em] tabular-nums",
+                "border-[var(--accent-gold)]/35 bg-[var(--accent-gold-subtle)]/40",
+                "text-[var(--text-primary)] transition-colors",
+                "hover:border-[var(--accent-gold)] hover:bg-[var(--accent-gold-subtle)]",
+              )}
+            >
+              {rc.code}
+            </button>
+          ))}
+          {usable.length > 3 && (
+            <Link
+              href="/kuponjaim"
+              className="text-[11px] text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
+            >
+              +{usable.length - 3} további
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }

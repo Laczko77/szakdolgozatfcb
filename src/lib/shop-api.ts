@@ -206,17 +206,24 @@ export async function removeWishlistItem(id: string): Promise<void> {
 
 export interface CheckoutPayload {
   shipping_address: ShippingAddress;
+  coupon_code?: string | null;
+}
+
+export interface CreateOrderResponse {
+  order: Order;
+  coupon: { code: string; discount: number } | null;
+  warning?: string;
 }
 
 export async function createOrder(
   payload: CheckoutPayload,
-): Promise<{ order: Order; warning?: string }> {
+): Promise<CreateOrderResponse> {
   const res = await fetch(`/api/orders`, {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify(payload),
   });
-  return parseJson<{ order: Order; warning?: string }>(res);
+  return parseJson<CreateOrderResponse>(res);
 }
 
 export async function fetchOrders(): Promise<OrdersListResponse> {
