@@ -165,7 +165,7 @@ export function PostCard({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
           )}
         >
-          <span className="block aspect-[16/10] w-full bg-[var(--bg-secondary)]">
+          <span className="relative block aspect-[16/10] w-full bg-[var(--bg-secondary)]">
             <Image
               src={post.image_url}
               alt=""

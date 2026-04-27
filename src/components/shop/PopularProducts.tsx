@@ -88,18 +88,17 @@ export function PopularProducts() {
       </header>
 
       {isLoading ? (
-        <ul
+        <div
           className={cn(
             "grid gap-5 sm:gap-6",
             "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
           )}
+          aria-hidden="true"
         >
           {Array.from({ length: VISIBLE_COUNT }).map((_, i) => (
-            <li key={i}>
-              <ProductCardSkeleton />
-            </li>
+            <ProductCardSkeleton key={i} />
           ))}
-        </ul>
+        </div>
       ) : (
         items && (
           <ProductGrid

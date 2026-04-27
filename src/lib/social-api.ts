@@ -174,7 +174,9 @@ export async function upsertReaction(
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
-  return (await response.json()) as Reaction;
+  // successResponse wraps the row in { data: Reaction }
+  const body = (await response.json()) as { data: Reaction };
+  return body.data;
 }
 
 export async function deleteReaction(reactionId: string): Promise<void> {

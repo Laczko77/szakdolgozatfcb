@@ -109,7 +109,10 @@
    ============================================================================ */
 
 @layer components {
-  /* --- Subtle glass card (lists, content blocks) --- */
+  /* --- Subtle glass card (lists, content blocks) ---
+     Uses `will-change: transform` so the browser keeps the card on its own
+     compositor layer — important on mobile, where dozens of these may be
+     in the viewport at once on shop/news/player listings. */
   .glass-card {
     background: var(--glass-bg);
     backdrop-filter: blur(12px) saturate(140%);
@@ -119,6 +122,7 @@
       var(--shadow-md),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-lg);
+    will-change: transform;
     transition:
       background-color 300ms ease,
       border-color 300ms ease,
@@ -146,6 +150,46 @@
       var(--shadow-lg),
       inset 0 1px 0 rgba(255, 255, 255, 0.15);
     border-radius: var(--radius-lg);
+  }
+
+  /* --- @supports fallbacks ---
+     Browsers that lack `backdrop-filter` (older Firefox without the flag,
+     some embedded WebKit views) get a solid surface that reads similarly
+     against bg-primary, instead of an almost-invisible see-through panel.
+     The same fallback covers reduced-transparency users on Safari (the
+     prefers-reduced-transparency feature query is fragile across browsers,
+     so the @supports is the load-bearing guard).
+
+     bg-secondary is darker than bg-primary in dark mode and lighter than
+     it in light mode, which mirrors the visual intent of the glass tint.
+  */
+  @supports not ((backdrop-filter: blur(1px)) or
+    (-webkit-backdrop-filter: blur(1px))) {
+    .glass-card,
+    .glass-card-strong,
+    .glass-nav,
+    .glass-button-primary,
+    .glass-button-secondary {
+      background: var(--bg-secondary);
+    }
+  }
+
+  /* --- Mobile performance dial-down ---
+     On phones (<= 640px) we halve the blur radius and drop saturation back
+     to 100%. Big lists (shop / hírek / játékosok grids) can hold 6+ glass
+     cards in a single viewport and the 12-50px blur was the dominant cost
+     in mobile paint timings. The card still reads as glass — the border
+     and inset highlight do most of the lifting visually — but the GPU
+     work is roughly a quarter. */
+  @media (max-width: 640px) {
+    .glass-card {
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
+    }
+    .glass-card-strong {
+      backdrop-filter: blur(20px) saturate(130%);
+      -webkit-backdrop-filter: blur(20px) saturate(130%);
+    }
   }
 
   /* --- Pill buttons --- */

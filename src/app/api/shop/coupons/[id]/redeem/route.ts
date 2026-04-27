@@ -33,7 +33,15 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   if (!id) return errorResponse('Hiányzó kupon azonosító', 400)
 
-  const result = await redeemCoupon(user.id, id)
+  let result: Awaited<ReturnType<typeof redeemCoupon>>
+  try {
+    result = await redeemCoupon(user.id, id)
+  } catch (err) {
+    return errorResponse(
+      `Kupon beváltása sikertelen: ${err instanceof Error ? err.message : 'ismeretlen hiba'}`,
+      500
+    )
+  }
 
   if (result instanceof Error) {
     const code = (result as Error & { code?: string }).code

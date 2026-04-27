@@ -189,14 +189,14 @@ export async function POST(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 /**
- * Default to the current UEFA season. Their seasons run autumn → spring, so
- * "season=2024" covers Aug-2024 → May-2025. Cutoff at July 1st.
+ * Default season for API-Football player queries.
+ *
+ * The free API plan only provides access to seasons 2022–2024. Hard-coded to
+ * 2024 (the last available season) so sync works on the free tier. Update when
+ * the plan is upgraded or API-Football expands free access.
  */
 function defaultSeason(): number {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = now.getUTCMonth() + 1 // 1-12
-  return month >= 7 ? year : year - 1
+  return 2024
 }
 
 /**

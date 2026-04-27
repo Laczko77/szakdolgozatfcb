@@ -99,7 +99,7 @@ export default function AdminPollsPage() {
       ]);
       if (signal?.aborted) return;
       setPolls(pollsBody.polls ?? []);
-      setMatches(matchesData);
+      setMatches(matchesData ?? []);
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : "Ismeretlen hiba");
@@ -523,7 +523,7 @@ function PollFormDialog({
                 onChange={(e) => setMatchId(e.target.value)}
               >
                 <option value={NO_MATCH_VALUE}>Nincs meccs</option>
-                {matches.map((m) => (
+                {(matches ?? []).map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.home_team} – {m.away_team} (
                     {dateFormatter.format(new Date(m.date))})

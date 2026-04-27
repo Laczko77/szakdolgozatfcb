@@ -43,7 +43,7 @@ import {
   AdminTableEmpty,
   AdminTableSkeleton,
 } from "@/components/admin/AdminTable";
-import { adminFetch, AdminApiError } from "@/lib/admin-fetch";
+import { adminFetch, adminFetchRaw, AdminApiError } from "@/lib/admin-fetch";
 import type { Match, MatchSector } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -90,12 +90,12 @@ export default function AdminMatchesPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminFetch<Match[]>(
+      const data = await adminFetchRaw<{ matches: Match[] }>(
         "/api/matches?scope=all&limit=100",
         { signal, cache: "no-store" },
       );
       if (signal?.aborted) return;
-      setMatches(data);
+      setMatches(data.matches ?? []);
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : "Ismeretlen hiba");
@@ -136,7 +136,7 @@ export default function AdminMatchesPage() {
 
   const sortedMatches = useMemo(
     () =>
-      [...matches].sort(
+      [...(matches ?? [])].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
       ),
     [matches],

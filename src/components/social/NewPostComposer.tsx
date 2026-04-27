@@ -115,7 +115,7 @@ export function NewPostComposer({ onPosted }: NewPostComposerProps) {
 
       {preview && (
         <div className="relative overflow-hidden rounded-xl border border-[var(--glass-border)]">
-          <span className="block aspect-[16/10] w-full">
+          <span className="relative block aspect-[16/10] w-full">
             <Image
               src={preview}
               alt="Előnézet"

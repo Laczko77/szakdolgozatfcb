@@ -270,14 +270,20 @@ export async function fetchBarcaFixtures(opts: {
   next?: number
   season?: number
 }): Promise<FixtureApiResponse[]> {
+  // The free API plan only provides access to seasons 2022–2024.
+  // Hard-coded default: 2024 (last available season on the free tier).
+  const DEFAULT_SEASON = 2024
+
   const params: Record<string, string | number> = { team: FCB_TEAM_ID }
-  if (typeof opts.next === 'number' && opts.next > 0) {
-    params.next = opts.next
-  } else if (typeof opts.season === 'number') {
+  if (typeof opts.season === 'number') {
     params.season = opts.season
   } else {
-    // Default: next 10 upcoming fixtures.
-    params.next = 10
+    // Default: fetch the full season schedule for the last available free-tier
+    // season (2024–25). Date-range filters are intentionally omitted — combining
+    // `season=2024` with `from`/`to` set to a date after the season ended
+    // returns 0 results. Without date filters the API returns every fixture for
+    // the season (past + future), which is what the sync job needs.
+    params.season = DEFAULT_SEASON
   }
 
   const data = await apiFetch<FixtureApiResponse>('/fixtures', params)

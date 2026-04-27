@@ -45,7 +45,7 @@ import {
   AdminTableEmpty,
   AdminTableSkeleton,
 } from "@/components/admin/AdminTable";
-import { adminFetch, AdminApiError } from "@/lib/admin-fetch";
+import { adminFetch, adminFetchRaw, AdminApiError } from "@/lib/admin-fetch";
 import type { Player } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -64,12 +64,12 @@ export default function AdminPlayersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminFetch<Player[]>("/api/players", {
+      const res = await adminFetchRaw<{ players: Player[] }>("/api/players", {
         signal,
         cache: "no-store",
       });
       if (signal?.aborted) return;
-      setPlayers(data);
+      setPlayers(res?.players ?? []);
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : "Ismeretlen hiba");
@@ -110,7 +110,7 @@ export default function AdminPlayersPage() {
 
   const sortedPlayers = useMemo(
     () =>
-      [...players].sort((a, b) => {
+      [...(players ?? [])].sort((a, b) => {
         const posCmp = (a.position ?? "").localeCompare(b.position ?? "");
         if (posCmp !== 0) return posCmp;
         return (a.number ?? 999) - (b.number ?? 999);
