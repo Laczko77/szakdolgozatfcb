@@ -13,4 +13,6 @@
 - [Polls/Points primitives (F12)](project_polls_components.md) — PollCard (3-state machine), PollResultBar, PointsEarnedBadge, ActivePollWidget, PointsTransactionList; /szavazasok + /pontjaim routes
 - [Coupons primitives (F13)](project_coupons_components.md) — CouponCard (ticket cut-outs), RedeemConfirmModal, CouponCodeReveal, RedeemedCouponCard; /pont-aruhaz + /kuponjaim; previewDiscount mirrors lib/coupons.ts
 - [Consent + tracking primitives (F14)](project_consent_components.md) — ConsentProvider, CookieBanner, usePageTracking, PopularProducts, RecommendedProductsWidget; analytics-api.ts + consent.ts
+- [Players primitives (F7)](project_players_components.md) — PositionPills, PlayerCard (CSS flip), PositionSection, PlayerStatRadar/Grid; /jatekosok + /jatekosok/[id]; players-api.ts + player-positions.ts
+- [Tickets primitives (F9)](project_tickets_components.md) — MatchCard/StadiumMap/SectorListAlt/TicketSelectionPanel/PurchaseSuccess/MyTicketCard; /jegyek + /jegyek/[id] + /jegyeim; tickets-api.ts
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask

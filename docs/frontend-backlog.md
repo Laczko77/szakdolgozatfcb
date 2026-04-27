@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 65 |
-| Remaining tasks | 21 |
-| Completion | 76% |
+| Completed tasks | 75 |
+| Remaining tasks | 11 |
+| Completion | 87% |
 
 ---
 
@@ -354,7 +354,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F7 — Játékos Adatbázis UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A játékos böngésző felülete: csapatkeretlista pozíció szerinti csoportosítással, játékos kártyák flip animációval desktopra, és részletes játékos profil oldal statisztika vizualizációkkal.
 
@@ -362,22 +362,22 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F7.1 Játékos lista oldal (`src/app/jatekosok/page.tsx`):
+- [x] F7.1 Játékos lista oldal (`src/app/jatekosok/page.tsx`):
   - Pozíció szerinti csoportosítás (szekciók): Kapusok, Védők, Középpályások, Támadók
   - Szekció fejlécek a pozíció nevével
   - Grid elrendezés szekción belül: desktop 4 oszlop, tablet 3, mobil 2
-- [ ] F7.2 Játékos kártya komponens (`src/components/players/PlayerCard.tsx`):
+- [x] F7.2 Játékos kártya komponens (`src/components/players/PlayerCard.tsx`):
   - **Elülső oldal:** játékos képe, neve, mezszáma (nagy számmal), pozíció badge
   - **Hátulsó oldal (csak desktop, `@media (hover: hover)`):** 3-4 fő statisztika (gólok, gólpasszok, meccsek, sárga lapok) + "Profil megtekintése" gomb
   - **Desktop hover:** kártya flip animáció (CSS `transform: rotateY(180deg)` + `backface-visibility: hidden`, transition 0.6s)
   - **Mobil:** nincs flip, a kártya mindig az elülső oldalt mutatja + alul 2-3 fő stat szám, tap → profil oldal
-- [ ] F7.3 Pozíció szűrő: pill gombok a lista felett (Mind, Kapus, Védő, Középpályás, Támadó) — hasonló a hír kategória szűrőhöz
-- [ ] F7.4 Játékos profil oldal (`src/app/jatekosok/[id]/page.tsx`):
+- [x] F7.3 Pozíció szűrő: pill gombok a lista felett (Mind, Kapus, Védő, Középpályás, Támadó) — hasonló a hír kategória szűrőhöz
+- [x] F7.4 Játékos profil oldal (`src/app/jatekosok/[id]/page.tsx`):
   - Hero szekció: játékos képe (bal), név + mezszám + pozíció (jobb), glass kártya háttér
   - Statisztikák vizuális megjelenítéssel: progress bar-ok vagy Recharts sugárdiagram (radar chart) a teljesítményhez (gólok, gólpasszok, meccsek, sárga/piros lapok)
   - Bio szekció: az admin által írt szöveges leírás
   - "Vissza a kerethez" navigáció
-- [ ] F7.5 Landing page carousel bekötése: az F3.3-ban hardkódolt adatok lecserélése élő API adatokra (top 3-4 játékos automatikus kiválasztása)
+- [x] F7.5 Landing page carousel bekötése: az F3.3-ban hardkódolt adatok lecserélése élő API adatokra (top 3-4 játékos automatikus kiválasztása)
 
 **Acceptance Criteria:**
 
@@ -447,7 +447,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F9 — Jegyrendszer UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A jegyvásárlási felület: meccsek listája, SVG stadion szektor térkép, jegyválasztó és demo vásárlás.
 
@@ -455,23 +455,23 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F9.1 Meccsek listaoldal (`src/app/jegyek/page.tsx`):
+- [x] F9.1 Meccsek listaoldal (`src/app/jegyek/page.tsx`):
   - Időrendi lista kártyákban: két csapat neve/logója, dátum, helyszín
   - Státusz badge-ek: "Jegyvásárlás elérhető" (zöld), "Hamarosan" (sárga), "Lejátszott" (szürke)
   - Kattintás → meccs részletek / jegyvásárlás oldal
-- [ ] F9.2 SVG stadion szektor térkép (`src/components/tickets/StadiumMap.tsx`):
+- [x] F9.2 SVG stadion szektor térkép (`src/components/tickets/StadiumMap.tsx`):
   - Sematikus stadion forma SVG-ben: ovális/téglalap alakú stadion körvonal, 6-8 szektor blokk elrendezve a stadion formán
   - Minden szektor kattintható, a szektorra hover-nél tooltip a nevével, szabad helyek számával és jegyárral
   - Színkódolás: elérhető szektor → akcentszín, betelt szektor → szürke/inaktív, kiválasztott szektor → arany kiemelés
   - Mobilon a térkép zoom-olható/görgethető legyen (vagy alatta lista alternatívaként)
-- [ ] F9.3 Jegyválasztó panel (a térkép mellett vagy alatt):
+- [x] F9.3 Jegyválasztó panel (a térkép mellett vagy alatt):
   - Kiválasztott szektor neve, szabad helyek száma, és jegyár/db
   - Mennyiség választó (1-4, max limit jelezve)
   - Ár összesítő (jegyár × mennyiség)
   - "Jegyvásárlás (demo)" CTA gomb
   - Opcionális kuponkód mező
-- [ ] F9.4 Sikeres vásárlás megerősítés: a megvásárolt jegyek részletei (szektor, székszámok, dátum), "jegy-kártya" megjelenítés vizuálisan (mint egy digitális jegy)
-- [ ] F9.5 Mobil alternatíva: ha a stadion SVG mobilon túl kicsi, alatta egy lista/grid a szektorokkal (kártyák: szektor neve, szabad/összes hely, állapot pill), a térkép opcionális
+- [x] F9.4 Sikeres vásárlás megerősítés: a megvásárolt jegyek részletei (szektor, székszámok, dátum), "jegy-kártya" megjelenítés vizuálisan (mint egy digitális jegy)
+- [x] F9.5 Mobil alternatíva: ha a stadion SVG mobilon túl kicsi, alatta egy lista/grid a szektorokkal (kártyák: szektor neve, szabad/összes hely, állapot pill), a térkép opcionális
 
 **Acceptance Criteria:**
 
