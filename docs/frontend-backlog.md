@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 86 |
-| Completed tasks | 58 |
-| Remaining tasks | 28 |
-| Completion | 67% |
+| Completed tasks | 62 |
+| Remaining tasks | 24 |
+| Completion | 72% |
 
 ---
 
@@ -616,7 +616,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F13 — Pont-Áruház & Kuponrendszer UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A pont-áruház felülete: elérhető kuponok böngészése, beváltás, és a kuponkód felhasználása a checkout-ban.
 
@@ -624,17 +624,17 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F13.1 Pont-áruház oldal (`src/app/pont-aruhaz/page.tsx`):
+- [x] F13.1 Pont-áruház oldal (`src/app/pont-aruhaz/page.tsx`):
   - Felül: user aktuális pontegyenlege kiemelten
   - Kuponok grid-ben (glass kártyák): kupon neve, leírás, kedvezmény típus ikon (% / fix / szállítás), pont-ár, "Beváltás" gomb
   - Ha nincs elég pont: a gomb inaktív, tooltip-ben "Még X pont szükséges"
-- [ ] F13.2 Beváltás flow:
+- [x] F13.2 Beváltás flow:
   - Megerősítő modal: "Biztosan beváltod? X pont levonásra kerül."
   - Sikeres beváltás: a generált kuponkód megjelenik (másolható), + navigáció a profil kuponok tabra
-- [ ] F13.3 Profil "Kuponjaim" tab frissítése:
+- [x] F13.3 Profil "Kuponjaim" tab frissítése:
   - Beváltott kuponok listája: kupon neve, kuponkód (másolható), kedvezmény, státusz (aktív / felhasznált)
   - Aktív kuponok kiemelve, felhasználtak halványabban
-- [ ] F13.4 Checkout kuponintegráció frissítése: a webshop és jegy checkout kuponkód mezőjében beírt kód validálása, kedvezmény megjelenítése az összegzőben
+- [x] F13.4 Checkout kuponintegráció frissítése: a webshop és jegy checkout kuponkód mezőjében beírt kód validálása, kedvezmény megjelenítése az összegzőben
 
 **Acceptance Criteria:**
 

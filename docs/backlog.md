@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 68    |
-| Completed tasks     | 49    |
-| Remaining tasks     | 19    |
-| Completion          | 72%   |
+| Completed tasks     | 53    |
+| Remaining tasks     | 15    |
+| Completion          | 78%   |
 
 ---
 
@@ -406,7 +406,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 11 — Cookie Tracking & Admin Analitika
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** Cookie-alapú user tracking megvalósítása GDPR consent kezeléssel, oldal- és terméknézettség rögzítése, és admin analitika endpoint-ok az adatvezérelt döntésekhez.
 
@@ -414,16 +414,16 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 11.1 Cookie consent endpoint-ok:
+- [x] 11.1 Cookie consent endpoint-ok:
   - `POST /api/consent` — GDPR beleegyezés rögzítése (cookie_id generálás, consented: true/false)
   - A cookie_id egy UUID amit a böngészőben tárolunk, és minden tracking requesthez csatolunk
-- [ ] 11.2 Page view tracking endpoint:
+- [x] 11.2 Page view tracking endpoint:
   - `POST /api/tracking/pageview` — oldalnézettség rögzítése (page_path, opcionális product_id, cookie_id). Csak akkor rögzít, ha a cookie_id-hoz tartozó consent = true
-- [ ] 11.3 Admin analitika endpoint-ok (`src/app/api/admin/analytics/`):
+- [x] 11.3 Admin analitika endpoint-ok (`src/app/api/admin/analytics/`):
   - `GET /api/admin/analytics/pages` — legnézettebb oldalak (top 20, időszak szűréssel)
   - `GET /api/admin/analytics/products` — legnézettebb termékek (top 20)
   - `GET /api/admin/analytics/overview` — összesített statisztikák (összes user, összes rendelés, összes bevétel, aktív szavazások)
-- [ ] 11.4 Termékajánlás endpoint:
+- [x] 11.4 Termékajánlás endpoint:
   - `GET /api/products/recommended` — a legnézettebb / legjobban értékelt termékek visszaadása, amit az admin kiemelt ajánlásként tud használni
 
 **Acceptance Criteria:**
