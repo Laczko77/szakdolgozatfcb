@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 102 |
-| Completed tasks | 81 |
-| Remaining tasks | 21 |
-| Completion | 79% |
+| Completed tasks | 92 |
+| Remaining tasks | 10 |
+| Completion | 90% |
 
 ---
 
@@ -684,7 +684,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F15 — Admin Panel Frontend
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A teljes admin felület megvalósítása: sidebar navigáció, CRUD felületek minden modulhoz, analitika dashboard.
 
@@ -692,50 +692,50 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F15.1 Admin layout (`src/app/admin/layout.tsx`):
+- [x] F15.1 Admin layout (`src/app/admin/layout.tsx`):
   - Bal oldali sidebar: navigáció az admin szekciókhoz (Cikkek, Termékek, Rendelések, Meccsek, Játékosok, Posztok, Szavazások, Kuponok, Analitika)
   - Ikonok minden menüpontnál (Lucide icons)
   - Mobil: a sidebar hamburger menüként nyílik
   - Tartalom terület: középen, max szélességgel
   - shadcn/ui komponensek: Table, Form, Dialog, Select, Badge, stb.
   - NEM liquid glass — tiszta, funkcionális admin design a dark/light témával
-- [ ] F15.2 Cikkek kezelése (`src/app/admin/cikkek/page.tsx`):
+- [x] F15.2 Cikkek kezelése (`src/app/admin/cikkek/page.tsx`):
   - Lista: táblázat (cím, kategória, dátum, műveletek)
   - Létrehozás/szerkesztés: form (cím, tartalom Tiptap rich text editorral, kategória select, kép feltöltés drag & drop)
   - Törlés: megerősítő modal
-- [ ] F15.3 Termékek kezelése (`src/app/admin/termekek/page.tsx`):
+- [x] F15.3 Termékek kezelése (`src/app/admin/termekek/page.tsx`):
   - Lista: táblázat (név, kategória, ár, összkészlet, műveletek)
   - Létrehozás/szerkesztés: form (név, leírás, ár, kategória, kép feltöltés, variánsok: dinamikus méret/szín/készlet sorok hozzáadása)
   - Készlet gyors módosítás inline
-- [ ] F15.4 Rendelések kezelése (`src/app/admin/rendelesek/page.tsx`):
+- [x] F15.4 Rendelések kezelése (`src/app/admin/rendelesek/page.tsx`):
   - Lista: táblázat (rendelés ID, user, összeg, státusz badge, dátum)
   - Státusz szűrő (feldolgozás / feladva / kézbesítve / lemondva)
   - Státusz léptetés gombok: "Feladva" → "Kézbesítve" (megerősítéssel)
   - Rendelés részletei: tételek listája, szállítási cím
-- [ ] F15.5 Meccsek & szektorok kezelése (`src/app/admin/meccsek/page.tsx`):
+- [x] F15.5 Meccsek & szektorok kezelése (`src/app/admin/meccsek/page.tsx`):
   - "Meccsek szinkronizálása" gomb (API-Football-ból)
   - Meccslista: táblázat (csapatok, dátum, státusz)
   - Szektor kezelés: meccsre kattintva szektorok hozzáadása/szerkesztése (szektor név, összes hely, eladott helyek)
-- [ ] F15.6 Játékosok kezelése (`src/app/admin/jatekosok/page.tsx`):
+- [x] F15.6 Játékosok kezelése (`src/app/admin/jatekosok/page.tsx`):
   - "Játékosok szinkronizálása" gomb (API-Football-ból)
   - Játékos lista: táblázat (név, pozíció, mezszám)
   - Szerkesztés: bio mező (textarea), egyedi adatok, kép módosítás
-- [ ] F15.7 Posztok & kommentek moderálás (`src/app/admin/posztok/page.tsx`):
+- [x] F15.7 Posztok & kommentek moderálás (`src/app/admin/posztok/page.tsx`):
   - Poszt létrehozás: szöveg + kép feltöltés
   - Poszt lista: szerkesztés/törlés
   - Komment moderálás: az egyes posztokhoz tartozó kommentek listája, törlés gomb
-- [ ] F15.8 Szavazások kezelése (`src/app/admin/szavazasok/page.tsx`):
+- [x] F15.8 Szavazások kezelése (`src/app/admin/szavazasok/page.tsx`):
   - Szavazás létrehozás: kérdés + opciók dinamikusan hozzáadhatók + opcionális meccs kiválasztása
   - Lista: aktív/lezárt szűrő
   - Lezárás: helyes válasz kiválasztása → megerősítő modal → pontszétosztás automatikusan
-- [ ] F15.9 Kuponok kezelése (`src/app/admin/kuponok/page.tsx`):
+- [x] F15.9 Kuponok kezelése (`src/app/admin/kuponok/page.tsx`):
   - Lista: táblázat (név, típus, pontár, beváltások száma, státusz)
   - Létrehozás: form (név, leírás, kedvezmény típus, érték, pontár)
   - Aktiválás/deaktiválás toggle
-- [ ] F15.10 Értékelések moderálása (`src/app/admin/ertekelesek/page.tsx`):
+- [x] F15.10 Értékelések moderálása (`src/app/admin/ertekelesek/page.tsx`):
   - Lista: összes értékelés (termék, user, csillagok, szöveg, látható/rejtett)
   - Elrejtés/megjelenítés toggle gomb
-- [ ] F15.11 Analitika dashboard (`src/app/admin/analitika/page.tsx`):
+- [x] F15.11 Analitika dashboard (`src/app/admin/analitika/page.tsx`):
   - Összesítő kártyák felül: összes user, összes rendelés, összes bevétel, aktív szavazások
   - Recharts grafikonok: legnézettebb oldalak (bar chart, top 20), legnézettebb termékek (bar chart, top 20)
   - Időszak szűrő (utolsó 7 nap / 30 nap / összes)

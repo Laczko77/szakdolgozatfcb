@@ -16,4 +16,5 @@
 - [Players primitives (F7)](project_players_components.md) — PositionPills, PlayerCard (CSS flip), PositionSection, PlayerStatRadar/Grid; /jatekosok + /jatekosok/[id]; players-api.ts + player-positions.ts
 - [Tickets primitives (F9)](project_tickets_components.md) — MatchCard/StadiumMap/SectorListAlt/TicketSelectionPanel/PurchaseSuccess/MyTicketCard; /jegyek + /jegyek/[id] + /jegyeim; tickets-api.ts
 - [Profile + Search primitives (F10)](project_profile_components.md) — ProfileHero/Tabs/Orders/Tickets/Coupons/Points/SettingsTab + CommandPalette + SearchProvider; /profil?tab= shell with Ctrl+K palette
+- [Admin panel architecture (F15)](project_admin_panel.md) — hand-rolled admin/* primitives, Tiptap editor, public chrome opt-out via pathname guards; shadcn/ui NOT wired
 - [Avoid synchronous setState in effects](feedback_setstate_in_effect.md) — React 19 + eslint-config-next blocks it; wrap in async IIFE or queueMicrotask
