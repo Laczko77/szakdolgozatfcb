@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Cookie, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useConsent } from "@/providers/ConsentProvider";
@@ -23,10 +24,15 @@ import { cn } from "@/lib/utils";
  * pending — declining is the legally safe default until they pick.
  */
 export function CookieBanner() {
+  const pathname = usePathname();
   const { hydrated, record, isSubmitting, accept, decline } = useConsent();
 
+  // Admin routes are an authenticated, non-public surface — the GDPR
+  // banner does not belong there.
+  const onAdmin = pathname.startsWith("/admin");
+
   // Visible only when we know there is no prior decision.
-  const visible = hydrated && record === null;
+  const visible = !onAdmin && hydrated && record === null;
 
   return (
     <AnimatePresence>

@@ -19,6 +19,9 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const reduced = useReducedMotion();
 
+  // Admin panel uses its own mobile nav — suppress the public bottom tab bar.
+  if (pathname.startsWith("/admin")) return null;
+
   return (
     <nav
       aria-label="Mobil navigáció"

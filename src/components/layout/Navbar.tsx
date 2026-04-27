@@ -37,6 +37,10 @@ export function Navbar() {
   const { user } = useAuth();
   const { open: openSearch } = useSearchPalette();
 
+  // Admin panel ships its own chrome (sidebar + topbar). Suppress the
+  // public floating navbar entirely on /admin/* routes.
+  if (pathname.startsWith("/admin")) return null;
+
   const scrolled = scrollY > SCROLL_MATERIALIZE_THRESHOLD;
 
   return (

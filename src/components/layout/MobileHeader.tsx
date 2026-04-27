@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { useSearchPalette } from "@/providers/SearchProvider";
 import { CartIconButton } from "@/components/shop/CartIconButton";
@@ -14,7 +15,10 @@ import { ThemeToggle } from "./ThemeToggle";
  * in the bottom tab bar; this header is intentionally lean.
  */
 export function MobileHeader() {
+  const pathname = usePathname();
   const { open: openSearch } = useSearchPalette();
+  // Admin panel uses its own mobile chrome — suppress the public mobile header.
+  if (pathname.startsWith("/admin")) return null;
   return (
     <header
       className={[

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /**
  * Site footer.
@@ -75,7 +76,11 @@ const SOCIALS: ReadonlyArray<SocialLink> = [
 ];
 
 export function Footer() {
+  const pathname = usePathname();
   const year = new Date().getFullYear();
+
+  // Admin panel ships its own chrome — no public footer there.
+  if (pathname.startsWith("/admin")) return null;
 
   return (
     <footer
