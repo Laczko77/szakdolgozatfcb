@@ -5,11 +5,13 @@ type: project
 ---
 
 Backend completed iterations: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 — ALL DONE (68/68 tasks, 100%)
-Frontend completed iterations: F1, F2, F3, F4, F5, F6, F7, F8, F9, F11, F12, F13, F14 (75/86 tasks, 87%)
+Frontend completed iterations: F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14 (81/102 tasks, 79%)
 
 Backend remaining: NONE — backend backlog 100% complete.
-Frontend remaining: F10, F15, F16 (11 tasks).
+Frontend remaining: F15, F16 (21 tasks).
 
 **Why:** Track which iterations are done so next-iteration selection is accurate.
 
-**How to apply:** Backend backlog is FULLY COMPLETE — no more backend iterations to select. All remaining work is frontend-only. Remaining frontend iterations: F10 (Profil + Command Palette kereső, 6 task, Backend 7 DONE), F15 (Admin Panel, 11 task, Backend 3-12 DONE), F16 (Responsive Polish & End-to-End teszt, 10 task — depends on F1-F15). F10 és F15 párhuzamosan futtathatók (függetlenek egymástól, mindkét backend dependency teljesítve). F16 csak utolsóként, F1-F15 lezárása után.
+**How to apply:** Backend backlog is FULLY COMPLETE — no more backend iterations to select. All remaining work is frontend-only. Remaining frontend iterations: F15 (Admin Panel, 11 task, Backend 3-12 DONE), F16 (Responsive Polish & End-to-End teszt, 10 task — depends on F1-F15). F15 indítható következőként (összes backend dependency teljesítve). F16 csak utolsóként, F1-F15 lezárása után.
+
+Note on previous backlog totals: the frontend-backlog.md previously reported Total=86 which was incorrect — actual sum across all 16 iterations is 102 top-level tasks. Corrected on 2026-04-27 along with F10 completion.

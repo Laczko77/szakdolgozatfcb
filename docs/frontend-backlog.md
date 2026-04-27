@@ -59,10 +59,10 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 86 |
-| Completed tasks | 75 |
-| Remaining tasks | 11 |
-| Completion | 87% |
+| Total tasks | 102 |
+| Completed tasks | 81 |
+| Remaining tasks | 21 |
+| Completion | 79% |
 
 ---
 
@@ -488,7 +488,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F10 — Profil Oldal & Globális Kereső UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A felhasználói profiloldal (adatkezelés, vásárlási előzmények, pont-történet) és a command palette stílusú globális kereső megvalósítása.
 
@@ -496,25 +496,25 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F10.1 Profil oldal layout (`src/app/profil/page.tsx`):
+- [x] F10.1 Profil oldal layout (`src/app/profil/page.tsx`):
   - Felső szekció: profilkép (körkivágás, kattintásra módosítható — file input + crop preview), becenév (inline szerkeszthető), pontegyenleg nagy számmal
   - Alatta tab navigáció: "Rendeléseim", "Jegyeim", "Kuponjaim", "Pontjaim", "Beállítások"
   - Desktop: horizontális tabok
   - Mobil: horizontálisan görgethető pill gombok
-- [ ] F10.2 "Rendeléseim" tab:
+- [x] F10.2 "Rendeléseim" tab:
   - Rendelések timeline/lista: dátum, tételek összegzése, összeg, státusz badge (feldolgozás → feladva → kézbesítve, színkódolt)
   - Lemondás gomb ahol elérhető (megerősítő modal-lal)
-- [ ] F10.3 "Jegyeim" tab:
+- [x] F10.3 "Jegyeim" tab:
   - Megvásárolt jegyek kártyái: meccs adatai, szektor, székszám(ok), dátum
   - Közelgő meccs jegyei kiemelve, lejátszott meccsek halványabban
-- [ ] F10.4 "Pontjaim" tab:
+- [x] F10.4 "Pontjaim" tab:
   - Aktuális egyenleg kiemelten
   - Tranzakció-történet lista: dátum, összeg (+50 / -200), ok (szavazás nyeremény / kupon beváltás)
-- [ ] F10.5 "Beállítások" tab:
+- [x] F10.5 "Beállítások" tab:
   - Becenév módosítás form
   - Jelszóváltoztatás form (jelenlegi jelszó, új jelszó, megerősítés)
   - Profilkép feltöltés (drag & drop vagy kattintás)
-- [ ] F10.6 Command palette kereső (`src/components/search/CommandPalette.tsx`):
+- [x] F10.6 Command palette kereső (`src/components/search/CommandPalette.tsx`):
   - Trigger: Ctrl+K (desktop), kereső ikon kattintás (mindkét platform)
   - Megnyitva: teljes képernyő overlay sötét backdrop-pal, középen glass kártya a keresőmezővel
   - Gépelés közben élő eredmények (debounced, 300ms): típus szerint csoportosítva (Hírek, Termékek, Játékosok, Posztok), minden eredmény mini kártya (kép/ikon + cím + típus badge)
