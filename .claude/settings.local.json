@@ -15,7 +15,10 @@
       "Bash(npx eslint *)",
       "Bash(grep -iE '^\\(external-link|share|share-2|send|globe|link|at-sign|hash|message-square|message-circle\\)\\\\.mjs$')",
       "Bash(echo \"exit=$?\")",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(npx --no-install eslint --no-warn-ignored src/lib/consent.ts src/lib/analytics-api.ts src/providers/ConsentProvider.tsx src/components/common/CookieBanner.tsx src/components/common/PageTrackingMount.tsx src/hooks/usePageTracking.ts src/components/shop/PopularProducts.tsx src/components/dashboard/RecommendedProductsWidget.tsx src/app/layout.tsx src/app/shop/page.tsx src/app/dashboard/page.tsx)",
+      "Bash(npx --no-install next build)"
     ]
   }
 }
