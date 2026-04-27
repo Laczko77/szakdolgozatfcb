@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { errorResponse } from '@/lib/api-utils'
+import { consumeToken, getClientKey } from '@/lib/rate-limit'
 import type { Post } from '@/types/database'
 
 /**
@@ -22,6 +23,11 @@ const DEFAULT_PAGE = 1
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 100
 
+// Polling target: client polls every 3 s. Bucket of 30 with 1 token per second
+// gives ~10× headroom for normal use while shutting down a runaway loop.
+// The bucket is per-instance (see src/lib/rate-limit.ts).
+const POLL_RATE_LIMIT = { capacity: 30, refillPerSecond: 1 }
+
 type EnrichedPost = Post & {
   reactions: Record<string, number>
   reactionTotal: number
@@ -30,6 +36,23 @@ type EnrichedPost = Post & {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
+
+  // Throttle the polling endpoint per caller. We don't have the user id at
+  // this point (the route is public) so we key on IP. Authenticated callers
+  // could be keyed by user id but the common abuser case is anon scrapers.
+  const limitResult = consumeToken(
+    `posts:${getClientKey(request, null)}`,
+    POLL_RATE_LIMIT
+  )
+  if (!limitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Túl sok kérés, próbáld újra később' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limitResult.retryAfter) },
+      }
+    )
+  }
 
   const page = clampInt(searchParams.get('page'), DEFAULT_PAGE, 1, Number.MAX_SAFE_INTEGER)
   const limit = clampInt(searchParams.get('limit'), DEFAULT_LIMIT, 1, MAX_LIMIT)

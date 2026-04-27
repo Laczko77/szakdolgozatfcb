@@ -345,6 +345,18 @@ export interface Database {
         }
         Returns: Json
       }
+      checkout_order: {
+        Args: {
+          p_user_id: string
+          p_total_price: number
+          p_shipping_address: Json
+        }
+        Returns: Json
+      }
+      audit_rls_coverage: {
+        Args: Record<string, never>
+        Returns: { table_name: string }[]
+      }
     }
     Enums: Record<string, never>
   }

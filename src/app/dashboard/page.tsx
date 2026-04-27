@@ -21,6 +21,7 @@ import { PointsWidget } from "@/components/dashboard/PointsWidget";
 import { OrdersWidget } from "@/components/dashboard/OrdersWidget";
 import { ActivePollWidget } from "@/components/dashboard/ActivePollWidget";
 import { QuickLinks } from "@/components/dashboard/QuickLinks";
+import { RecommendedProductsWidget } from "@/components/dashboard/RecommendedProductsWidget";
 import {
   DashboardHeroSkeleton,
   WidgetSkeleton,
@@ -291,8 +292,12 @@ function DashboardContent() {
           <WidgetSkeleton className="lg:col-span-12" rows={3} />
         )}
 
-        {/* Row 4 — Quick links (full width) */}
-        <QuickLinks index={5} className="lg:col-span-12" />
+        {/* Final row — Quick links + optional recommendations.
+            RecommendedProductsWidget (F14.3) self-hides when fewer than 3
+            ranked products exist, so on a thin dataset the QuickLinks
+            naturally reflow back to full width. */}
+        <QuickLinks index={5} className="lg:col-span-8" />
+        <RecommendedProductsWidget index={6} className="lg:col-span-4" />
       </div>
     </div>
   );

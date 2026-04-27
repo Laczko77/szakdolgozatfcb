@@ -9,6 +9,7 @@ import { useToast } from "@/providers/ToastProvider";
 import { CategoryFilter, type CategoryOption } from "@/components/shop/CategoryFilter";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { ProductGridSkeleton } from "@/components/shop/ProductCardSkeleton";
+import { PopularProducts } from "@/components/shop/PopularProducts";
 import { cn } from "@/lib/utils";
 
 /**
@@ -142,6 +143,10 @@ export default function ShopPage() {
           visz a meccsre. Válogass kedvedre a kollekcióból.
         </p>
       </motion.header>
+
+      {/* Data-driven recommendation rail — F14.3. Self-hides when
+          there is not enough engagement data yet. */}
+      <PopularProducts />
 
       {/* Filters */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -18,17 +18,21 @@ import type {
   OrderItem,
   ProductVariant,
   ShippingAddress,
-  TablesInsert,
 } from '@/types/database'
+
+// SQLSTATE the checkout_order / purchase_tickets RPCs raise for business-rule
+// violations (empty cart, insufficient stock, …). Mapped to HTTP 409.
+const BUSINESS_RULE_SQLSTATE = 'P0001'
 
 /**
  * /api/orders
  *
- * POST — authenticated, demo checkout. Reads the user's cart, validates stock,
- *        creates an order + order_items, decrements stock per variant, then
- *        clears the cart. Best-effort transactional via the service-role
- *        client; on partial failure we attempt to roll back the order row to
- *        avoid orphans.
+ * POST — authenticated, demo checkout. Delegates the cart -> order conversion
+ *        to the `checkout_order` RPC, which atomically locks each variant
+ *        row, validates stock, creates the order + order_items, decrements
+ *        stock, and clears the cart. Coupon application happens AFTER the
+ *        RPC (and is non-fatal): a bad code surfaces as a warning on the
+ *        successful order response rather than rolling the whole thing back.
  *
  * GET  — authenticated, list the caller's orders (newest first).
  */
@@ -59,20 +63,23 @@ export async function POST(request: NextRequest) {
     return errorResponse(couponCode.message, 400)
   }
 
-  // Service-role client: needed to bypass RLS while we run the multi-step
-  // checkout (insert order, decrement variant stock, clear cart). The route
-  // itself is auth-guarded, so the user_id is trustworthy.
+  // Service-role client: the checkout_order RPC is SECURITY DEFINER, but we
+  // also need privileged reads for the post-checkout fetch and the optional
+  // coupon path. The route itself is auth-guarded, so user.id is trustworthy.
   const supabase = createServiceRoleClient()
 
-  // 1. Load cart with variant prices
+  // 1. Snapshot cart subtotal so we can pass total_price to the RPC. The RPC
+  //    re-reads the cart under FOR UPDATE locks, so a stale subtotal here
+  //    would only affect the persisted total — but the same lock ordering
+  //    means the snapshot is what the RPC sees too. Coupon discount is
+  //    applied separately after the order exists.
   const { data: cartRows, error: cartError } = await supabase
     .from('cart_items')
     .select(
       `
-      id, quantity, variant_id,
+      quantity,
       variant:product_variants (
-        id, stock,
-        product:products ( id, price )
+        product:products ( price )
       )
     `
     )
@@ -83,13 +90,9 @@ export async function POST(request: NextRequest) {
   }
 
   type CartRow = {
-    id: string
     quantity: number
-    variant_id: string
     variant: {
-      id: string
-      stock: number
-      product: { id: string; price: number } | null
+      product: { price: number } | null
     } | null
   }
   const cart = (cartRows ?? []) as unknown as CartRow[]
@@ -98,172 +101,101 @@ export async function POST(request: NextRequest) {
     return errorResponse('A kosár üres', 400)
   }
 
-  // 2. Validate stock
-  for (const item of cart) {
-    if (!item.variant || !item.variant.product) {
-      return errorResponse('A kosár hiányos terméket tartalmaz', 409)
-    }
-    if (item.quantity > item.variant.stock) {
-      return errorResponse(
-        `Nincs elegendő készlet (variáns: ${item.variant.id}, elérhető: ${item.variant.stock})`,
-        409
-      )
-    }
-  }
-
-  // 3. Compute subtotal
   const subtotal = cart.reduce((sum, item) => {
     const price = item.variant?.product?.price ?? 0
     return sum + price * item.quantity
   }, 0)
+  const subtotalRounded = Number(subtotal.toFixed(2))
 
-  // 4. Create order with the pre-coupon subtotal — we apply the coupon
-  //    after the order row exists so apply_coupon_to_order() can FK-link
-  //    redeemed_coupons.id into orders.coupon_id atomically.
-  const orderInsert: TablesInsert<'orders'> = {
-    user_id: user.id,
-    total_price: Number(subtotal.toFixed(2)),
-    shipping_address: shippingAddress,
-    coupon_id: null,
+  // 2. Atomic checkout: stock validation, order + order_items insert, stock
+  //    decrement, cart clear — all in one transaction inside the RPC.
+  //    Concurrent checkouts that fight for the last unit are serialised by
+  //    the per-variant FOR UPDATE locks the RPC takes.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    'checkout_order',
+    {
+      p_user_id: user.id,
+      p_total_price: subtotalRounded,
+      p_shipping_address: shippingAddress,
+    } as never
+  )
+
+  if (rpcError) {
+    const code = (rpcError as { code?: string }).code
+    if (code === BUSINESS_RULE_SQLSTATE) {
+      return errorResponse(rpcError.message, 409)
+    }
+    return errorResponse(
+      `Rendelés létrehozása sikertelen: ${rpcError.message}`,
+      500
+    )
   }
 
+  const orderId = (rpcResult as { order_id?: string } | null)?.order_id
+  if (!orderId) {
+    return errorResponse(
+      'Rendelés létrehozása sikertelen: érvénytelen RPC válasz',
+      500
+    )
+  }
+
+  // 3. Apply coupon (optional). The order is already committed; on coupon
+  //    failure we surface a non-fatal warning rather than rolling back, which
+  //    matches the behaviour of /api/tickets/purchase.
+  let finalTotal = subtotalRounded
+  let appliedDiscount = 0
+  let appliedCouponCode: string | null = null
+  let couponWarning: string | null = null
+
+  if (couponCode) {
+    const apply = await applyCouponToOrder(orderId, user.id, couponCode)
+    if (apply instanceof Error) {
+      const code = (apply as Error & { code?: string }).code
+      couponWarning =
+        code === COUPONS_BUSINESS_RULE_SQLSTATE
+          ? apply.message
+          : `Kupon alkalmazása sikertelen: ${apply.message}`
+    } else {
+      const computed = applyDiscount(
+        subtotal,
+        apply.discount_type,
+        apply.discount_value
+      )
+      finalTotal = computed.final
+      appliedDiscount = computed.discount
+      appliedCouponCode = couponCode
+
+      const { error: totalError } = await supabase
+        .from('orders')
+        .update({ total_price: finalTotal } as never)
+        .eq('id', orderId)
+
+      if (totalError) {
+        couponWarning = `Rendelés végösszegének frissítése sikertelen: ${totalError.message}`
+      }
+    }
+  }
+
+  // 4. Re-read the canonical order row so the response matches what's in DB.
   const { data: orderRow, error: orderError } = await supabase
     .from('orders')
-    .insert(orderInsert as never)
     .select('*')
+    .eq('id', orderId)
     .single()
 
   if (orderError || !orderRow) {
     return errorResponse(
-      `Rendelés létrehozása sikertelen: ${orderError?.message ?? 'ismeretlen hiba'}`,
+      `Rendelés lekérése sikertelen: ${orderError?.message ?? 'ismeretlen hiba'}`,
       500
     )
   }
-  const order = orderRow as Order
-
-  // 5. Insert order_items
-  const orderItemInserts: TablesInsert<'order_items'>[] = cart.map((item) => ({
-    order_id: order.id,
-    variant_id: item.variant_id,
-    quantity: item.quantity,
-    unit_price: item.variant?.product?.price ?? 0,
-  }))
-
-  const { error: itemsError } = await supabase
-    .from('order_items')
-    .insert(orderItemInserts as never)
-
-  if (itemsError) {
-    // Roll back the order row — order_items insertion failed.
-    await supabase.from('orders').delete().eq('id', order.id)
-    return errorResponse(
-      `Rendelés tételek létrehozása sikertelen: ${itemsError.message}`,
-      500
-    )
-  }
-
-  // 5b. Apply coupon (optional). Done before stock decrement so a bad code
-  //     bails out cleanly without us having to restore inventory.
-  let finalTotal = Number(subtotal.toFixed(2))
-  let appliedDiscount = 0
-  let appliedCouponCode: string | null = null
-  if (couponCode) {
-    const apply = await applyCouponToOrder(order.id, user.id, couponCode)
-    if (apply instanceof Error) {
-      // Roll back: remove order_items and the order row.
-      await supabase.from('order_items').delete().eq('order_id', order.id)
-      await supabase.from('orders').delete().eq('id', order.id)
-      const code = (apply as Error & { code?: string }).code
-      if (code === COUPONS_BUSINESS_RULE_SQLSTATE) {
-        return errorResponse(apply.message, 409)
-      }
-      return errorResponse(`Kupon alkalmazása sikertelen: ${apply.message}`, 500)
-    }
-
-    const computed = applyDiscount(
-      subtotal,
-      apply.discount_type,
-      apply.discount_value
-    )
-    finalTotal = computed.final
-    appliedDiscount = computed.discount
-    appliedCouponCode = couponCode
-
-    // Persist the discounted total. apply_coupon_to_order already set
-    // orders.coupon_id; we only patch total_price here.
-    const { error: totalError } = await supabase
-      .from('orders')
-      .update({ total_price: finalTotal } as never)
-      .eq('id', order.id)
-
-    if (totalError) {
-      await supabase.from('order_items').delete().eq('order_id', order.id)
-      await supabase.from('orders').delete().eq('id', order.id)
-      return errorResponse(
-        `Rendelés végösszegének mentése sikertelen: ${totalError.message}`,
-        500
-      )
-    }
-    order.total_price = finalTotal
-    order.coupon_id = apply.redeemed_id
-  }
-
-  // 6. Decrement stock per variant. Done sequentially so we can roll back
-  //    cleanly on conflict (e.g. concurrent checkout taking the last unit).
-  const stockUpdates: Array<{ variantId: string; previousStock: number }> = []
-  for (const item of cart) {
-    const variant = item.variant
-    if (!variant) continue
-    const newStock = variant.stock - item.quantity
-    const { error: stockError } = await supabase
-      .from('product_variants')
-      .update({ stock: newStock } as never)
-      .eq('id', variant.id)
-
-    if (stockError) {
-      // Roll back: restore previously decremented variants, delete order_items + order.
-      for (const undo of stockUpdates) {
-        await supabase
-          .from('product_variants')
-          .update({ stock: undo.previousStock } as never)
-          .eq('id', undo.variantId)
-      }
-      await supabase.from('order_items').delete().eq('order_id', order.id)
-      await supabase.from('orders').delete().eq('id', order.id)
-      return errorResponse(
-        `Készlet csökkentése sikertelen: ${stockError.message}`,
-        500
-      )
-    }
-    stockUpdates.push({ variantId: variant.id, previousStock: variant.stock })
-  }
-
-  // 7. Clear cart
-  const { error: clearError } = await supabase
-    .from('cart_items')
-    .delete()
-    .eq('user_id', user.id)
 
   const responsePayload = {
-    order,
+    order: orderRow as Order,
     coupon: appliedCouponCode
-      ? {
-          code: appliedCouponCode,
-          discount: appliedDiscount,
-        }
+      ? { code: appliedCouponCode, discount: appliedDiscount }
       : null,
-  }
-
-  if (clearError) {
-    // The order is already committed at this point; surface a warning but
-    // don't roll back — leaving the cart populated is recoverable.
-    return successResponse(
-      {
-        ...responsePayload,
-        warning: `A kosár ürítése sikertelen: ${clearError.message}`,
-      },
-      201
-    )
+    ...(couponWarning ? { warning: couponWarning } : {}),
   }
 
   return successResponse(responsePayload, 201)
