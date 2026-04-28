@@ -21,3 +21,6 @@
 - [Global error + 404 pages](project_global_error_pages.md) — src/app/not-found.tsx (server) + src/app/error.tsx (client); on-brand glass fallbacks
 - [Glass perf polish (F16)](project_glass_perf_polish.md) — globals.css now has @supports backdrop-filter fallback, mobile blur dial-down (≤640px), will-change on .glass-card
 - [TeamCrest primitive (F17)](project_team_crest.md) — single component for home/away crests; football-data.org CDN whitelisted in next.config.ts; gold-initials fallback
+- [API envelope split](project_api_envelope.md) — successResponse wraps in {data}; many older routes return raw; clients must match the route's choice
+- [Articles render HTML via DOMPurify](project_article_html.md) — Tiptap output sanitised + injected; .fcb-prose stylesheet replaces @tailwindcss/typography
+- [Transaction reasons i18n](project_transaction_reasons.md) — formatPointReason() maps poll_win/coupon_redeem/etc. to Hungarian; icon resolver sniffs raw English keys

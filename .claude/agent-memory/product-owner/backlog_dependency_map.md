@@ -21,7 +21,14 @@ Frontend → Backend dependency map:
 - F14 → Backend 11 (Cookie tracking)
 - F15 → Backend 3-12 (Admin panel covers all)
 - F16 → all (final polish)
+- F17 → Backend 13 (football-data.org migration)
+- F18 → Backend 14 (kritikus bug fixek)
+- F19 → Backend 15 (standings & scorers API)
+- F20 → Backend 16 (fix sector architecture)
+- F21 → Backend 17 (poll "none" option)
+- F22 → Backend 19 (dream team persistence)
+- F23 → Backend 18 (DM & follow system)
 
 **Why:** Parallel iteration selection requires checking the frontend iteration's backend dependency state.
 
-**How to apply:** When selecting parallel iterations, verify the frontend candidate's backend dependency is DONE. If not, only the backend iteration runs that cycle.
+**How to apply:** When selecting parallel iterations, verify the frontend candidate's backend dependency is DONE. If not, only the backend iteration runs that cycle. Special note: F22 depends on Backend 19 (the LAST new backend iteration), so frontend cannot run F22 until late in the cycle. F23 depends on Backend 18 (DM + follows). The natural parallel order is: Backend 14 + F18 (after B14 done), Backend 15 + F19 (after B15 done), Backend 16 + F20, Backend 17 + F21, Backend 18 + F23, Backend 19 + F22.

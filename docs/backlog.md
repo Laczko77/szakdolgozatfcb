@@ -10,10 +10,10 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 61    |
-| Completed tasks     | 61    |
-| Remaining tasks     | 0     |
-| Completion          | 100%  |
+| Total tasks         | 92    |
+| Completed tasks     | 70    |
+| Remaining tasks     | 22    |
+| Completion          | 76%   |
 
 ---
 
@@ -526,5 +526,258 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - A `season` paraméter helyesen kezeli a kezdő évet (2025 = 2025/26 szezon)
 
 **Dependencies:** Iteration 1 (Supabase séma), Iteration 2 (Auth, admin védelem)
+
+---
+
+### Iteration 14 — Kritikus Bug Fixek (Backend)
+
+**Status:** DONE
+
+**Goal:** Az éles használat során feltárt kritikus backend hibák kijavítása: a játékos statisztika lekérdezés inkonzisztenciája, a shop termék értékelés aggregáció hibája, és a kupon beváltás 500-as hibája.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 14.1 Játékos statisztikák API javítás (#1):
+  - A `GET /api/players` és `GET /api/players/[id]` endpointok ellenőrzése: a `stats` JSONB mező konzisztensen tartalmazza a `goals`, `assists`, `playedMatches`, `yellowCards`, `redCards` kulcsokat
+  - Ha hiányzó kulcs van (pl. régi sync-ből származó adat), default 0 értéket adjon vissza a response payload szinten (ne csak nullable legyen)
+  - Logging: ha egy játékosnak teljesen üres a stats mezője, info log
+- [x] 14.2 Shop termék értékelés aggregáció javítás (#2):
+  - A `GET /api/products/[id]` response-ban a `average_rating` és `review_count` mezők helyes számolása csak a `is_visible = true` értékelésekből
+  - Edge case: nulla értékelés esetén `average_rating = null` (vagy 0), nem dob hibát
+  - SQL query optimalizáció: aggregált subquery vagy view használata, hogy ne legyen N+1 lekérdezés terméklistán
+- [x] 14.3 Kupon beváltás 500-as hiba javítás (#4):
+  - A `POST /api/shop/coupons/[id]/redeem` endpoint hibakezelése: ha az atomic RPC (`redeem_coupon`) hibát ad, értelmes 400/409 státusz térjen vissza (pl. "nincs elég pont", "már beváltott", "kupon nem aktív") — ne 500
+  - A `redeem_coupon` RPC kódjának átnézése: try/catch helyett tiszta exit feltételek
+  - Logging: a hiba root cause logolása szerveroldalon
+- [x] 14.4 Regressziós tesztelés: a három javított endpoint manuális tesztelése a development környezetben, edge case-ek lefedése
+
+**Acceptance Criteria:**
+
+- A játékos endpointok konzisztens stats objektumot adnak vissza minden mezővel
+- A shop termék lista és detail oldalon az átlagos értékelés és értékelés-szám helyes
+- A kupon beváltás minden hibás kérés esetén 4xx státuszt ad vissza, nem 500-at
+- Sikeres beváltás továbbra is működik
+- A logok tartalmazzák a hibás esetek root cause-át
+
+**Dependencies:** Iteration 4, Iteration 5, Iteration 10
+
+---
+
+### Iteration 15 — Dashboard: La Liga Tabella & Góllövőlista API
+
+**Status:** DONE
+
+**Goal:** A dashboard widget-ekhez szükséges La Liga állás és góllövőlista API endpointok megvalósítása a football-data.org wrapperen keresztül, in-memory vagy Supabase-alapú cache-eléssel hogy a 10 hívás/perc rate limit ne legyen érintve.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 15.1 `getStandings(competitionId, season)` függvény hozzáadása `src/lib/football-data.ts`-hez:
+  - `GET /competitions/{competitionId}/standings?season=<season>` hívás
+  - Visszaadja a `standings[]` tömböt (TOTAL típusú álláshoz): minden csapatra `position`, `team.id`, `team.name`, `team.crest`, `playedGames`, `won`, `draw`, `lost`, `points`, `goalsFor`, `goalsAgainst`, `goalDifference`
+  - La Liga competition ID: `2014`
+  - Hibakezelés és rate limit tisztelet (a meglévő throttle/queue logikán keresztül)
+- [x] 15.2 `GET /api/standings` publikus endpoint:
+  - Query param: `competition` (default: `2014` La Liga), `season` (default: aktuális szezon kezdő éve)
+  - Cache stratégia: vagy Supabase tábla (`standings_cache` — competition_id, season, data JSONB, fetched_at) vagy in-memory Map TTL-lel (12 óra)
+  - Cache miss esetén `getStandings()` hívás, sikeres válasz után cache mentés
+  - Response: az állás tömb a 15.1-ben definiált struktúrával
+- [x] 15.3 `GET /api/scorers` publikus endpoint:
+  - Query param: `competition` (default: `2014` La Liga), `season`, `limit` (default: 10)
+  - Cache stratégia: ugyanaz mint a 15.2-nél (`scorers_cache` tábla vagy in-memory)
+  - A meglévő `getScorers()` függvényt használja
+  - Response: top N gólszerző (player.id, player.name, team.name, goals, assists, playedMatches)
+- [x] 15.4 Cache invalidálás admin endpoint (opcionális, biztonsági háló):
+  - `POST /api/admin/standings/refresh` és `POST /api/admin/scorers/refresh` — admin manuálisan triggerelheti a cache frissítést
+- [x] 15.5 Cache séma migráció (ha Supabase tábla a választás): `supabase/migrations/<dátum>_standings_scorers_cache.sql`:
+  - `standings_cache` tábla: `id` (PK), `competition_id` (int), `season` (int), `data` (JSONB), `fetched_at` (timestamptz), unique (competition_id, season)
+  - `scorers_cache` tábla: hasonló struktúra
+  - RLS: read mindenkinek (vagy csak service role), write csak service role
+
+**Acceptance Criteria:**
+
+- A `GET /api/standings` endpoint helyesen visszaadja a La Liga aktuális állását
+- A `GET /api/scorers` endpoint visszaadja a top gólszerzőket
+- A cache működik: ismételt hívások nem terhelik a football-data.org-t (rate limit alatt maradunk)
+- A cache TTL utáni hívás frissít
+- A frontend dashboard widget tudja fogyasztani az adatokat
+
+**Dependencies:** Iteration 13 (football-data.org wrapper)
+
+---
+
+### Iteration 16 — Jegyrendszer: Fix Szektor Architektúra
+
+**Status:** TODO
+
+**Goal:** A jegyrendszer szektor logikájának átalakítása: dinamikus admin által létrehozott szektorok helyett 4 fix szektor (TRIBUNA, LATERAL, GOL NORD, GOL SUD) automatikus seed-elése minden meccshez. Az admin csak az árat és a kapacitást módosíthatja, új szektort nem hozhat létre. A meglévő szektorok és jegyek törlésre kerülnek (teszt fázis).
+
+**UI required:** No
+
+**Tasks:**
+
+- [ ] 16.1 Adatbázis migráció: meglévő szektorok és jegyek törlése + sémabővítés (`supabase/migrations/<dátum>_fixed_sectors.sql`):
+  - `DELETE FROM tickets`; `DELETE FROM match_sectors;` (teszt fázis, jegyek törölhetők)
+  - Új constants/enum a szektor nevekre: `TRIBUNA`, `LATERAL`, `GOL NORD`, `GOL SUD`
+  - Opcionális: `match_sectors.sector_name` CHECK constraint a 4 fix értékre
+  - A `match_sectors` tábla struktúrája változatlan (id, match_id, sector_name, total_seats, sold_seats, price)
+- [ ] 16.2 Auto-seed logika a meccs sync-ben (`POST /api/admin/matches/sync` kibővítése):
+  - Minden új meccs upsert után: ellenőrzés hogy létezik-e a 4 fix szektor a meccshez
+  - Ha nem, beillesztés default kapacitással és default árral (pl. TRIBUNA: 5000 hely 80€, LATERAL: 8000 hely 50€, GOL NORD: 3000 hely 30€, GOL SUD: 3000 hely 30€)
+  - Idempotens: már létező meccsre nem írja felül a már módosított szektorokat
+- [ ] 16.3 Admin szektor endpoint módosítása:
+  - `POST /api/admin/matches/[id]/sectors` — DEPRECATED (404 vagy 405 visszaadása új szektor létrehozási kísérletre)
+  - `PUT /api/admin/matches/[id]/sectors/[sectorId]` — csak `total_seats` és `price` módosítható, a `sector_name` immutable
+- [ ] 16.4 Manuális seed admin endpoint (biztonsági háló):
+  - `POST /api/admin/matches/[id]/seed-sectors` — ha egy meccsnek hiányzik szektora, manuálisan újra-seed a 4 fix szektort default értékekkel
+- [ ] 16.5 Default érték konstansok (`src/lib/constants/sectors.ts`):
+  - A 4 szektor neve és default kapacitás/ár konstansként exportálva
+  - Frontend és backend közösen használja
+
+**Acceptance Criteria:**
+
+- A meglévő szektorok és jegyek törölve vannak
+- Új meccs szinkronizálásakor automatikusan létrejön a 4 fix szektor
+- Az admin nem tud új szektort hozzáadni egy meccshez
+- Az admin tudja módosítani a kapacitást és az árat
+- A jegyvásárlás flow változatlanul működik a 4 fix szektorral
+- Idempotens seed: ismételt sync nem írja felül a módosított árakat/kapacitásokat
+
+**Dependencies:** Iteration 6, Iteration 13
+
+---
+
+### Iteration 17 — Szavazás: "Más / Egyik sem" Opció
+
+**Status:** TODO
+
+**Goal:** A szavazórendszer kibővítése: az admin a szavazás létrehozásakor opcionálisan hozzáadhat egy "Más / Egyik sem" speciális opciót. Ha ez a helyes válasz, az erre szavazók kapnak pontot.
+
+**UI required:** No
+
+**Tasks:**
+
+- [ ] 17.1 Adatbázis séma kiterjesztés (`supabase/migrations/<dátum>_polls_none_option.sql`):
+  - A `polls.options` JSONB már támogatja a tetszőleges struktúrát; konvenció bevezetése: minden opció `{ id: string, text: string, isNone?: boolean }` formátumban
+  - Opcionális: `polls.has_none_option BOOLEAN DEFAULT false` flag az egyszerű query-khez
+- [ ] 17.2 Admin szavazás létrehozó endpoint kiterjesztés (`POST /api/admin/polls`):
+  - Új body field: `addNoneOption` (boolean), `noneOptionText` (string, default: "Más / Egyik sem")
+  - Ha `addNoneOption = true`, az `options` tömb végére hozzáfűz egy `{ id: 'none', text: noneOptionText, isNone: true }` opciót
+  - Validáció: a `noneOptionText` max 100 karakter
+- [ ] 17.3 Admin szavazás szerkesztő endpoint (`PUT /api/admin/polls/[id]`):
+  - Lehetővé teszi a teljes options tömb frissítését (csak ha még nincs lezárva: `is_active = true` és `correct_option = null`)
+  - A "none" opció hozzáadható/törölhető a szavazás resolve előtt
+- [ ] 17.4 `resolve_poll` RPC kiterjesztés:
+  - A `correct_option` lehet egy normál opció ID vagy a "none" string
+  - Ha `correct_option = 'none'`, az erre szavazók kapnak 50 pontot (ugyanaz a logika mint a normál helyes válasz)
+  - Atomic tranzakció: pont jóváírás + `point_transactions` bejegyzés
+- [ ] 17.5 Frontend integráció előkészítése: a `GET /api/polls` és `GET /api/polls/[id]/results` response-ok jelezzék a "none" opció jelenlétét és helyes voltát
+
+**Acceptance Criteria:**
+
+- Admin tud "Más / Egyik sem" opciós szavazást létrehozni
+- A szerkesztés lehetővé teszi az opció hozzáadását/eltávolítását resolve előtt
+- Ha a "none" a helyes válasz, az erre szavazók kapnak 50 pontot
+- A meglévő szavazások (none opció nélkül) változatlanul működnek
+- A pontszétosztás atomikus
+
+**Dependencies:** Iteration 9
+
+---
+
+### Iteration 18 — Közösségi: Direct Messaging & Követés Rendszer
+
+**Status:** TODO
+
+**Goal:** A közösségi modul kibővítése privát üzenetküldéssel (DM) Supabase Realtime alapokon, és egy egyszerű követési rendszerrel ami szabályozza ki kinek küldhet üzenetet. A scope döntés: a követési rendszer kis méretű (≤3 task), ezért a "csak követöttek küldhetnek" modellt választjuk (b opció).
+
+**UI required:** No
+
+**Tasks:**
+
+- [ ] 18.1 Adatbázis séma — DM (`supabase/migrations/<dátum>_direct_messaging.sql`):
+  - `conversations` tábla: `id` (uuid PK), `participant_a` (uuid FK profiles), `participant_b` (uuid FK profiles), `created_at`, `last_message_at`. Unique constraint a (least(a,b), greatest(a,b)) párra hogy egy beszélgetés csak egyszer létezzen
+  - `messages` tábla: `id` (uuid PK), `conversation_id` (uuid FK), `sender_id` (uuid FK profiles), `content` (text), `created_at`, `read_at` (timestamptz NULL)
+  - Indexek: `messages(conversation_id, created_at DESC)`, `conversations(participant_a)`, `conversations(participant_b)`
+- [ ] 18.2 Adatbázis séma — Követés:
+  - `follows` tábla: `id` (uuid PK), `follower_id` (uuid FK profiles), `following_id` (uuid FK profiles), `created_at`. Unique (follower_id, following_id), CHECK follower_id != following_id
+  - Indexek: `follows(follower_id)`, `follows(following_id)`
+- [ ] 18.3 RLS policy-k:
+  - `conversations`: user csak azt látja amiben résztvevő (participant_a vagy participant_b a saját user_id), insert csak ha a user az egyik résztvevő
+  - `messages`: user csak azt látja amelyik egy olyan conversation-höz tartozik amiben résztvevő, insert csak ha a sender_id a user és résztvevője a conversation-nek
+  - `follows`: bárki olvashat (publikus follower count), insert csak ha follower_id a user, delete csak ha follower_id a user
+- [ ] 18.4 Követés endpointok:
+  - `POST /api/users/[id]/follow` — a bejelentkezett user követi a [id] usert
+  - `DELETE /api/users/[id]/follow` — kikövetés
+  - `GET /api/users/[id]/followers` — a [id] user követőinek listája (lapozható)
+  - `GET /api/users/[id]/following` — kit követ a [id] user
+  - `GET /api/users/[id]/follow-status` — a bejelentkezett user követi-e a [id] usert (boolean)
+- [ ] 18.5 DM endpointok — beszélgetések:
+  - `GET /api/conversations` — a bejelentkezett user beszélgetéseinek listája (utolsó üzenet, partner profil, olvasatlan-szám), `last_message_at DESC` rendezve
+  - `POST /api/conversations` — új beszélgetés indítása (recipient_id). Ellenőrzés: a recipient_id-t a user követi (a "csak követöttek" modell). Ha már létezik beszélgetés a két user között, az meglévőt adja vissza (idempotens)
+- [ ] 18.6 DM endpointok — üzenetek:
+  - `GET /api/conversations/[id]/messages` — egy beszélgetés üzenetei (lapozott, `created_at DESC`, default limit 50). Auth check: a user résztvevő-e
+  - `POST /api/conversations/[id]/messages` — üzenet küldése (content). Ellenőrzés: résztvevő, content nem üres, max 2000 karakter, és a user követi a recipient-et
+  - `PUT /api/conversations/[id]/read` — összes üzenet olvasottra állítása amelyek nem a user-től származnak (`read_at = now()`)
+- [ ] 18.7 User kereső a DM-hez:
+  - `GET /api/users/search?q=...` — a bejelentkezett user által követett userek között keres username/email alapján (csak követötteket találja a DM-init flow-hoz)
+  - Limit 20 találat
+- [ ] 18.8 Supabase Realtime konfigurálás:
+  - A `messages` és `conversations` táblák realtime publikációra állítása (`ALTER PUBLICATION supabase_realtime ADD TABLE messages, conversations`)
+  - RLS érvényesül a realtime channel-eken is — a kliens csak azokat az üzeneteket kapja, amelyekre jogosult
+
+**Acceptance Criteria:**
+
+- User tud követni / kikövetni más usereket
+- A követők és követettek listája lekérdezhető
+- DM csak követett user részére indítható
+- Üzenetek küldése és lekérdezése működik a beszélgetésen belül
+- Olvasott állapot beállítható
+- A Supabase Realtime channel valós idejű új üzenet eseményeket küld
+- RLS megakadályozza hogy a user idegen beszélgetéseket lásson
+
+**Dependencies:** Iteration 2 (auth, profiles), Iteration 8 (közösségi alaprendszer)
+
+---
+
+### Iteration 19 — Álomcsapat Perzisztencia
+
+**Status:** TODO
+
+**Goal:** A frontend álomcsapat (drag-and-drop) feature-höz backend perzisztencia: a user mentheti és visszatöltheti a saját álomcsapatát. Megosztás nem támogatott, csak a user saját maga számára.
+
+**UI required:** No
+
+**Tasks:**
+
+- [ ] 19.1 Adatbázis séma (`supabase/migrations/<dátum>_dream_teams.sql`):
+  - `dream_teams` tábla: `id` (uuid PK), `user_id` (uuid FK profiles), `name` (text, default: "Álomcsapatom"), `formation` (text, pl. "4-2-3-1", "4-3-3"), `players` (JSONB — { positionSlot: { player_id, name, position } } map), `created_at` (timestamptz), `updated_at` (timestamptz)
+  - Index: `dream_teams(user_id)`
+  - Constraint: `formation` IN ('4-3-3', '4-2-3-1', '3-5-2', '4-4-2')
+- [ ] 19.2 RLS policy-k:
+  - User csak a sajátját olvashatja, módosíthatja, törölheti
+  - Insert csak ha user_id = auth.uid()
+- [ ] 19.3 CRUD endpointok (`src/app/api/dream-team/`):
+  - `GET /api/dream-team` — a bejelentkezett user álomcsapata (vagy 404 ha nincs)
+  - `POST /api/dream-team` — új álomcsapat létrehozása (formation, players, opcionális name)
+  - `PUT /api/dream-team/[id]` — álomcsapat frissítése
+  - `DELETE /api/dream-team/[id]` — álomcsapat törlése
+- [ ] 19.4 Validáció:
+  - `players` JSONB struktúra validálása: a kulcsok valid pozíció slotok (a formation alapján), az értékek tartalmazzák a player_id-t (valid `players.id` érték)
+  - Egy player_id csak egyszer fordulhat elő egy dream team-ben
+  - Maximum egy álomcsapat per user (vagy `POST` upsert szemantika)
+
+**Acceptance Criteria:**
+
+- User tudja menteni az álomcsapatát formációval és játékos elrendezéssel
+- Visszatöltéskor a teljes állapot helyreáll
+- Csak a saját álomcsapatát látja és szerkesztheti
+- A formation és players struktúrája validált
+- A megosztás funkció szándékosan nincs (későbbi iteráció lehet)
+
+**Dependencies:** Iteration 4 (players tábla), Iteration 2 (auth)
 
 ---

@@ -59,10 +59,10 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 107 |
-| Completed tasks | 107 |
-| Remaining tasks | 0 |
-| Completion | 100% |
+| Total tasks | 149 |
+| Completed tasks | 113 |
+| Remaining tasks | 36 |
+| Completion | 76% |
 
 ---
 
@@ -829,4 +829,332 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Dependencies:** Iteration F1 (toast rendszer), F7 (játékos UI), F9 (jegy UI), F15 (admin panel), Backend Iteration 13
  
+---
+
+### Iteration F18 — Kritikus Bug Fixek & UX Gyors Javítások
+
+**Status:** DONE
+
+**Goal:** Az éles használat során feltárt kritikus frontend hibák kijavítása: admin meccs szektor undefined render, jegyvásárlás TypeError, wishlist navigáció hiánya, hírek HTML tag render, poll_win felirat hiba.
+
+**Backend dependency:** Backend Iteration 14 (kritikus bug fixek backend oldalon)
+
+**Tasks:**
+
+- [x] F18.1 Admin meccs szektor undefined render javítás (#7):
+  - `src/app/admin/meccsek/[id]/page.tsx` (vagy ekvivalens szektor lista komponens): a szektorok render-ezésénél optional chaining + fallback érték minden mezőre (sector_name, total_seats, sold_seats, price)
+  - Ha a meccsnek nincs szektora, "Nincsenek szektorok" üzenet (és — F20-tól kezdve — auto-seed gomb javaslat)
+- [x] F18.2 Jegyvásárlás TypeError javítás (#8):
+  - `src/app/jegyek/[id]/page.tsx` és `src/components/tickets/TicketPurchasePanel.tsx`: a vásárlási flow inputjainak null/undefined védelem (sector_id, quantity)
+  - A backend response feldolgozásakor type guard a `sectors` tömbre
+  - Hibakezelés: ha a backend hibát ad, toast üzenet + retry opció
+- [x] F18.3 Wishlist navigáció hozzáadása (#9):
+  - A profil oldal tab listájába "Kívánságlistám" tab vagy a navbar profil dropdown-ba "Kívánságlistám" menüpont
+  - A meglévő `/wishlist` route-ra navigál
+  - Ellenőrzés: az oldal funkcionális (`src/app/wishlist/page.tsx` 194 soros, létezik)
+- [x] F18.4 Hírek HTML tag render javítás (#10):
+  - `src/app/hirek/[id]/page.tsx` (és minden cikk tartalom render): `dangerouslySetInnerHTML` használat helyett (vagy mellett) HTML sanitizer integráció
+  - `isomorphic-dompurify` telepítése: `npm install isomorphic-dompurify`
+  - Helper függvény (`src/lib/sanitize.ts`): `sanitizeHtml(html: string)` ami DOMPurify-jal tisztítja a Tiptap által generált HTML-t (engedélyezett tagek: p, h1-h6, ul, ol, li, a, strong, em, blockquote, code, br, img)
+  - A cikk render: `<div dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />`
+- [x] F18.5 Poll_win felirat javítás (#14):
+  - A pont tranzakció listán (`src/app/profil` Pontjaim tab) a `reason = 'poll_win'` érték magyar fordítása: "Szavazás nyeremény"
+  - Helper map (`src/lib/i18n/transaction-reasons.ts`): `{ 'poll_win': 'Szavazás nyeremény', 'coupon_redeem': 'Kupon beváltás', ... }`
+  - Minden tranzakció megjelenítő helyen (profil, dashboard widget) ezt használja
+- [x] F18.6 Regressziós tesztelés: minden javított oldal manuális kipróbálása desktop + mobil view-ban
+
+**Acceptance Criteria:**
+
+- Admin meccs szektor lista hibamentesen rendereli az adatokat (vagy üres üzenetet)
+- Jegyvásárlás folyamata nem dob TypeError-t
+- A wishlist oldal navigációval elérhető a profilból vagy a navbar-ból
+- A hírek tartalmában a HTML formatázás helyesen jelenik meg, nem nyersen
+- A pont tranzakció listán a "Szavazás nyeremény" felirat látszik
+
+**Dependencies:** Backend Iteration 14, Iteration F10 (profil), F15 (admin)
+
+---
+
+### Iteration F19 — Dashboard: La Liga Tabella & Góllövőlista Widget
+
+**Status:** TODO
+
+**Goal:** A dashboard kibővítése két új widgettel: La Liga állás (top 5 + lenyitható teljes tabella, FC Barcelona kiemelve) és góllövőlista (top 5-10). A widgetek a Backend Iteration 15-ben létrehozott `/api/standings` és `/api/scorers` endpointokat fogyasztják.
+
+**Backend dependency:** Backend Iteration 15 (standings & scorers API)
+
+**Tasks:**
+
+- [ ] F19.1 "La Liga állás" widget komponens (`src/components/dashboard/StandingsWidget.tsx`):
+  - Glass kártya, fejléc: "La Liga állás" + verseny logó (opcionális)
+  - Adatlekérés: `GET /api/standings?competition=2014` (SWR vagy React Query)
+  - Top 5 sor megjelenítése táblázatos formában: pozíció, csapat logó + név, M (mérkőzés), P (pont), GA (gólarány)
+  - FC Barcelona sorának kiemelése (pl. arany akcent háttér, vastag betű)
+  - "Teljes tabella megtekintése" link/gomb → expandable szekció vagy modal a teljes 20 csapattal
+  - Skeleton loading állapot (5 placeholder sor)
+  - Error state: barátságos hibaüzenet + retry gomb
+- [ ] F19.2 "Góllövőlista" widget komponens (`src/components/dashboard/TopScorersWidget.tsx`):
+  - Glass kártya, fejléc: "La Liga góllövőlista"
+  - Adatlekérés: `GET /api/scorers?competition=2014&limit=10`
+  - Top 5 alapból, "Több" gomb a top 10-re
+  - Sor: pozíció, játékos név, csapat (kis logóval), gólok száma kiemelten
+  - FC Barcelona játékosok kiemelése (akcent szín)
+  - Skeleton loading + error state ugyanazzal a mintával mint az F19.1
+- [ ] F19.3 Dashboard layout integráció (`src/app/dashboard/page.tsx`):
+  - A két új widget elhelyezése a CSS grid-ben (desktop: span-1 vagy span-2 a többi widget mellé, mobil: 1 oszlop stack)
+  - A widgetek pozícionálása: a "Következő meccs" widget után, "Pontegyenlegem" előtt vagy mellett
+  - Layout responsive teszt
+- [ ] F19.4 Expandable teljes tabella UI (vagy modal):
+  - Megoldás A: a widgeten belül expandable szekció (animáció: max-height + opacity, Framer Motion)
+  - Megoldás B: glass modal full table-lel, scroll-able mobil viewra
+  - Választás: expandable szekció (kevésbé tolakodó)
+  - Tartalom: mind a 20 csapat, ugyanazokkal az oszlopokkal
+- [ ] F19.5 Cache-elt adat UX: ha a backend cache-ből szolgáltat (lassan frissül), egy diszkrét "frissítve: X órája" felirat a widget alján opcionális
+
+**Acceptance Criteria:**
+
+- A La Liga tabella widget a dashboardon megjelenik a top 5 csapattal
+- FC Barcelona vizuálisan kiemelve
+- Az expandable / modal a teljes tabellát mutatja
+- A góllövőlista widget működik, top 5 (vagy top 10) gólszerzővel
+- A widgetek responsive megjelennek mobilon
+- A loading és error állapotok kezelve vannak
+
+**Dependencies:** Iteration F5 (dashboard layout), Backend Iteration 15
+
+---
+
+### Iteration F20 — Jegyek Táblázatos Nézet & Fix Szektor SVG Redesign
+
+**Status:** TODO
+
+**Goal:** Két frontend változás: (1) a meccs lista oldal (`/jegyek`) átalakítása táblázatos megjelenítésre, a kártya nézet teljesen megszűnik. (2) A `StadiumMap.tsx` újratervezése a 4 fix szektor (TRIBUNA, LATERAL, GOL NORD, GOL SUD) referencia kép alapján, fix SVG koordinátákkal, dinamikus kapacitás és ár megjelenítéssel.
+
+**Backend dependency:** Backend Iteration 16 (fix szektor architektúra)
+
+**Tasks:**
+
+- [ ] F20.1 Meccsek listaoldal táblázatos átalakítás (`src/app/jegyek/page.tsx`):
+  - A korábbi kártya grid lecserélése táblázatos nézetre
+  - Oszlopok: dátum, hazai csapat (logó + név), vendég csapat (logó + név), bajnokság, státusz badge, "Jegyvásárlás" gomb
+  - Mobil: a táblázat helyett kompakt sor-alapú lista (a meccs egy "row" mint kártya, de a táblázat struktúráját megőrizve)
+  - Sticky header desktopra
+  - Sorting: dátum szerint (alap aszc, kattintásra desc)
+  - Filter: bajnokság szerint (La Liga, BL, Copa del Rey)
+  - A kártya nézet kód törlése (komponensek, stílusok)
+- [ ] F20.2 Fix szektor SVG újratervezés (`src/components/tickets/StadiumMap.tsx`):
+  - Korábbi 6-8 szektoros SVG eltávolítása
+  - 4 fix szektor SVG koordinátáinak beállítása a referencia kép alapján:
+    - TRIBUNA: a stadion északi/hosszú oldala (nagyobb téglalap fent)
+    - LATERAL: a stadion déli/hosszú oldala (nagyobb téglalap lent)
+    - GOL NORD: a stadion északi végén (kapu mögött)
+    - GOL SUD: a stadion déli végén (kapu mögött)
+  - Minden szektor `<path>` vagy `<polygon>` elem konkrét D-attributummal vagy points-szel
+  - SVG viewBox: pl. `0 0 800 600` arányos
+- [ ] F20.3 Szektor adat-binding:
+  - A szektor SVG elemei az ID-ja vagy `data-sector-name` attribútuma alapján kapnak állapotot
+  - Hover: tooltip a szektor nevével, szabad helyek számával, ár/db
+  - Színkódolás (változatlan): elérhető akcent, betelt szürke, kiválasztott arany
+  - Kattintható szektor → kiválasztva állapot
+- [ ] F20.4 Dinamikus kapacitás és ár megjelenítés:
+  - Minden szektor labelje (név) + alatta a szabad helyek (`total_seats - sold_seats`) / összes helyek és az ár (€) kiírva, vagy csak hover tooltip-ben
+  - Ha a backend válasz módosul (admin árváltoztatás után), a térkép friss adatot mutat (SWR cache invalidálás vagy manual refetch)
+- [ ] F20.5 Mobil alternatíva frissítés (F9.5 frissítése):
+  - A mobil fallback lista 4 szektort mutat (TRIBUNA, LATERAL, GOL NORD, GOL SUD), egy-egy kártyával
+  - Kártya: szektor neve, szabad/összes hely, ár, "Kiválaszt" gomb
+- [ ] F20.6 Admin szektor szerkesztő frissítés (`src/app/admin/meccsek/[id]/page.tsx`):
+  - Az "Új szektor hozzáadása" gomb eltávolítása (a 4 fix szektor automatikusan létrejön)
+  - A 4 szektor szerkesztő formja: minden szektor egy sor, csak `total_seats` és `price` szerkeszthető (a `sector_name` readonly)
+  - Auto-seed gomb: ha egy meccsnek hiányzik szektora (régi adat), egy "Szektorok újragenerálása" gomb a `POST /api/admin/matches/[id]/seed-sectors` endpointot hívja
+- [ ] F20.7 Konstans import (`src/lib/constants/sectors.ts`):
+  - A backend által definiált 4 szektor név konstansot a frontend is használja (típusbiztos)
+
+**Acceptance Criteria:**
+
+- A `/jegyek` oldal táblázatos nézetet mutat, sorting és filtering működik
+- A kártya nézet teljesen el lett távolítva (kódból is)
+- A `StadiumMap.tsx` a 4 fix szektort jeleníti meg fix elrendezésben (referencia kép alapján)
+- A hover tooltip a szabad helyeket és az árat mutatja
+- Az admin szektor szerkesztő csak árat és kapacitást enged módosítani
+- Mobil fallback lista a 4 szektort mutatja
+
+**Dependencies:** Iteration F9 (jegyek UI), F15 (admin), Backend Iteration 16
+
+---
+
+### Iteration F21 — Szavazás UI: "Más / Egyik sem" Opció
+
+**Status:** TODO
+
+**Goal:** A szavazórendszer UI kibővítése: az admin a szavazás létrehozó form-ban hozzáadhatja a "Más / Egyik sem" opciót egy checkbox-szal és egy testreszabható szöveggel. A szavazó UI és az eredmény megjelenítés is támogatja ezt.
+
+**Backend dependency:** Backend Iteration 17 ("Más / Egyik sem" opció backend)
+
+**Tasks:**
+
+- [ ] F21.1 Admin szavazás létrehozó form frissítése (`src/app/admin/szavazasok/page.tsx` + `SzavazasForm.tsx`):
+  - Új checkbox: "'Más / Egyik sem' opció hozzáadása"
+  - Ha be van pipálva: text input a szöveg testreszabására (default: "Más / Egyik sem"), max 100 karakter
+  - Submit-kor a `addNoneOption` és `noneOptionText` body field-ek átadása a backendnek
+- [ ] F21.2 Admin szerkesztő form frissítése:
+  - A meglévő szavazás szerkesztésekor a "none" opció jelölve van (ha van)
+  - Lehetőség a hozzáadásra/eltávolításra (csak resolve előtt)
+- [ ] F21.3 User szavazás UI frissítése (`src/app/szavazasok/page.tsx` + `PollCard.tsx`):
+  - A "none" opció vizuálisan elkülönítve jelenjen meg (pl. szürkébb háttér, dőlt betű, vagy egy elválasztó vonal a normál opciók után)
+  - Ikon (pl. kérdőjel) a "none" opció mellett
+- [ ] F21.4 Eredmény megjelenítés frissítése:
+  - Lezárt szavazásnál ha a `correct_option = 'none'`: a "none" opció zöld kiemelést kap
+  - A bar chart-on a "none" opció külön színnel (pl. szürke vagy lila)
+  - Ha a user a "none"-ra szavazott és az volt a helyes: "+50 pont" badge megjelenik (ugyanaz a logika mint a normál helyes válasznál)
+- [ ] F21.5 Admin lezáró form frissítése:
+  - A "Helyes válasz kiválasztása" select tartalmazza a "none" opciót is (ha a szavazásnak van ilyen)
+
+**Acceptance Criteria:**
+
+- Admin tud "Más / Egyik sem" opciót hozzáadni szavazás létrehozásakor
+- A szavazó UI vizuálisan elkülöníti a "none" opciót
+- Lezáráskor a "none" választható helyes válaszként
+- Aki a "none"-ra szavazott és az volt a helyes, kapja a 50 pontot, és látja a +50 pont badge-et
+- A meglévő szavazások (none opció nélkül) változatlanul működnek
+
+**Dependencies:** Iteration F12 (szavazórendszer), F15 (admin), Backend Iteration 17
+
+---
+
+### Iteration F22 — Játékosok: Álomcsapat Drag-and-Drop
+
+**Status:** TODO
+
+**Goal:** Új feature: a felhasználó összeállíthatja saját álomcsapatát egy drag-and-drop felületen. Egy SVG focipálya alapformációval (4-2-3-1), formáció választóval (4-3-3, 4-2-3-1, 3-5-2, 4-4-2), pozíció-alapú slot validációval. A backend menti az álomcsapatot user-hez kötve. Mobilon tap-to-select fallback.
+
+**Backend dependency:** Backend Iteration 19 (dream team perzisztencia)
+
+**Tasks:**
+
+- [ ] F22.1 `@dnd-kit/core` telepítés és konfigurálás:
+  - `npm install @dnd-kit/core @dnd-kit/sortable`
+  - `DndContext` provider beállítása az álomcsapat oldalon
+  - `useDroppable` és `useDraggable` hook-ok használata
+- [ ] F22.2 Álomcsapat oldal route (`src/app/jatekosok/almomcsapat/page.tsx`):
+  - Auth guard: csak bejelentkezett user (egyébként redirect login-ra)
+  - Layout: bal oldalon játékos lista (összes FC Barcelona játékos kategorizálva), közepén/jobb oldalon a focipálya
+- [ ] F22.3 SVG focipálya komponens (`src/components/dream-team/PitchSVG.tsx`):
+  - Sematikus focipálya rajz (vonalak, középkör, büntetőterületek)
+  - Formációhoz konfigurálható slot pozíciók: minden slot egy droppable terület koordinátával
+  - 4-2-3-1 alapformáció default slot pozíciókkal
+- [ ] F22.4 Formáció választó komponens (`src/components/dream-team/FormationSelector.tsx`):
+  - Pill gombok: 4-3-3, 4-2-3-1, 3-5-2, 4-4-2
+  - Kattintásra a pálya slot pozíciói újrarendeződnek (Framer Motion layout animation)
+  - Ha az új formációban kevesebb slot van mint amennyi player el van helyezve, a "felesleges" játékosok visszakerülnek a játékos listára
+- [ ] F22.5 Játékos lista panel (`src/components/dream-team/PlayerPool.tsx`):
+  - Pozíció szerinti szűrő (Kapus, Védő, Középpályás, Támadó)
+  - Játékos kártyák kis méretben: kép, név, pozíció, mezszám
+  - Draggable elemek (`useDraggable`)
+  - Már a pályán lévő játékosok halványabban vagy elrejtve
+- [ ] F22.6 Pozíció-alapú slot validáció:
+  - Minden slot tartozik egy "elfogadott pozíció" listához (pl. GK slot csak Goalkeeper-t fogad, CB slot Defender-t)
+  - Drop esemény: ha nem egyezik a pozíció, a drop visszaugrik (vagy figyelmeztető toast)
+  - Vizuális visszajelzés drag közben: a kompatibilis slotok zöld highlight, inkompatibilisek piros
+- [ ] F22.7 Backend integráció:
+  - Oldal mount: `GET /api/dream-team` lekérdezés, ha létezik álomcsapat, betöltés
+  - "Mentés" gomb: `POST /api/dream-team` (új) vagy `PUT /api/dream-team/[id]` (meglévő)
+  - "Új álomcsapat" gomb: alaphelyzetbe állítás
+  - "Törlés" gomb: `DELETE /api/dream-team/[id]` megerősítő modal-lal
+  - Toast értesítés mentés sikeres / hiba esetén
+- [ ] F22.8 Mobil tap-to-select fallback:
+  - Mobil viewen (`useMediaQuery('(max-width: 768px)')`) drag-and-drop helyett tap-to-select
+  - 1. tap: játékos kiválasztás (highlight)
+  - 2. tap egy slotra: játékos elhelyezése
+  - "Eltávolítás" gomb minden elhelyezett játékosnál
+- [ ] F22.9 Navigáció hozzáadása:
+  - A `/jatekosok` oldalon link/gomb az álomcsapat-szerkesztőre
+  - A profil oldalon "Álomcsapatom" link/tab
+
+**Acceptance Criteria:**
+
+- A user el tudja húzni a játékosokat a pálya slotjaira (desktop)
+- Mobilon tap-to-select működik
+- A formáció választó natívan átrendezi a pályát animációval
+- A pozíció validáció megakadályozza a rossz slot elhelyezéseket
+- Mentéskor az állapot perzisztens (visszatöltés a backend-ből)
+- A user csak a saját álomcsapatát látja és szerkeszti
+
+**Dependencies:** Iteration F7 (játékos lista), F4 (auth), Backend Iteration 19
+
+---
+
+### Iteration F23 — Közösségi Oldal: 3 Oszlopos Layout & DM UI
+
+**Status:** TODO
+
+**Goal:** A közösségi oldal teljes layout átalakítása 3 oszlopos struktúrára (bal navigáció, közép feed, jobb sáv: online userek + aktív szavazások widget). Új DM oldal Supabase Realtime-mal a privát üzenetküldéshez. A követés rendszer egyszerű: csak követett userre indítható DM.
+
+**Backend dependency:** Backend Iteration 18 (DM & follow system)
+
+**Tasks:**
+
+- [ ] F23.1 Közösségi oldal 3 oszlopos layout (`src/app/kozosseg/page.tsx`):
+  - Desktop: 3 oszlop CSS Grid (`12rem | 1fr | 18rem` vagy hasonló arány)
+  - Bal oszlop: közösségi navigáció (Feed, Üzenetek, Követőim) — sticky
+  - Közép oszlop: a meglévő poszt feed (max 600px szélesség, mint Twitter)
+  - Jobb oszlop: 2 widget — "Online userek" + "Aktív szavazások" — sticky
+  - Mobil: a közép oszlop teljes szélességben, a navigáció a bottom tab bar-ban már elérhető, a jobb sáv elérhető swipe vagy "Felfedezés" tab-on
+- [ ] F23.2 "Online userek" widget (`src/components/social/OnlineUsersWidget.tsx`):
+  - Supabase Realtime presence channel az online jelzéshez
+  - Top 10 online user (avatar + username), sticky a jobb oszlopban
+  - Kattintásra: a user profil oldala vagy DM indítás (ha követi)
+  - "Több online" link a teljes online lista oldalra
+- [ ] F23.3 "Aktív szavazások" widget (`src/components/social/ActivePollsWidget.tsx`):
+  - Top 3 aktív szavazás kártyája (kérdés + szavazat-szám)
+  - "Mind" link a `/szavazasok` oldalra
+  - Kattintás egy szavazásra: a teljes szavazó UI (a meglévő F12.2 felület)
+- [ ] F23.4 DM oldal route (`src/app/kozosseg/uzenetek/page.tsx`):
+  - Auth guard
+  - Layout: 2 oszlopos (desktop) — bal: beszélgetés lista, jobb: aktív chat view
+  - Mobil: fullscreen chat view, vissza gomb a beszélgetés listára
+- [ ] F23.5 Beszélgetés lista komponens (`src/components/social/messaging/ConversationList.tsx`):
+  - `GET /api/conversations` lekérdezés
+  - Lista: minden beszélgetés egy sor — partner avatar, username, utolsó üzenet előnézet (max 50 karakter), olvasatlan üzenetek száma badge, last_message_at relatív időben ("5 perce")
+  - Kattintásra: a chat view megnyitása a kiválasztott beszélgetéssel
+  - Üres állapot: "Még nincsenek beszélgetéseid" + "Új üzenet" gomb
+- [ ] F23.6 Chat view komponens (`src/components/social/messaging/ChatView.tsx`):
+  - `GET /api/conversations/[id]/messages` lekérdezés
+  - Üzenetek megjelenítése: chat buborékok, saját üzenetek jobbra (kék), partner üzenetei balra (szürke)
+  - Auto-scroll a legalsó üzenetre, scroll up infinite scroll régebbi üzenetek betöltéséhez
+  - Üzenet input mező alul + "Küldés" gomb (Enter is)
+  - `POST /api/conversations/[id]/messages` küldés, optimista frissítés (UI-ba azonnal hozzáadás, hibánál visszavonás)
+  - `PUT /api/conversations/[id]/read` hívás belépéskor (olvasottra állítás)
+- [ ] F23.7 Supabase Realtime subscription:
+  - A chat view mount-kor subscribe a `messages` táblára szűrve a `conversation_id`-ra
+  - Új üzenet event esetén: hozzáadás a chat view-hoz (smooth scroll, fade-in animáció)
+  - A beszélgetés listán is realtime: új üzenet esetén az adott beszélgetés sora frissül (last_message_at + olvasatlan badge)
+  - Unmount-kor unsubscribe
+- [ ] F23.8 User kereső új DM indításához (`src/components/social/messaging/UserSearchModal.tsx`):
+  - "Új üzenet" gomb a beszélgetés lista tetején → modal nyílik
+  - Search input: `GET /api/users/search?q=...` (csak követett userek között keres)
+  - Találatok lista: avatar + username + "Üzenet" gomb
+  - "Üzenet" kattintás: `POST /api/conversations` (idempotens — ha létezik, visszaadja) → chat view nyitás
+- [ ] F23.9 Követés UI a profil oldalon:
+  - A user profil oldalán (`src/app/profil/[id]/page.tsx` vagy a mások profil view) "Követés" / "Kikövetés" gomb
+  - Toggle logika a `POST/DELETE /api/users/[id]/follow` endpointokkal
+  - Followers / following count megjelenítése
+  - Saját profilon nincs gomb
+- [ ] F23.10 Mobil DM UX:
+  - A `/kozosseg/uzenetek` mobilon fullscreen
+  - Két állapot: lista nézet (default) vagy chat view (ha kiválasztva)
+  - Vissza gomb a chat view-ban a listára navigál
+  - A bottom tab bar-on belül marad (vagy kis "vissza" gomb a tetején)
+
+**Acceptance Criteria:**
+
+- A közösségi oldal 3 oszlopos layout-ot mutat desktopon
+- Az "Online userek" és "Aktív szavazások" widgetek élnek
+- A `/kozosseg/uzenetek` DM oldal működik
+- A beszélgetések listája és a chat view valós idejű frissítést kap (Supabase Realtime)
+- DM csak követett user részére indítható
+- Mobil DM fullscreen és intuitív
+- A követés gomb a profil oldalon működik
+
+**Dependencies:** Iteration F11 (közösségi feed), F12 (szavazások), F4 (auth), Backend Iteration 18
+
 ---
