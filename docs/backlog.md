@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 92    |
-| Completed tasks     | 88    |
-| Remaining tasks     | 4     |
-| Completion          | 96%   |
+| Completed tasks     | 92    |
+| Remaining tasks     | 0     |
+| Completion          | 100%  |
 
 ---
 
@@ -745,7 +745,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 19 — Álomcsapat Perzisztencia
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A frontend álomcsapat (drag-and-drop) feature-höz backend perzisztencia: a user mentheti és visszatöltheti a saját álomcsapatát. Megosztás nem támogatott, csak a user saját maga számára.
 
@@ -753,19 +753,19 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 19.1 Adatbázis séma (`supabase/migrations/<dátum>_dream_teams.sql`):
+- [x] 19.1 Adatbázis séma (`supabase/migrations/<dátum>_dream_teams.sql`):
   - `dream_teams` tábla: `id` (uuid PK), `user_id` (uuid FK profiles), `name` (text, default: "Álomcsapatom"), `formation` (text, pl. "4-2-3-1", "4-3-3"), `players` (JSONB — { positionSlot: { player_id, name, position } } map), `created_at` (timestamptz), `updated_at` (timestamptz)
   - Index: `dream_teams(user_id)`
   - Constraint: `formation` IN ('4-3-3', '4-2-3-1', '3-5-2', '4-4-2')
-- [ ] 19.2 RLS policy-k:
+- [x] 19.2 RLS policy-k:
   - User csak a sajátját olvashatja, módosíthatja, törölheti
   - Insert csak ha user_id = auth.uid()
-- [ ] 19.3 CRUD endpointok (`src/app/api/dream-team/`):
+- [x] 19.3 CRUD endpointok (`src/app/api/dream-team/`):
   - `GET /api/dream-team` — a bejelentkezett user álomcsapata (vagy 404 ha nincs)
   - `POST /api/dream-team` — új álomcsapat létrehozása (formation, players, opcionális name)
   - `PUT /api/dream-team/[id]` — álomcsapat frissítése
   - `DELETE /api/dream-team/[id]` — álomcsapat törlése
-- [ ] 19.4 Validáció:
+- [x] 19.4 Validáció:
   - `players` JSONB struktúra validálása: a kulcsok valid pozíció slotok (a formation alapján), az értékek tartalmazzák a player_id-t (valid `players.id` érték)
   - Egy player_id csak egyszer fordulhat elő egy dream team-ben
   - Maximum egy álomcsapat per user (vagy `POST` upsert szemantika)

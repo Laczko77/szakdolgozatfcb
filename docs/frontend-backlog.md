@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 149 |
-| Completed tasks | 130 |
-| Remaining tasks | 19 |
-| Completion | 87% |
+| Completed tasks | 140 |
+| Remaining tasks | 9 |
+| Completion | 94% |
 
 ---
 
@@ -1085,7 +1085,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F23 — Közösségi Oldal: 3 Oszlopos Layout & DM UI
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A közösségi oldal teljes layout átalakítása 3 oszlopos struktúrára (bal navigáció, közép feed, jobb sáv: online userek + aktív szavazások widget). Új DM oldal Supabase Realtime-mal a privát üzenetküldéshez. A követés rendszer egyszerű: csak követett userre indítható DM.
 
@@ -1093,53 +1093,53 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F23.1 Közösségi oldal 3 oszlopos layout (`src/app/kozosseg/page.tsx`):
+- [x] F23.1 Közösségi oldal 3 oszlopos layout (`src/app/kozosseg/page.tsx`):
   - Desktop: 3 oszlop CSS Grid (`12rem | 1fr | 18rem` vagy hasonló arány)
   - Bal oszlop: közösségi navigáció (Feed, Üzenetek, Követőim) — sticky
   - Közép oszlop: a meglévő poszt feed (max 600px szélesség, mint Twitter)
   - Jobb oszlop: 2 widget — "Online userek" + "Aktív szavazások" — sticky
   - Mobil: a közép oszlop teljes szélességben, a navigáció a bottom tab bar-ban már elérhető, a jobb sáv elérhető swipe vagy "Felfedezés" tab-on
-- [ ] F23.2 "Online userek" widget (`src/components/social/OnlineUsersWidget.tsx`):
+- [x] F23.2 "Online userek" widget (`src/components/social/OnlineUsersWidget.tsx`):
   - Supabase Realtime presence channel az online jelzéshez
   - Top 10 online user (avatar + username), sticky a jobb oszlopban
   - Kattintásra: a user profil oldala vagy DM indítás (ha követi)
   - "Több online" link a teljes online lista oldalra
-- [ ] F23.3 "Aktív szavazások" widget (`src/components/social/ActivePollsWidget.tsx`):
+- [x] F23.3 "Aktív szavazások" widget (`src/components/social/ActivePollsWidget.tsx`):
   - Top 3 aktív szavazás kártyája (kérdés + szavazat-szám)
   - "Mind" link a `/szavazasok` oldalra
   - Kattintás egy szavazásra: a teljes szavazó UI (a meglévő F12.2 felület)
-- [ ] F23.4 DM oldal route (`src/app/kozosseg/uzenetek/page.tsx`):
+- [x] F23.4 DM oldal route (`src/app/kozosseg/uzenetek/page.tsx`):
   - Auth guard
   - Layout: 2 oszlopos (desktop) — bal: beszélgetés lista, jobb: aktív chat view
   - Mobil: fullscreen chat view, vissza gomb a beszélgetés listára
-- [ ] F23.5 Beszélgetés lista komponens (`src/components/social/messaging/ConversationList.tsx`):
+- [x] F23.5 Beszélgetés lista komponens (`src/components/social/messaging/ConversationList.tsx`):
   - `GET /api/conversations` lekérdezés
   - Lista: minden beszélgetés egy sor — partner avatar, username, utolsó üzenet előnézet (max 50 karakter), olvasatlan üzenetek száma badge, last_message_at relatív időben ("5 perce")
   - Kattintásra: a chat view megnyitása a kiválasztott beszélgetéssel
   - Üres állapot: "Még nincsenek beszélgetéseid" + "Új üzenet" gomb
-- [ ] F23.6 Chat view komponens (`src/components/social/messaging/ChatView.tsx`):
+- [x] F23.6 Chat view komponens (`src/components/social/messaging/ChatView.tsx`):
   - `GET /api/conversations/[id]/messages` lekérdezés
   - Üzenetek megjelenítése: chat buborékok, saját üzenetek jobbra (kék), partner üzenetei balra (szürke)
   - Auto-scroll a legalsó üzenetre, scroll up infinite scroll régebbi üzenetek betöltéséhez
   - Üzenet input mező alul + "Küldés" gomb (Enter is)
   - `POST /api/conversations/[id]/messages` küldés, optimista frissítés (UI-ba azonnal hozzáadás, hibánál visszavonás)
   - `PUT /api/conversations/[id]/read` hívás belépéskor (olvasottra állítás)
-- [ ] F23.7 Supabase Realtime subscription:
+- [x] F23.7 Supabase Realtime subscription:
   - A chat view mount-kor subscribe a `messages` táblára szűrve a `conversation_id`-ra
   - Új üzenet event esetén: hozzáadás a chat view-hoz (smooth scroll, fade-in animáció)
   - A beszélgetés listán is realtime: új üzenet esetén az adott beszélgetés sora frissül (last_message_at + olvasatlan badge)
   - Unmount-kor unsubscribe
-- [ ] F23.8 User kereső új DM indításához (`src/components/social/messaging/UserSearchModal.tsx`):
+- [x] F23.8 User kereső új DM indításához (`src/components/social/messaging/UserSearchModal.tsx`):
   - "Új üzenet" gomb a beszélgetés lista tetején → modal nyílik
   - Search input: `GET /api/users/search?q=...` (csak követett userek között keres)
   - Találatok lista: avatar + username + "Üzenet" gomb
   - "Üzenet" kattintás: `POST /api/conversations` (idempotens — ha létezik, visszaadja) → chat view nyitás
-- [ ] F23.9 Követés UI a profil oldalon:
+- [x] F23.9 Követés UI a profil oldalon:
   - A user profil oldalán (`src/app/profil/[id]/page.tsx` vagy a mások profil view) "Követés" / "Kikövetés" gomb
   - Toggle logika a `POST/DELETE /api/users/[id]/follow` endpointokkal
   - Followers / following count megjelenítése
   - Saját profilon nincs gomb
-- [ ] F23.10 Mobil DM UX:
+- [x] F23.10 Mobil DM UX:
   - A `/kozosseg/uzenetek` mobilon fullscreen
   - Két állapot: lista nézet (default) vagy chat view (ha kiválasztva)
   - Vissza gomb a chat view-ban a listára navigál

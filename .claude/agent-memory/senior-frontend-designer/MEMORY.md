@@ -25,3 +25,4 @@
 - [Articles render HTML via DOMPurify](project_article_html.md) — Tiptap output sanitised + injected; .fcb-prose stylesheet replaces @tailwindcss/typography
 - [Transaction reasons i18n](project_transaction_reasons.md) — formatPointReason() maps poll_win/coupon_redeem/etc. to Hungarian; icon resolver sniffs raw English keys
 - [La Liga stats widgets (F19)](project_football_stats.md) — StandingsWidget + TopScorersWidget self-fetch; scorers backend drops team.id (match Barça by name)
+- [DM + follow primitives (F23)](project_dm_components.md) — dm-api/types/dm + Community 3-col layout, ChatView (Realtime), NewConversationModal, FollowButton, /profil/[id]
