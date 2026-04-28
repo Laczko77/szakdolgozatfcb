@@ -59,8 +59,8 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 149 |
-| Completed tasks | 149 |
+| Total tasks | 153 |
+| Completed tasks | 153 |
 | Remaining tasks | 0 |
 | Completion | 100% |
 
@@ -1156,5 +1156,31 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 - A követés gomb a profil oldalon működik
 
 **Dependencies:** Iteration F11 (közösségi feed), F12 (szavazások), F4 (auth), Backend Iteration 18
+
+---
+
+### Iteration F24 — Bug Fix: Shop Értékelés Megjelenítés, Online Szurkolók Widget, Követés UI, Játékos Stat Display
+
+**Status:** DONE
+
+**Goal:** A manuális tesztelés során feltárt 4 frontend hiba és hiányzó UI elem kijavítása: webshop termék kártyán az értékelés nem jelenik meg, online szurkolók widget random számot mutat, a követés funkció nem elérhető a felhasználói felületen, és a játékos statisztikák 0-0-0-0 állapota UX javítás.
+
+**Backend dependency:** Backend Iteration 20 (játékos stat szinkron fix)
+
+**Tasks:**
+
+- [x] F24.1 Shop termék értékelés javítása: `src/lib/shop-api.ts`-ben a `ProductListResponse.products` típusa `Product[]`-ről `ProductWithRating[]`-re (`Product & { average_rating: number | null; review_count: number }`); `src/components/shop/ProductGrid.tsx`-ben az `average_rating` és `review_count` mezők átadása a kártyának (`averageRating={p.average_rating ?? 0}`, `reviewCount={p.review_count}`) a külső `ratings?` map prop helyett
+- [x] F24.2 Online szurkolók widget valós adatra cserélése: `src/components/social/CommunityRightRail.tsx`-ben az `OnlineNowCard` komponens véletlen `seed` szám törlése; Supabase Realtime Presence channel implementálása (`community:online` channel, `track({ user_id, since })` a SUBSCRIBED eventnél, `presenceState()` méretéből valós online szám kiszámítása); cleanup unmounton (`untrack()` + `removeChannel()`)
+- [x] F24.3 Követés gomb hozzáadása a feedhez: `src/components/social/PostCard.tsx`-ben a poszt szerzőjének nevére/avatar-jára kattintás már link a profilra — emellett kompakt `FollowButton size="sm"` gomb hozzáadása a szerző mellé (csak ha nem saját poszt és még nem követett); `src/components/social/CommunityRightRail.tsx`-ben "Javasolt szurkolók" blokk hozzáadása: 3-5 nem-követett profil listázása a `profiles` táblából, mindegyik mellett `FollowButton`
+- [x] F24.4 Játékos statisztika „nincs adat" UI: `src/components/players/PlayerStatGrid.tsx` és `PlayerStatRadar.tsx` komponensekben ha az összes stat értéke 0 vagy undefined, "Statisztikák hamarosan" / "Feltöltés alatt" üzenet jelenjen meg 0-0-0-0 helyett; ez UX javítás — a tényleges adatjavítás a Backend Iteration 20 feladata
+
+**Acceptance Criteria:**
+
+- A webshop termék kártyákon az átlagos csillagértékelés helyesen jelenik meg (nem 0)
+- Az online szurkolók száma valós Supabase Presence adaton alapul, nem véletlen számon
+- A felhasználók a feedből egyszerűen tudnak másokat követni a FollowButton-nal
+- A játékos kártyákon 0-0-0-0 helyett informatív "feltöltés alatt" üzenet látható ha nincs stat
+
+**Dependencies:** F7 (játékos lista), F4 (auth), F23 (közösségi oldal), Backend Iteration 20
 
 ---

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import type { Product } from "@/types/database";
 import {
   fetchRecommendedProducts,
   type RecommendedProduct,
 } from "@/lib/analytics-api";
+import type { ProductWithRating } from "@/lib/shop-api";
 import { ProductGrid } from "./ProductGrid";
 import { ProductCardSkeleton } from "./ProductCardSkeleton";
 import { cn } from "@/lib/utils";
@@ -121,7 +121,7 @@ export function PopularProducts() {
  * (it joins the view counts), so we project it down to the canonical
  * `Product` shape that {@link ProductGrid} expects.
  */
-function toProduct(p: RecommendedProduct): Product {
+function toProduct(p: RecommendedProduct): ProductWithRating {
   return {
     id: p.product_id,
     name: p.name,
@@ -130,5 +130,7 @@ function toProduct(p: RecommendedProduct): Product {
     image_url: p.image_url,
     category: p.category,
     created_at: p.created_at,
+    average_rating: p.avg_rating,
+    review_count: p.review_count,
   };
 }

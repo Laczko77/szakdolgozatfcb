@@ -41,8 +41,20 @@ export interface WishlistResponse {
   items: WishlistRow[];
 }
 
+/**
+ * Product row enriched with the aggregate review fields the listing
+ * endpoint (`/api/products`) joins in.
+ *
+ * `average_rating` is `null` when the product has no visible reviews —
+ * the UI uses this to differentiate "no rating yet" from "rated 0/5".
+ */
+export type ProductWithRating = Product & {
+  average_rating: number | null;
+  review_count: number;
+};
+
 export interface ProductListResponse {
-  products: Product[];
+  products: ProductWithRating[];
   total: number;
   page: number;
   totalPages: number;

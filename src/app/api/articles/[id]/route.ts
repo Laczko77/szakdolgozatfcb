@@ -21,6 +21,25 @@ type RouteContext = {
   params: Promise<{ id: string }>
 }
 
+/**
+ * Strict UUID v1-v5 shape. Postgres rejects non-UUID strings on a `uuid`
+ * column with SQLSTATE `22P02` (invalid_text_representation), which used to
+ * surface as a 500 because the Supabase client returns it untyped. We pre-
+ * validate to short-circuit those calls cleanly into a 404 — the resource
+ * doesn't exist, period — and we map any 22P02 that still slips through to
+ * 404 in the post-query handler as a defence in depth.
+ */
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuid(value: string): boolean {
+  return UUID_REGEX.test(value)
+}
+
+function isInvalidUuidError(error: { code?: string } | null): boolean {
+  return error?.code === '22P02'
+}
+
 // ---------------------------------------------------------------------------
 // GET — public detail
 // ---------------------------------------------------------------------------
@@ -28,6 +47,7 @@ type RouteContext = {
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   if (!id) return errorResponse('Hiányzó azonosító', 400)
+  if (!isUuid(id)) return errorResponse('A cikk nem található', 404)
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -37,6 +57,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (error) {
+    if (isInvalidUuidError(error)) {
+      return errorResponse('A cikk nem található', 404)
+    }
     return errorResponse(`Cikk lekérése sikertelen: ${error.message}`, 500)
   }
   if (!data) {
@@ -56,6 +79,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) return errorResponse('Hiányzó azonosító', 400)
+  if (!isUuid(id)) return errorResponse('A cikk nem található', 404)
 
   let formData: FormData
   try {
@@ -84,6 +108,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (fetchError) {
+    if (isInvalidUuidError(fetchError)) {
+      return errorResponse('A cikk nem található', 404)
+    }
     return errorResponse(`Cikk lekérése sikertelen: ${fetchError.message}`, 500)
   }
   if (!existingRaw) {
@@ -153,6 +180,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) return errorResponse('Hiányzó azonosító', 400)
+  if (!isUuid(id)) return errorResponse('A cikk nem található', 404)
 
   const supabase = await createClient()
 
@@ -164,6 +192,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .maybeSingle()
 
   if (fetchError) {
+    if (isInvalidUuidError(fetchError)) {
+      return errorResponse('A cikk nem található', 404)
+    }
     return errorResponse(`Cikk lekérése sikertelen: ${fetchError.message}`, 500)
   }
   if (!existingRaw) {

@@ -21,7 +21,8 @@
       "Bash(npx --no-install next build)",
       "Bash(grep -v \"^$\")",
       "Bash(sed 's/=.*//')",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

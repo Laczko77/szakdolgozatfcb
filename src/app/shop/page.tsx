@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Product } from "@/types/database";
-import { fetchProducts } from "@/lib/shop-api";
+import { fetchProducts, type ProductWithRating } from "@/lib/shop-api";
 import { useToast } from "@/providers/ToastProvider";
 import { CategoryFilter, type CategoryOption } from "@/components/shop/CategoryFilter";
 import { ProductGrid } from "@/components/shop/ProductGrid";
@@ -41,7 +40,7 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
 export default function ShopPage() {
   const toast = useToast();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithRating[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);

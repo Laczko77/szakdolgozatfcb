@@ -155,6 +155,18 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Per-player info log for squad members that did not appear in either
+  // competition's top-100 scorers list. Helps the admin distinguish "the API
+  // returned nothing" from "this player genuinely has zero stats".
+  for (const member of squad) {
+    if (!matchedScorerIds.has(member.id)) {
+      console.info(
+        `${LOG_PREFIX} no scorer entry for ${member.name} (#${member.id}) — ` +
+          `recording zero stats`
+      )
+    }
+  }
+
   // ---- Look up existing rows so we can preserve bio/image_url ------------
   const supabase = createServiceRoleClient()
   const apiIds = squad.map((p) => p.id)

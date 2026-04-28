@@ -89,19 +89,24 @@ export default function AdminPollsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [pollsBody, matchesData] = await Promise.all([
+      const [pollsBody, matchesBody] = await Promise.all([
         adminFetchRaw<{ polls: EnrichedPoll[] }>("/api/polls?status=all", {
           signal,
           cache: "no-store",
         }),
-        adminFetch<Match[]>("/api/matches?scope=upcoming&limit=50", {
-          signal,
-          cache: "no-store",
-        }).catch(() => [] as Match[]),
+        // /api/matches returns the raw `{ matches: Match[] }` shape — it
+        // does NOT use the admin `{ data }` envelope, so we must unwrap it
+        // via adminFetchRaw. (Previously this used adminFetch<Match[]>
+        // which silently resolved to `undefined` and left the dropdown
+        // empty even when upcoming matches existed.)
+        adminFetchRaw<{ matches: Match[] }>(
+          "/api/matches?scope=upcoming&limit=50",
+          { signal, cache: "no-store" },
+        ).catch(() => ({ matches: [] as Match[] })),
       ]);
       if (signal?.aborted) return;
       setPolls(pollsBody.polls ?? []);
-      setMatches(matchesData ?? []);
+      setMatches(matchesBody?.matches ?? []);
     } catch (err) {
       if (signal?.aborted) return;
       setError(err instanceof Error ? err.message : "Ismeretlen hiba");

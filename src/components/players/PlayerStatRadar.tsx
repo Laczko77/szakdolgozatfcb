@@ -7,7 +7,8 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
-import type { PlayerStats } from "@/lib/players-api";
+import { hasStats, type PlayerStats } from "@/lib/players-api";
+import { PlayerStatsEmpty } from "./PlayerStatGrid";
 
 interface PlayerStatRadarProps {
   stats: PlayerStats;
@@ -42,6 +43,10 @@ const AXES: ReadonlyArray<AxisDef> = [
 ];
 
 export function PlayerStatRadar({ stats }: PlayerStatRadarProps) {
+  if (!hasStats(stats)) {
+    return <PlayerStatsEmpty />;
+  }
+
   const data = AXES.map((axis) => {
     const raw = stats[axis.key] ?? 0;
     const normalized = Math.min(100, Math.round((raw / axis.max) * 100));

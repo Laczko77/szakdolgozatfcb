@@ -3,24 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Users, Vote } from "lucide-react";
+import { ArrowUpRight, Sparkles, Users, Vote } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchPolls, type EnrichedPoll } from "@/lib/polls-api";
+import { useAuth } from "@/providers/AuthProvider";
+import type { Profile } from "@/types/database";
 import type { ProfileSnapshot } from "@/types/dm";
 import { Avatar } from "./Avatar";
+import { FollowButton } from "./FollowButton";
 import { cn } from "@/lib/utils";
 
 /**
  * Right rail on /kozosseg (desktop only, ≥1024px).
  *
- * Two stacked widgets:
- *  1. "Online most" — purely decorative. Real Supabase Presence is
- *     out of scope for F23 (no backend hook), so we surface a small
- *     stack of recently-active fans + a soft pulsing dot. The number
- *     is drawn from a deterministic per-mount seed so it doesn't
- *     ping-pong between renders. Hidden behind a "kb." prefix to be
- *     honest about the placeholder nature.
- *  2. "Aktív szavazás" — the freshest active poll, distilled to the
+ * Stacked widgets:
+ *  1. "Online most" — live Supabase Realtime Presence channel. Each
+ *     visitor on /kozosseg joins the `community:online` channel and
+ *     the count reflects the actual presence state.
+ *  2. "Javasolt szurkolók" — F24.3: a small list of profiles the
+ *     current user does not yet follow, with a compact follow CTA.
+ *  3. "Aktív szavazás" — the freshest active poll, distilled to the
  *     question + a CTA pill. Voting itself happens on /szavazasok
  *     so this stays focused (the dashboard widget is the heavy one).
  */
@@ -28,6 +30,7 @@ export function CommunityRightRail() {
   return (
     <aside className="sticky top-24 hidden w-[280px] shrink-0 flex-col gap-5 lg:flex">
       <OnlineNowCard />
+      <SuggestedFansCard />
       <ActivePollCard />
     </aside>
   );
@@ -39,12 +42,44 @@ export function CommunityRightRail() {
 
 function OnlineNowCard() {
   const supabase = useMemo(() => createClient(), []);
+  const { user } = useAuth();
   const [recent, setRecent] = useState<ProfileSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Deterministic per-mount "online count" so we don't twitch on every
-  // render. 24..68 keeps it believable for a Hungarian fan portal.
-  const [seed] = useState(() => Math.floor(Math.random() * 45) + 24);
+  // F24.2 — live presence: every visitor on the page joins a shared
+  // channel and we render the unique-presence count. Anonymous visitors
+  // get a stable per-mount key so they're counted exactly once. The
+  // random part is computed once via `useState`'s lazy initialiser
+  // (kept impure-call-free during render) and signed users get the
+  // canonical presence key so the same user across tabs collapses.
+  const [anonKey] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? `anon-${crypto.randomUUID()}`
+      : `anon-${Math.random().toString(36).slice(2)}`,
+  );
+  const presenceKey = user?.id ?? anonKey;
+  const [onlineCount, setOnlineCount] = useState(0);
+
+  useEffect(() => {
+    const channel = supabase.channel("community:online", {
+      config: { presence: { key: presenceKey } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        setOnlineCount(Object.keys(state).length);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, presenceKey]);
 
   useEffect(() => {
     const c = new AbortController();
@@ -66,6 +101,11 @@ function OnlineNowCard() {
     return () => c.abort();
   }, [supabase]);
 
+  // While the channel is mid-handshake we may briefly read 0 — show "1"
+  // (the current visitor is by definition online) so the widget never
+  // claims an empty room.
+  const displayedCount = onlineCount > 0 ? onlineCount : 1;
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 12 }}
@@ -84,9 +124,9 @@ function OnlineNowCard() {
             Online most
           </p>
           <p className="mt-1 font-display text-2xl leading-none tracking-wide text-[var(--text-primary)]">
-            <span className="tabular-nums">kb. {seed}</span>{" "}
+            <span className="tabular-nums">{displayedCount}</span>{" "}
             <span className="text-base text-[var(--text-secondary)]">
-              szurkoló
+              {displayedCount === 1 ? "szurkoló" : "szurkoló"}
             </span>
           </p>
         </div>
@@ -136,6 +176,148 @@ function OnlineNowCard() {
         A közösség valós idejű élet-jelei. Posztolj, és te is felkerülsz a
         feedre.
       </p>
+    </motion.section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* "Javasolt szurkolók" widget — F24.3                                */
+/* ------------------------------------------------------------------ */
+
+type SuggestedProfile = Pick<Profile, "id" | "username" | "avatar_url">;
+
+function SuggestedFansCard() {
+  const supabase = useMemo(() => createClient(), []);
+  const { user } = useAuth();
+  const [suggestions, setSuggestions] = useState<SuggestedProfile[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const c = new AbortController();
+
+    void (async () => {
+      try {
+        // Step 1: pull the ids the current user already follows so we
+        // can subtract them client-side (no view exists for "not
+        // followed"; doing it in JS keeps the widget self-contained).
+        let excludeIds: string[] = [];
+        if (user) {
+          const { data: following } = await supabase
+            .from("follows")
+            .select("following_id")
+            .eq("follower_id", user.id);
+          excludeIds = (following ?? []).map(
+            (r: { following_id: string }) => r.following_id,
+          );
+        }
+
+        // Step 2: fetch a small pool of recently-joined fans, then
+        // filter out self + already-followed in JS. We pull a handful
+        // extra so the post-filter list is still ~5.
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .order("created_at", { ascending: false })
+          .limit(15);
+
+        if (error || c.signal.aborted) return;
+
+        const exclude = new Set([...(user ? [user.id] : []), ...excludeIds]);
+        const pool = ((data ?? []) as SuggestedProfile[]).filter(
+          (p) => !exclude.has(p.id) && p.username,
+        );
+
+        if (!c.signal.aborted) setSuggestions(pool.slice(0, 5));
+      } catch {
+        /* tolerated */
+      } finally {
+        if (!c.signal.aborted) setLoaded(true);
+      }
+    })();
+
+    return () => c.abort();
+  }, [supabase, user]);
+
+  // Hide the whole card for guests — there's no follow CTA to offer.
+  if (!user) return null;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.04, ease: "easeOut" }}
+      className="glass-card relative overflow-hidden p-5"
+      aria-label="Javasolt szurkolók"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent-gold)]/40 to-transparent"
+      />
+
+      <header className="flex items-center gap-2">
+        <Sparkles
+          size={12}
+          className="text-[var(--accent-gold)]"
+          aria-hidden
+        />
+        <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
+          Javasolt szurkolók
+        </p>
+      </header>
+
+      {!loaded ? (
+        <ul className="mt-4 space-y-3" aria-hidden>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-3">
+              <span className="h-8 w-8 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+              <span className="h-3 flex-1 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+              <span className="h-6 w-16 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+            </li>
+          ))}
+        </ul>
+      ) : suggestions.length === 0 ? (
+        <p className="mt-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+          Mindenkit követsz a közösségből — szép. Új arc érkezésével
+          megint megjelennek itt javaslatok.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-3">
+          {suggestions.map((p) => (
+            <li
+              key={p.id}
+              className={cn(
+                "flex items-center gap-2.5",
+                "rounded-xl px-2 py-1.5",
+                "transition-colors hover:bg-[var(--glass-bg-hover)]/40",
+              )}
+            >
+              <Link
+                href={`/profil/${p.id}`}
+                className={cn(
+                  "flex min-w-0 flex-1 items-center gap-2.5",
+                  "focus-visible:outline-none focus-visible:ring-2",
+                  "focus-visible:ring-[var(--accent-gold)]/60 rounded-lg",
+                )}
+              >
+                <Avatar
+                  url={p.avatar_url}
+                  name={p.username ?? "Szurkoló"}
+                  size={32}
+                />
+                <span className="min-w-0 truncate font-display text-sm tracking-wide text-[var(--text-primary)]">
+                  {p.username ?? "Szurkoló"}
+                </span>
+              </Link>
+              <FollowButton
+                targetUserId={p.id}
+                size="sm"
+                className="shrink-0 px-3 py-1 text-[10px] tracking-[0.14em]"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
     </motion.section>
   );
 }

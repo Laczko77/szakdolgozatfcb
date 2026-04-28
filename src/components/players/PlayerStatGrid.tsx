@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { PlayerStats } from "@/lib/players-api";
+import { BarChart2 } from "lucide-react";
+import { hasStats, type PlayerStats } from "@/lib/players-api";
 
 interface PlayerStatGridProps {
   stats: PlayerStats;
@@ -52,6 +53,10 @@ const BARS: ReadonlyArray<BarDef> = [
 ];
 
 export function PlayerStatGrid({ stats }: PlayerStatGridProps) {
+  if (!hasStats(stats)) {
+    return <PlayerStatsEmpty />;
+  }
+
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {BARS.map((bar, i) => {
@@ -107,5 +112,43 @@ export function PlayerStatGrid({ stats }: PlayerStatGridProps) {
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * Shared empty state — rendered by both the grid and the radar when the
+ * player has no goals / assists / appearances on file. Kept as an
+ * exported component so the player profile page can also fall back to
+ * a single, unified message if it ever wants to.
+ */
+export function PlayerStatsEmpty() {
+  return (
+    <div
+      className={[
+        "flex flex-col items-center justify-center gap-3",
+        "rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)]",
+        "px-6 py-10 text-center backdrop-blur opacity-60",
+      ].join(" ")}
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        aria-hidden
+        className={[
+          "flex h-12 w-12 items-center justify-center rounded-full",
+          "border border-[var(--glass-border-hover)] bg-[var(--glass-bg-hover)]",
+          "text-[var(--accent-gold)]",
+        ].join(" ")}
+      >
+        <BarChart2 size={20} aria-hidden />
+      </span>
+      <p className="font-display text-sm uppercase tracking-[0.28em] text-[var(--text-secondary)]">
+        Statisztikák hamarosan elérhetők
+      </p>
+      <p className="max-w-xs text-xs leading-relaxed text-[var(--text-muted)]">
+        A szezonadatok rögzítése folyamatban — gyere vissza később,
+        addigra megtelnek a számok.
+      </p>
+    </div>
   );
 }

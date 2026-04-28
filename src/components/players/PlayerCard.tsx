@@ -10,7 +10,7 @@ import {
   PLAYER_POSITION_LABELS,
   PLAYER_POSITION_SHORT,
 } from "@/lib/player-positions";
-import { readPlayerStats } from "@/lib/players-api";
+import { hasStats, readPlayerStats } from "@/lib/players-api";
 
 interface PlayerCardProps {
   player: Player;
@@ -38,6 +38,10 @@ interface PlayerCardProps {
  */
 export function PlayerCard({ player, index = 0, priority = false }: PlayerCardProps) {
   const stats = readPlayerStats(player.stats);
+  // F24.4 — when no real stats are available, the mini stat row shows
+  // a neutral em-dash instead of three honest-looking zeroes. This is
+  // mirrored on the back face (BackStat) for hover-capable devices.
+  const statsAvailable = hasStats(stats);
   const positionLabel =
     player.position && isPlayerPosition(player.position)
       ? PLAYER_POSITION_LABELS[player.position]
@@ -145,9 +149,21 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
                   […] alul 2-3 fő stat szám".  Hidden on (hover: hover)
                   desktops because there the stats live on the back face. */}
               <div className="mt-3 grid grid-cols-3 gap-1.5 player-card-mobile-stats">
-                <MiniStat label="Gól" value={stats.goals ?? 0} />
-                <MiniStat label="Assist" value={stats.assists ?? 0} />
-                <MiniStat label="Meccs" value={stats.appearances ?? 0} />
+                <MiniStat
+                  label="Gól"
+                  value={stats.goals ?? 0}
+                  available={statsAvailable}
+                />
+                <MiniStat
+                  label="Assist"
+                  value={stats.assists ?? 0}
+                  available={statsAvailable}
+                />
+                <MiniStat
+                  label="Meccs"
+                  value={stats.appearances ?? 0}
+                  available={statsAvailable}
+                />
               </div>
             </div>
           </div>
@@ -186,12 +202,25 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
               </div>
 
               <ul className="mt-5 grid grid-cols-2 gap-2 text-[var(--text-primary)]">
-                <BackStat label="Gól" value={stats.goals ?? 0} />
-                <BackStat label="Gólpassz" value={stats.assists ?? 0} />
-                <BackStat label="Meccs" value={stats.appearances ?? 0} />
+                <BackStat
+                  label="Gól"
+                  value={stats.goals ?? 0}
+                  available={statsAvailable}
+                />
+                <BackStat
+                  label="Gólpassz"
+                  value={stats.assists ?? 0}
+                  available={statsAvailable}
+                />
+                <BackStat
+                  label="Meccs"
+                  value={stats.appearances ?? 0}
+                  available={statsAvailable}
+                />
                 <BackStat
                   label="Sárga"
                   value={stats.yellow_cards ?? 0}
+                  available={statsAvailable}
                   accentClass="border-[#facc15]/40"
                 />
               </ul>
@@ -234,11 +263,25 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
 
 /* ---------- sub components ---------- */
 
-function MiniStat({ label, value }: { label: string; value: number }) {
+function MiniStat({
+  label,
+  value,
+  available,
+}: {
+  label: string;
+  value: number;
+  /** Render `—` instead of a literal `0` when no real stats exist. */
+  available: boolean;
+}) {
   return (
     <div className="rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-center backdrop-blur-sm">
-      <div className="font-display text-base leading-none text-white tabular-nums">
-        {value}
+      <div
+        className={cn(
+          "font-display text-base leading-none tabular-nums",
+          available ? "text-white" : "text-white/50",
+        )}
+      >
+        {available ? value : "—"}
       </div>
       <div className="mt-0.5 text-[9px] uppercase tracking-widest text-white/70">
         {label}
@@ -250,10 +293,12 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 function BackStat({
   label,
   value,
+  available,
   accentClass,
 }: {
   label: string;
   value: number;
+  available: boolean;
   accentClass?: string;
 }) {
   return (
@@ -263,8 +308,13 @@ function BackStat({
         accentClass ?? "border-[var(--glass-border)]",
       )}
     >
-      <div className="font-display text-xl leading-none tabular-nums">
-        {value}
+      <div
+        className={cn(
+          "font-display text-xl leading-none tabular-nums",
+          !available && "text-[var(--text-muted)]",
+        )}
+      >
+        {available ? value : "—"}
       </div>
       <div className="mt-1 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">
         {label}

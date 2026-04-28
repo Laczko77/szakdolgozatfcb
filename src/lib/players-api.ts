@@ -122,3 +122,21 @@ export function readPlayerStats(stats: Player["stats"]): PlayerStats {
     red_cards: num("red_cards"),
   };
 }
+
+/**
+ * Does this player have *any* meaningful stat populated?
+ *
+ * Used by the stat widgets (`PlayerStatGrid`, `PlayerStatRadar`) and the
+ * card mini-stats to decide between rendering a real visualisation and
+ * a "Statisztikák hamarosan elérhetők" fallback. We deliberately check
+ * the three "good" totals (goals, assists, appearances) — a player who
+ * only has yellow cards on file but zero apps is almost certainly a
+ * data-import gap, not an interesting stat to display.
+ */
+export function hasStats(stats: PlayerStats): boolean {
+  return (
+    (stats.goals ?? 0) > 0 ||
+    (stats.assists ?? 0) > 0 ||
+    (stats.appearances ?? 0) > 0
+  );
+}

@@ -1,13 +1,17 @@
 "use client";
 
-import type { Product } from "@/types/database";
+import type { ProductWithRating } from "@/lib/shop-api";
 import { ProductCard } from "./ProductCard";
 
 interface ProductGridProps {
-  products: Product[];
-  /** Map of productId -> { rating, count } for sub-listings that already
-   *  joined the aggregate.  Optional — listing endpoint doesn't include
-   *  ratings to avoid an extra round trip per page. */
+  products: ProductWithRating[];
+  /**
+   * Optional override map of `productId -> { rating, count }`. The
+   * canonical source is the `average_rating` / `review_count` fields the
+   * listing endpoint already joins onto each product row, so callers
+   * normally don't need this prop. It exists for sub-listings (e.g.
+   * "related products") that pre-aggregated the ratings elsewhere.
+   */
   ratings?: Record<string, { rating: number; count: number }>;
 }
 
@@ -20,13 +24,19 @@ export function ProductGrid({ products, ratings }: ProductGridProps) {
       ].join(" ")}
     >
       {products.map((product, index) => {
-        const r = ratings?.[product.id];
+        // Override map wins when the caller supplied one (rare path), but
+        // the default route is the API-joined fields on the product row.
+        const override = ratings?.[product.id];
+        const averageRating =
+          override?.rating ?? product.average_rating ?? 0;
+        const reviewCount = override?.count ?? product.review_count ?? 0;
+
         return (
           <ProductCard
             key={product.id}
             product={product}
-            averageRating={r?.rating ?? 0}
-            reviewCount={r?.count ?? 0}
+            averageRating={averageRating}
+            reviewCount={reviewCount}
             index={index}
           />
         );
