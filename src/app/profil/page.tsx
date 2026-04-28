@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { PointTransaction, Profile } from "@/types/database";
@@ -296,6 +297,9 @@ function ProfileContent() {
         onUpdated={setProfile}
       />
 
+      {/* ── Quick links — Dream Team shortcut ────────────────── */}
+      <DreamTeamShortcut />
+
       {/* ── Tabs ────────────────────────────────────────────── */}
       <div className="mt-7 sm:mt-8">
         <ProfileTabs active={activeTab} onChange={setActiveTab} />
@@ -349,6 +353,50 @@ function ProfileContent() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dream Team shortcut card — sits between hero and tabs.
+// ---------------------------------------------------------------------------
+
+function DreamTeamShortcut() {
+  return (
+    <Link
+      href="/jatekosok/almomcsapat"
+      className={cn(
+        "group mt-6 flex items-center gap-4 rounded-2xl border border-[var(--glass-border)]",
+        "bg-[var(--glass-bg)] px-5 py-4 backdrop-blur-md transition-all duration-200",
+        "hover:border-[var(--accent-gold)] hover:bg-[var(--glass-bg-hover)]",
+        "shadow-[var(--shadow-md)]",
+        "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+          "border border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/10",
+          "font-display text-lg text-[var(--accent-gold)]",
+        )}
+      >
+        XI
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-base tracking-wide text-[var(--text-primary)] sm:text-lg">
+          Álomcsapatom
+        </span>
+        <span className="block text-xs text-[var(--text-secondary)] sm:text-sm">
+          Állítsd össze a tökéletes XI-edet drag-and-drop felületen.
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className="text-[var(--accent-gold)] transition-transform duration-200 group-hover:translate-x-1"
+      >
+        →
+      </span>
+    </Link>
   );
 }
 

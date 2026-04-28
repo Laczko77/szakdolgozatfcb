@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Player } from "@/types/database";
@@ -129,6 +130,58 @@ function JatekosokPageInner() {
           kattints a teljes profilért.
         </p>
       </motion.header>
+
+      {/* Dream Team CTA — appears between hero and the filter pills.
+          Drives engagement towards the F22 builder without requiring a new
+          dedicated section. */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
+        className="mb-8 sm:mb-10"
+      >
+        <Link
+          href="/jatekosok/almomcsapat"
+          className={cn(
+            "group relative flex items-center gap-4 overflow-hidden",
+            "rounded-2xl border border-[var(--accent-gold)]/40 bg-[var(--glass-bg)]",
+            "px-5 py-4 backdrop-blur-md transition-all duration-200",
+            "hover:border-[var(--accent-gold)] hover:shadow-[var(--shadow-glow-gold)]",
+            "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]",
+          )}
+        >
+          {/* Decorative gradient flourish */}
+          <span
+            aria-hidden
+            className="absolute inset-y-0 right-0 hidden w-1/2 opacity-50 sm:block"
+            style={{
+              background:
+                "radial-gradient(circle at 80% 50%, rgba(196,163,77,0.18), transparent 65%)",
+            }}
+          />
+          <span
+            aria-hidden
+            className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-gold)] bg-[var(--accent-gold)]/15 font-display text-lg text-[var(--accent-gold)] sm:h-14 sm:w-14"
+          >
+            XI
+          </span>
+          <span className="relative min-w-0 flex-1">
+            <span className="block font-display text-lg tracking-wide text-[var(--text-primary)] sm:text-2xl">
+              Építsd meg a saját álomcsapatod
+            </span>
+            <span className="block text-xs text-[var(--text-secondary)] sm:text-sm">
+              Drag-and-drop a kiválasztott formációba — 4-3-3, 4-2-3-1,
+              3-5-2 vagy 4-4-2.
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className="relative shrink-0 font-display text-sm uppercase tracking-[0.3em] text-[var(--accent-gold)] transition-transform duration-200 group-hover:translate-x-1"
+          >
+            Tovább →
+          </span>
+        </Link>
+      </motion.div>
 
       {/* Filters */}
       <motion.div
