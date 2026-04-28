@@ -6,7 +6,7 @@ import {
   successResponse,
 } from '@/lib/api-utils'
 import type { Poll, PollOption, TablesUpdate } from '@/types/database'
-import { parseOptions } from '../route'
+import { applyNoneOption, parseOptions } from '../route'
 
 /**
  * /api/admin/polls/[id]
@@ -71,18 +71,39 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     update.question = obj.question.trim()
   }
 
-  if (obj.options !== undefined) {
+  if (
+    obj.options !== undefined ||
+    obj.add_none_option !== undefined ||
+    obj.none_option_text !== undefined
+  ) {
     if (existing.correct_option !== null) {
       return errorResponse(
         'Lezárt szavazás opcióit már nem lehet módosítani',
         409
       )
     }
-    const parsed = parseOptions(obj.options)
-    if (parsed instanceof Error) {
-      return errorResponse(parsed.message, 400)
+
+    // If the caller didn't send a fresh options[] but did send a none-option
+    // toggle, mutate the existing options array. Otherwise parse the new one.
+    const baseOptions = obj.options !== undefined
+      ? parseOptions(obj.options)
+      : (existing.options as PollOption[])
+
+    if (baseOptions instanceof Error) {
+      return errorResponse(baseOptions.message, 400)
     }
-    update.options = parsed as PollOption[]
+
+    // Iter17: append (or validate against) the "Más / Egyik sem" option.
+    const finalOptions = applyNoneOption(
+      baseOptions,
+      obj.add_none_option,
+      obj.none_option_text
+    )
+    if (finalOptions instanceof Error) {
+      return errorResponse(finalOptions.message, 400)
+    }
+
+    update.options = finalOptions
   }
 
   if (obj.match_id !== undefined) {

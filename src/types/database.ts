@@ -193,6 +193,14 @@ export interface Reaction {
 
 export interface PollOption {
   label: string
+  /**
+   * Iter17: marks the special "Más / Egyik sem" ("Other / None of the above")
+   * option. When true, this entry must be the LAST element of `Poll.options`
+   * (enforced by the `polls_options_none_option_shape` CHECK constraint). At
+   * most one option per poll may carry this flag. From the resolve_poll RPC's
+   * perspective the none option is just another index — no special-casing.
+   */
+  is_none?: boolean
   // Free-form metadata (e.g. score predictions). Kept open by design.
   [key: string]: Json | undefined
 }

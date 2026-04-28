@@ -15,7 +15,10 @@ import type { Poll, TablesInsert, Vote } from '@/types/database'
  *
  * Constraints:
  *   - Poll must exist and have is_active = true.
- *   - selected_option must be a valid index into poll.options.
+ *   - selected_option must be a valid index into poll.options. (Iter17: this
+ *     transparently covers the optional "Más / Egyik sem" entry, which lives
+ *     at index `options.length - 1` when present and is treated as a regular
+ *     vote target by both this validator and resolve_poll().)
  *   - One vote per (poll, user) — UNIQUE (poll_id, user_id) at the DB level.
  *     Duplicate attempts surface as 409 Conflict.
  *
