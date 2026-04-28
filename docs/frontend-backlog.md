@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 149 |
-| Completed tasks | 118 |
-| Remaining tasks | 31 |
-| Completion | 79% |
+| Completed tasks | 125 |
+| Remaining tasks | 24 |
+| Completion | 84% |
 
 ---
 
@@ -926,7 +926,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F20 — Jegyek Táblázatos Nézet & Fix Szektor SVG Redesign
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** Két frontend változás: (1) a meccs lista oldal (`/jegyek`) átalakítása táblázatos megjelenítésre, a kártya nézet teljesen megszűnik. (2) A `StadiumMap.tsx` újratervezése a 4 fix szektor (TRIBUNA, LATERAL, GOL NORD, GOL SUD) referencia kép alapján, fix SVG koordinátákkal, dinamikus kapacitás és ár megjelenítéssel.
 
@@ -934,7 +934,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F20.1 Meccsek listaoldal táblázatos átalakítás (`src/app/jegyek/page.tsx`):
+- [x] F20.1 Meccsek listaoldal táblázatos átalakítás (`src/app/jegyek/page.tsx`):
   - A korábbi kártya grid lecserélése táblázatos nézetre
   - Oszlopok: dátum, hazai csapat (logó + név), vendég csapat (logó + név), bajnokság, státusz badge, "Jegyvásárlás" gomb
   - Mobil: a táblázat helyett kompakt sor-alapú lista (a meccs egy "row" mint kártya, de a táblázat struktúráját megőrizve)
@@ -942,7 +942,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
   - Sorting: dátum szerint (alap aszc, kattintásra desc)
   - Filter: bajnokság szerint (La Liga, BL, Copa del Rey)
   - A kártya nézet kód törlése (komponensek, stílusok)
-- [ ] F20.2 Fix szektor SVG újratervezés (`src/components/tickets/StadiumMap.tsx`):
+- [x] F20.2 Fix szektor SVG újratervezés (`src/components/tickets/StadiumMap.tsx`):
   - Korábbi 6-8 szektoros SVG eltávolítása
   - 4 fix szektor SVG koordinátáinak beállítása a referencia kép alapján:
     - TRIBUNA: a stadion északi/hosszú oldala (nagyobb téglalap fent)
@@ -951,22 +951,22 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
     - GOL SUD: a stadion déli végén (kapu mögött)
   - Minden szektor `<path>` vagy `<polygon>` elem konkrét D-attributummal vagy points-szel
   - SVG viewBox: pl. `0 0 800 600` arányos
-- [ ] F20.3 Szektor adat-binding:
+- [x] F20.3 Szektor adat-binding:
   - A szektor SVG elemei az ID-ja vagy `data-sector-name` attribútuma alapján kapnak állapotot
   - Hover: tooltip a szektor nevével, szabad helyek számával, ár/db
   - Színkódolás (változatlan): elérhető akcent, betelt szürke, kiválasztott arany
   - Kattintható szektor → kiválasztva állapot
-- [ ] F20.4 Dinamikus kapacitás és ár megjelenítés:
+- [x] F20.4 Dinamikus kapacitás és ár megjelenítés:
   - Minden szektor labelje (név) + alatta a szabad helyek (`total_seats - sold_seats`) / összes helyek és az ár (€) kiírva, vagy csak hover tooltip-ben
   - Ha a backend válasz módosul (admin árváltoztatás után), a térkép friss adatot mutat (SWR cache invalidálás vagy manual refetch)
-- [ ] F20.5 Mobil alternatíva frissítés (F9.5 frissítése):
+- [x] F20.5 Mobil alternatíva frissítés (F9.5 frissítése):
   - A mobil fallback lista 4 szektort mutat (TRIBUNA, LATERAL, GOL NORD, GOL SUD), egy-egy kártyával
   - Kártya: szektor neve, szabad/összes hely, ár, "Kiválaszt" gomb
-- [ ] F20.6 Admin szektor szerkesztő frissítés (`src/app/admin/meccsek/[id]/page.tsx`):
+- [x] F20.6 Admin szektor szerkesztő frissítés (`src/app/admin/meccsek/[id]/page.tsx`):
   - Az "Új szektor hozzáadása" gomb eltávolítása (a 4 fix szektor automatikusan létrejön)
   - A 4 szektor szerkesztő formja: minden szektor egy sor, csak `total_seats` és `price` szerkeszthető (a `sector_name` readonly)
   - Auto-seed gomb: ha egy meccsnek hiányzik szektora (régi adat), egy "Szektorok újragenerálása" gomb a `POST /api/admin/matches/[id]/seed-sectors` endpointot hívja
-- [ ] F20.7 Konstans import (`src/lib/constants/sectors.ts`):
+- [x] F20.7 Konstans import (`src/lib/constants/sectors.ts`):
   - A backend által definiált 4 szektor név konstansot a frontend is használja (típusbiztos)
 
 **Acceptance Criteria:**

@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 92    |
-| Completed tasks     | 75    |
-| Remaining tasks     | 17    |
-| Completion          | 82%   |
+| Completed tasks     | 80    |
+| Remaining tasks     | 12    |
+| Completion          | 87%   |
 
 ---
 
@@ -652,7 +652,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 17 — Szavazás: "Más / Egyik sem" Opció
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A szavazórendszer kibővítése: az admin a szavazás létrehozásakor opcionálisan hozzáadhat egy "Más / Egyik sem" speciális opciót. Ha ez a helyes válasz, az erre szavazók kapnak pontot.
 
@@ -660,21 +660,21 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 17.1 Adatbázis séma kiterjesztés (`supabase/migrations/<dátum>_polls_none_option.sql`):
+- [x] 17.1 Adatbázis séma kiterjesztés (`supabase/migrations/<dátum>_polls_none_option.sql`):
   - A `polls.options` JSONB már támogatja a tetszőleges struktúrát; konvenció bevezetése: minden opció `{ id: string, text: string, isNone?: boolean }` formátumban
   - Opcionális: `polls.has_none_option BOOLEAN DEFAULT false` flag az egyszerű query-khez
-- [ ] 17.2 Admin szavazás létrehozó endpoint kiterjesztés (`POST /api/admin/polls`):
+- [x] 17.2 Admin szavazás létrehozó endpoint kiterjesztés (`POST /api/admin/polls`):
   - Új body field: `addNoneOption` (boolean), `noneOptionText` (string, default: "Más / Egyik sem")
   - Ha `addNoneOption = true`, az `options` tömb végére hozzáfűz egy `{ id: 'none', text: noneOptionText, isNone: true }` opciót
   - Validáció: a `noneOptionText` max 100 karakter
-- [ ] 17.3 Admin szavazás szerkesztő endpoint (`PUT /api/admin/polls/[id]`):
+- [x] 17.3 Admin szavazás szerkesztő endpoint (`PUT /api/admin/polls/[id]`):
   - Lehetővé teszi a teljes options tömb frissítését (csak ha még nincs lezárva: `is_active = true` és `correct_option = null`)
   - A "none" opció hozzáadható/törölhető a szavazás resolve előtt
-- [ ] 17.4 `resolve_poll` RPC kiterjesztés:
+- [x] 17.4 `resolve_poll` RPC kiterjesztés:
   - A `correct_option` lehet egy normál opció ID vagy a "none" string
   - Ha `correct_option = 'none'`, az erre szavazók kapnak 50 pontot (ugyanaz a logika mint a normál helyes válasz)
   - Atomic tranzakció: pont jóváírás + `point_transactions` bejegyzés
-- [ ] 17.5 Frontend integráció előkészítése: a `GET /api/polls` és `GET /api/polls/[id]/results` response-ok jelezzék a "none" opció jelenlétét és helyes voltát
+- [x] 17.5 Frontend integráció előkészítése: a `GET /api/polls` és `GET /api/polls/[id]/results` response-ok jelezzék a "none" opció jelenlétét és helyes voltát
 
 **Acceptance Criteria:**
 
