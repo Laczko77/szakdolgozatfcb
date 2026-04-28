@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Coins,
+  Heart,
   Settings as SettingsIcon,
   ShoppingBag,
   Ticket,
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 export type ProfileTabId =
   | "orders"
   | "tickets"
+  | "wishlist"
   | "coupons"
   | "points"
   | "settings";
@@ -42,6 +44,7 @@ interface TabDef {
 export const PROFILE_TABS: readonly TabDef[] = [
   { id: "orders", label: "Rendeléseim", icon: ShoppingBag },
   { id: "tickets", label: "Jegyeim", icon: Ticket },
+  { id: "wishlist", label: "Kívánságlistám", icon: Heart },
   { id: "coupons", label: "Kuponjaim", icon: TicketPercent },
   { id: "points", label: "Pontjaim", icon: Coins },
   { id: "settings", label: "Beállítások", icon: SettingsIcon },
@@ -51,6 +54,7 @@ export function isProfileTabId(value: string | null): value is ProfileTabId {
   return (
     value === "orders" ||
     value === "tickets" ||
+    value === "wishlist" ||
     value === "coupons" ||
     value === "points" ||
     value === "settings"

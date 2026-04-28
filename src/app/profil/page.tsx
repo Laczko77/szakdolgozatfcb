@@ -15,6 +15,7 @@ import {
 } from "@/components/profile/ProfileTabs";
 import { OrdersTab } from "@/components/profile/OrdersTab";
 import { TicketsTab } from "@/components/profile/TicketsTab";
+import { WishlistTab } from "@/components/profile/WishlistTab";
 import { CouponsTab } from "@/components/profile/CouponsTab";
 import { PointsTab } from "@/components/profile/PointsTab";
 import { SettingsTab } from "@/components/profile/SettingsTab";
@@ -326,6 +327,7 @@ function ProfileContent() {
                 loading={ticketsLoading && !ticketsLoaded}
               />
             )}
+            {activeTab === "wishlist" && <WishlistTab />}
             {activeTab === "coupons" && (
               <CouponsTab
                 coupons={coupons}

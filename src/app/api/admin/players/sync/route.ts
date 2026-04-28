@@ -110,15 +110,50 @@ export async function POST(request: NextRequest) {
   // ---- Aggregate scorer stats by FCB player id ---------------------------
   // Only scorers whose player.id matches a squad member contribute. Fallback
   // to zeros when a player did not appear in either competition.
+  //
+  // ID-mapping: football-data.org returns the same numeric player id from
+  // /teams/{id} (squad) and /competitions/{id}/scorers — so the join key is
+  // simply `player.id`. Players who do not appear in either scorers list end
+  // up with all-zero stats (the /scorers endpoint only returns the top-100
+  // ranked players per competition, so bench/unused squad members are
+  // expected to fall through with zeros — this is an upstream limitation,
+  // NOT a mapping bug).
   const statsByPlayerId = aggregateScorerStats(
     squad,
     laLigaScorers,
     championsLeagueScorers
   )
 
+  const squadIds = new Set(squad.map((m) => m.id))
+  const matchedScorerIds = new Set<number>()
+  const unmatchedScorerNames: string[] = []
+  for (const scorer of [...laLigaScorers, ...championsLeagueScorers]) {
+    if (squadIds.has(scorer.playerId)) {
+      matchedScorerIds.add(scorer.playerId)
+    } else {
+      unmatchedScorerNames.push(`${scorer.playerName}#${scorer.playerId}`)
+    }
+  }
+
   const playersWithStatsCount = Array.from(statsByPlayerId.values()).filter(
     (s) => s.appearances > 0 || s.goals > 0 || s.assists > 0
   ).length
+  const playersWithoutStatsCount = squad.length - playersWithStatsCount
+
+  console.log(
+    `${LOG_PREFIX} scorers fetched: laLiga=${laLigaScorers.length} ` +
+      `cl=${championsLeagueScorers.length}; squadMembers=${squad.length} ` +
+      `matchedToScorer=${matchedScorerIds.size} ` +
+      `noStats=${playersWithoutStatsCount} ` +
+      `(reason: not in either competition's top-100 scorers list)`
+  )
+  if (unmatchedScorerNames.length > 0) {
+    console.log(
+      `${LOG_PREFIX} ${unmatchedScorerNames.length} scorer rows did not match ` +
+        `any FCB squad id (these are non-FCB players in the same competition; ` +
+        `expected and ignored)`
+    )
+  }
 
   // ---- Look up existing rows so we can preserve bio/image_url ------------
   const supabase = createServiceRoleClient()
@@ -149,7 +184,10 @@ export async function POST(request: NextRequest) {
 
   for (const member of squad) {
     try {
-      const stats = statsByPlayerId.get(member.id) ?? emptyStats()
+      // Guarantee a fully-populated, non-null stats object so the DB never
+      // stores `null` for any individual stat field (frontend treats null
+      // as "unknown" and renders blanks instead of "0").
+      const stats = sanitizeStats(statsByPlayerId.get(member.id))
 
       // Build the insert payload. For existing players we omit `bio` and
       // `image_url` so the admin's manual edits survive a re-sync; for
@@ -237,6 +275,30 @@ function emptyStats(): PlayerStatsPayload {
     minutes: 0,
     yellow_cards: 0,
     red_cards: 0,
+  }
+}
+
+/**
+ * Coerce a (possibly partial / null-bearing) stats payload to a fully-zeroed
+ * object. Any individual field that is null/undefined/NaN becomes 0 so the
+ * `players.stats` JSONB never contains nulls — frontend reads can rely on
+ * every numeric field being present.
+ */
+function sanitizeStats(
+  partial: Partial<PlayerStatsPayload> | undefined
+): PlayerStatsPayload {
+  const base = emptyStats()
+  if (!partial) return base
+  const safe = (n: unknown): number =>
+    typeof n === 'number' && Number.isFinite(n) ? n : 0
+  return {
+    goals: safe(partial.goals),
+    assists: safe(partial.assists),
+    appearances: safe(partial.appearances),
+    games_started: safe(partial.games_started),
+    minutes: safe(partial.minutes),
+    yellow_cards: safe(partial.yellow_cards),
+    red_cards: safe(partial.red_cards),
   }
 }
 

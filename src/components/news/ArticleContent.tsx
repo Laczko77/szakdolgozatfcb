@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { cn } from "@/lib/utils";
 
 interface ArticleContentProps {
@@ -5,24 +6,84 @@ interface ArticleContentProps {
 }
 
 /**
- * Plain-text article body renderer with magazine-grade typography.
+ * Article body renderer — HTML (Tiptap) + plain-text aware.
  *
- * The CMS currently stores content as plain text (Tiptap rich-text
- * comes in F15) — so we split on blank lines into paragraphs, render
- * single line breaks as soft `<br>`, and let the prose styles take
- * care of the rest.  Once the admin editor produces HTML/JSON output,
- * this component becomes the renderer for that.
+ * Background (F18.4 fix):
+ *   The F15 admin panel ships a Tiptap rich-text editor that persists
+ *   `articles.content` as HTML (`<p>`, `<h2>`, `<strong>`, `<a>` …).
+ *   Until this fix the public detail page rendered the raw string,
+ *   so visitors saw the literal markup. We now sanitise the HTML with
+ *   `isomorphic-dompurify` (allows the editor's tag set, strips
+ *   `<script>` / `on*` handlers / external `javascript:` urls) and
+ *   inject it via `dangerouslySetInnerHTML`.
+ *
+ *   Legacy plain-text articles (no tags) still work — `looksLikeHtml`
+ *   detects them and falls back to the previous paragraph-splitting
+ *   renderer with the gold drop-cap.
+ *
+ * Typography:
+ *   We don't pull in `@tailwindcss/typography` — that plugin's stock
+ *   look fights the FCB liquid-glass aesthetic. Instead we hand-rolled
+ *   the prose styling against design tokens (`--text-primary`,
+ *   `--accent-gold`, `--glass-border`). The result reads like an
+ *   editorial broadsheet without abandoning the system.
  */
 export function ArticleContent({ content }: ArticleContentProps) {
-  const paragraphs = splitParagraphs(content);
+  const trimmed = content?.trim() ?? "";
 
-  if (paragraphs.length === 0) {
+  if (trimmed.length === 0) {
     return (
       <p className="text-base text-[var(--text-muted)] italic">
         A cikk tartalma nem érhető el.
       </p>
     );
   }
+
+  if (looksLikeHtml(trimmed)) {
+    // ── HTML branch (Tiptap) ─────────────────────────────────────
+    const cleanHtml = DOMPurify.sanitize(trimmed, {
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "b",
+        "em",
+        "i",
+        "u",
+        "s",
+        "a",
+        "ul",
+        "ol",
+        "li",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "blockquote",
+        "code",
+        "pre",
+        "hr",
+        "img",
+      ],
+      ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt"],
+      // Force every link to open in a new tab + carry safe rel attrs.
+      ADD_ATTR: ["target", "rel"],
+    });
+
+    return (
+      <div
+        className={cn(
+          "fcb-prose",
+          "text-base sm:text-lg leading-[1.8] tracking-[0.005em]",
+          "text-[var(--text-primary)]/95",
+        )}
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
+      />
+    );
+  }
+
+  // ── Plain-text branch (legacy articles) ─────────────────────
+  const paragraphs = splitParagraphs(trimmed);
 
   return (
     <div
@@ -36,8 +97,7 @@ export function ArticleContent({ content }: ArticleContentProps) {
         <p
           key={idx}
           className={cn(
-            // First paragraph drop-cap effect — pure CSS, only on the
-            // first lead paragraph and only on >=sm where there's room.
+            // First paragraph drop-cap — pure CSS, only on the lead.
             idx === 0 &&
               "first-letter:font-display first-letter:text-[var(--accent-gold)] first-letter:text-7xl first-letter:leading-[0.85] first-letter:float-left first-letter:mr-3 first-letter:mt-2 sm:first-letter:text-8xl",
           )}
@@ -46,6 +106,22 @@ export function ArticleContent({ content }: ArticleContentProps) {
         </p>
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Heuristic — does the string contain HTML markup we should render via
+ * DOMPurify? We look for any opening tag from the editor's whitelist.
+ * Pure plain text (newline-separated paragraphs) keeps the legacy path,
+ * which preserves the magazine drop-cap.
+ */
+function looksLikeHtml(text: string): boolean {
+  return /<\/?(?:p|h[1-4]|ul|ol|li|strong|em|a|blockquote|br|img|hr|pre|code)\b/i.test(
+    text,
   );
 }
 

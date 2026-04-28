@@ -6,6 +6,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Coins,
+  Heart,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -176,6 +177,13 @@ export function UserMenu({ className }: UserMenuProps) {
                 onSelect={() => setOpen(false)}
               >
                 Vezérlőpult
+              </MenuItem>
+              <MenuItem
+                href="/profil?tab=wishlist"
+                icon={<Heart size={15} />}
+                onSelect={() => setOpen(false)}
+              >
+                Kívánságlistám
               </MenuItem>
               <MenuItem
                 href="/pontjaim"

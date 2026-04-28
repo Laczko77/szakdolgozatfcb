@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { PointTransaction } from "@/types/database";
 import { formatDateTime } from "@/lib/format";
+import { formatPointReason } from "@/lib/i18n/transaction-reasons";
 import { cn } from "@/lib/utils";
 
 interface PointsTransactionListProps {
@@ -59,7 +60,13 @@ export function PointsTransactionList({
 
   return (
     <ul className={cn("space-y-2", className)}>
-      {transactions.map((tx, i) => (
+      {transactions.map((tx, i) => {
+        // Translate the raw `reason` column to a Hungarian label. The icon
+        // resolver still receives the original (English) reason because
+        // it sniffs by keyword family — but the visible copy is
+        // localised. See lib/i18n/transaction-reasons.ts.
+        const reasonLabel = formatPointReason(tx.reason);
+        return (
         <motion.li
           key={tx.id}
           initial={{ opacity: 0, y: 8 }}
@@ -79,7 +86,7 @@ export function PointsTransactionList({
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-[var(--text-primary)]">
-              {tx.reason}
+              {reasonLabel}
             </p>
             <time
               dateTime={tx.created_at}
@@ -106,7 +113,8 @@ export function PointsTransactionList({
             </span>
           </div>
         </motion.li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
@@ -122,19 +130,23 @@ function TransactionIcon({
   reason: string;
   amount: number;
 }) {
-  const lower = reason.toLowerCase();
+  // The `reason` column stores the raw machine identifier (e.g.
+  // "poll_win", "coupon_redeem"). We sniff that — NOT the Hungarian
+  // display label — so the icon mapping is stable regardless of how
+  // the translation map evolves.
+  const key = reason.toLowerCase();
   const positive = amount >= 0;
 
   let Icon = Coins;
   let tone: "gold" | "blue" | "red" = positive ? "gold" : "red";
 
-  if (lower.includes("szavaz")) {
+  if (key.includes("poll")) {
     Icon = Vote;
     tone = positive ? "gold" : "red";
-  } else if (lower.includes("kupon") || lower.includes("beváltás")) {
+  } else if (key.includes("coupon") || key.includes("redeem")) {
     Icon = Gift;
     tone = "blue";
-  } else if (lower.includes("bónusz") || lower.includes("jutalom")) {
+  } else if (key.includes("bonus") || key.includes("registration")) {
     Icon = Sparkles;
     tone = "gold";
   } else if (positive) {

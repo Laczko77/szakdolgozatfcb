@@ -105,6 +105,39 @@ export interface NormalizedScorer {
   playedMatches: number
 }
 
+/** Mapped/normalized standings row as returned by `getStandings()`. */
+export interface NormalizedStandingsRow {
+  position: number
+  team: {
+    id: number
+    name: string
+    crest: string | null
+  }
+  playedGames: number
+  won: number
+  draw: number
+  lost: number
+  points: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+}
+
+/** Mapped/normalized top-scorer row as returned by `getTopScorers()`. */
+export interface NormalizedTopScorer {
+  player: {
+    id: number
+    name: string
+  }
+  team: {
+    name: string
+    crest: string | null
+  }
+  goals: number
+  assists: number
+  playedMatches: number
+}
+
 // ---------------------------------------------------------------------------
 // Raw API response shapes — only the fields we consume.
 // ---------------------------------------------------------------------------
@@ -146,9 +179,32 @@ interface RawScorersResponse {
 
 interface RawScorer {
   player: { id: number; name: string }
+  team?: { id: number; name: string; crest: string | null } | null
   goals: number | null
   assists: number | null
   playedMatches: number | null
+}
+
+interface RawStandingsResponse {
+  standings: Array<{
+    stage?: string
+    type?: string
+    group?: string | null
+    table: RawStandingsRow[]
+  }>
+}
+
+interface RawStandingsRow {
+  position: number
+  team: { id: number; name: string; crest: string | null }
+  playedGames: number
+  won: number
+  draw: number
+  lost: number
+  points: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
 }
 
 // ---------------------------------------------------------------------------
@@ -281,6 +337,82 @@ export async function getScorers(
   return data.scorers.map((s) => ({
     playerId: s.player.id,
     playerName: s.player.name,
+    goals: s.goals ?? 0,
+    assists: s.assists ?? 0,
+    playedMatches: s.playedMatches ?? 0,
+  }))
+}
+
+/**
+ * Fetch the full standings table for a competition + season.
+ *
+ * The football-data.org `/competitions/{id}/standings` response always
+ * contains a `standings` array with one or more entries per stage / group;
+ * for La Liga the array has a single entry of `type: "TOTAL"` covering the
+ * whole season. We pick the TOTAL entry when present and fall back to the
+ * first entry, then return the inner `table[]` already mapped to our
+ * `NormalizedStandingsRow` shape.
+ */
+export async function getStandings(
+  competitionId: number,
+  season: number
+): Promise<NormalizedStandingsRow[]> {
+  const data = await apiFetch<RawStandingsResponse>(
+    `/competitions/${competitionId}/standings?season=${season}`
+  )
+  if (!Array.isArray(data.standings) || data.standings.length === 0) return []
+
+  const total =
+    data.standings.find((s) => (s.type ?? '').toUpperCase() === 'TOTAL') ??
+    data.standings[0]
+  if (!total || !Array.isArray(total.table)) return []
+
+  return total.table.map((row) => ({
+    position: row.position,
+    team: {
+      id: row.team.id,
+      name: row.team.name,
+      crest: row.team.crest ?? null,
+    },
+    playedGames: row.playedGames,
+    won: row.won,
+    draw: row.draw,
+    lost: row.lost,
+    points: row.points,
+    goalsFor: row.goalsFor,
+    goalsAgainst: row.goalsAgainst,
+    goalDifference: row.goalDifference,
+  }))
+}
+
+/**
+ * Fetch the top N scorers for a competition + season.
+ *
+ * Sibling of `getScorers()` but tailored to the public dashboard widget:
+ * caller-controlled `limit` (default 10), and the row payload includes the
+ * scorer's team (name + crest) — `getScorers()` drops that because it is
+ * only ever called for FCB players, where the team is implicit.
+ */
+export async function getTopScorers(
+  competitionId: number,
+  season: number,
+  limit = 10
+): Promise<NormalizedTopScorer[]> {
+  const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 100)
+  const data = await apiFetch<RawScorersResponse>(
+    `/competitions/${competitionId}/scorers?season=${season}&limit=${safeLimit}`
+  )
+  if (!Array.isArray(data.scorers)) return []
+
+  return data.scorers.map((s) => ({
+    player: {
+      id: s.player.id,
+      name: s.player.name,
+    },
+    team: {
+      name: s.team?.name ?? '',
+      crest: s.team?.crest ?? null,
+    },
     goals: s.goals ?? 0,
     assists: s.assists ?? 0,
     playedMatches: s.playedMatches ?? 0,

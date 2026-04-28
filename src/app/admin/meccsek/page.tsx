@@ -299,12 +299,19 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
       setLoading(true);
       setError(null);
       try {
-        const data = await adminFetch<{
-          match: Match;
-          sectors: MatchSector[];
+        // NOTE: `/api/matches/[id]` is a *public* endpoint that returns the
+        // raw `{ match, sectors }` shape — it does NOT wrap in the
+        // `{ data: ... }` envelope. Using `adminFetch` here would unwrap a
+        // missing `.data` key and yield `undefined`, which is what caused
+        // the F18.1 "Cannot read properties of undefined (reading 'sectors')"
+        // crash. We use `adminFetchRaw` and read the top-level fields
+        // directly, with a defensive `?? []` fallback.
+        const data = await adminFetchRaw<{
+          match?: Match;
+          sectors?: MatchSector[];
         }>(`/api/matches/${matchId}`, { signal, cache: "no-store" });
         if (signal?.aborted) return;
-        setSectors(data.sectors ?? []);
+        setSectors(data?.sectors ?? []);
       } catch (err) {
         if (signal?.aborted) return;
         setError(err instanceof Error ? err.message : "Ismeretlen hiba");

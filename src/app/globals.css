@@ -582,6 +582,173 @@
 }
 
 /* ============================================================================
+   .fcb-prose — article body typography (F18.4)
+   ----------------------------------------------------------------------------
+   Hand-rolled prose styling for HTML rendered via Tiptap (`<ArticleContent>`).
+   We don't use @tailwindcss/typography because its stock palette fights the
+   liquid-glass design language. Every rule below speaks the project's
+   token vocabulary so light/dark themes inherit correctly.
+   ============================================================================ */
+
+.fcb-prose > * + * {
+  margin-top: 1.4em;
+}
+
+.fcb-prose p {
+  line-height: 1.8;
+}
+
+.fcb-prose p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  color: var(--accent-gold);
+  font-size: 4.5rem;
+  line-height: 0.85;
+  float: left;
+  margin: 0.4rem 0.75rem 0 0;
+}
+
+@media (min-width: 640px) {
+  .fcb-prose p:first-of-type::first-letter {
+    font-size: 6rem;
+  }
+}
+
+.fcb-prose h1,
+.fcb-prose h2,
+.fcb-prose h3,
+.fcb-prose h4 {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.fcb-prose h2 {
+  font-size: 1.85rem;
+  margin-top: 2.4em;
+  margin-bottom: 0.6em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.fcb-prose h3 {
+  font-size: 1.45rem;
+  margin-top: 2em;
+  margin-bottom: 0.45em;
+}
+
+.fcb-prose h4 {
+  font-size: 1.15rem;
+  margin-top: 1.6em;
+  margin-bottom: 0.4em;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-secondary);
+}
+
+.fcb-prose strong,
+.fcb-prose b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fcb-prose em,
+.fcb-prose i {
+  font-style: italic;
+  color: var(--text-primary);
+}
+
+.fcb-prose a {
+  color: var(--accent-gold);
+  text-decoration: none;
+  background-image: linear-gradient(var(--accent-gold), var(--accent-gold));
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  transition:
+    background-size 200ms ease,
+    color 200ms ease;
+}
+
+.fcb-prose a:hover {
+  color: var(--text-primary);
+  background-size: 100% 2px;
+}
+
+.fcb-prose ul,
+.fcb-prose ol {
+  padding-left: 1.4em;
+}
+
+.fcb-prose ul li,
+.fcb-prose ol li {
+  padding-left: 0.3em;
+  margin-top: 0.4em;
+}
+
+.fcb-prose ul li::marker {
+  color: var(--accent-gold);
+}
+
+.fcb-prose ol li::marker {
+  color: var(--accent-gold);
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.fcb-prose blockquote {
+  margin: 1.8em 0;
+  padding: 0.5em 1.2em;
+  border-left: 3px solid var(--accent-gold);
+  color: var(--text-secondary);
+  font-style: italic;
+  background: var(--glass-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.fcb-prose code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 0.92em;
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  color: var(--accent-gold);
+}
+
+.fcb-prose pre {
+  padding: 1em 1.2em;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  overflow-x: auto;
+}
+
+.fcb-prose pre code {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+}
+
+.fcb-prose hr {
+  border: 0;
+  height: 1px;
+  margin: 2.4em auto;
+  width: 6rem;
+  background: var(--accent-gold);
+  opacity: 0.6;
+}
+
+.fcb-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+}
+
+/* ============================================================================
    Reduced-motion guardrails
    ============================================================================ */
 

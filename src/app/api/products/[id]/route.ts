@@ -63,16 +63,22 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const variants = (variantsResult.data ?? []) as ProductVariant[]
   const reviews = (reviewsResult.data ?? []) as Review[]
 
-  const averageRating =
+  // averageRating is null when there are no visible reviews — the frontend
+  // distinguishes "no rating yet" from "rated 0".
+  const averageRating: number | null =
     reviews.length === 0
-      ? 0
-      : reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      ? null
+      : Number(
+          (
+            reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          ).toFixed(2)
+        )
 
   return NextResponse.json({
     product: product as Product,
     variants,
     reviews,
-    averageRating: Number(averageRating.toFixed(2)),
+    averageRating,
     reviewCount: reviews.length,
   })
 }

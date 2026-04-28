@@ -3,6 +3,7 @@
 import { Coins, TrendingUp } from "lucide-react";
 import type { PointTransaction } from "@/types/database";
 import { formatDate } from "@/lib/format";
+import { formatPointReason } from "@/lib/i18n/transaction-reasons";
 import { cn } from "@/lib/utils";
 import { WidgetShell } from "./WidgetShell";
 
@@ -87,7 +88,7 @@ export function PointsWidget({
           {lastTransaction ? (
             <div className="mt-1.5 flex items-baseline justify-between gap-3">
               <p className="line-clamp-2 text-sm text-[var(--text-secondary)]">
-                {lastTransaction.reason}
+                {formatPointReason(lastTransaction.reason)}
               </p>
               <span
                 className={cn(

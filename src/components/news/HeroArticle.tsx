@@ -10,6 +10,7 @@ import {
   isArticleCategory,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
+import { htmlExcerpt } from "@/lib/html-excerpt";
 import { cn } from "@/lib/utils";
 
 interface HeroArticleProps {
@@ -131,7 +132,7 @@ export function HeroArticle({ article }: HeroArticleProps) {
               </h2>
 
               <p className="text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg line-clamp-4">
-                {makeExcerpt(article.content, 220)}
+                {htmlExcerpt(article.content, 220)}
               </p>
             </div>
 
@@ -167,10 +168,3 @@ export function HeroArticle({ article }: HeroArticleProps) {
   );
 }
 
-function makeExcerpt(content: string, maxChars: number): string {
-  const text = content.replace(/\s+/g, " ").trim();
-  if (text.length <= maxChars) return text;
-  const slice = text.slice(0, maxChars);
-  const lastSpace = slice.lastIndexOf(" ");
-  return `${slice.slice(0, lastSpace > maxChars * 0.6 ? lastSpace : maxChars).trim()}…`;
-}

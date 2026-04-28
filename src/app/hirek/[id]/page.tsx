@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/format";
 import type { Article } from "@/types/database";
 import { ArticleContent } from "@/components/news/ArticleContent";
 import { RelatedArticles } from "@/components/news/RelatedArticles";
+import { htmlExcerpt } from "@/lib/html-excerpt";
 import { cn } from "@/lib/utils";
 
 /**
@@ -96,8 +97,9 @@ export async function generateMetadata({
     return { title: "A hír nem található" };
   }
 
-  const description =
-    article.content.replace(/\s+/g, " ").trim().slice(0, 160) || undefined;
+  // F18.4 — content is now Tiptap HTML; strip tags before pulling the
+  // OpenGraph description, otherwise the meta tag would contain raw markup.
+  const description = htmlExcerpt(article.content, 160) || undefined;
 
   return {
     title: article.title,

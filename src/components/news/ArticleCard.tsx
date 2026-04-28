@@ -10,6 +10,7 @@ import {
   isArticleCategory,
 } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
+import { htmlExcerpt } from "@/lib/html-excerpt";
 import { cn } from "@/lib/utils";
 
 interface ArticleCardProps {
@@ -32,7 +33,9 @@ export function ArticleCard({ article, index = 0 }: ArticleCardProps) {
       ? ARTICLE_CATEGORY_LABELS[article.category]
       : article.category;
 
-  const excerpt = makeExcerpt(article.content, 140);
+  // F18.4 — Tiptap stores HTML in `content`; strip tags before clipping
+  // so the card never shows raw `<p>`/`<strong>` markup.
+  const excerpt = htmlExcerpt(article.content, 140);
 
   return (
     <motion.li
@@ -128,14 +131,3 @@ export function ArticleCard({ article, index = 0 }: ArticleCardProps) {
   );
 }
 
-/**
- * Strip leading whitespace and clip to N chars on a word boundary.
- * Falls back to a hard cut if no boundary is found within the window.
- */
-function makeExcerpt(content: string, maxChars: number): string {
-  const text = content.replace(/\s+/g, " ").trim();
-  if (text.length <= maxChars) return text;
-  const slice = text.slice(0, maxChars);
-  const lastSpace = slice.lastIndexOf(" ");
-  return `${slice.slice(0, lastSpace > maxChars * 0.6 ? lastSpace : maxChars).trim()}…`;
-}

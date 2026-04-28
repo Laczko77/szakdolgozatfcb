@@ -172,10 +172,39 @@ export async function fetchMyTickets(
  * contiguously inside a transaction, so the response always reflects the
  * true purchased seats — components should render whatever comes back
  * rather than echo the request quantity.
+ *
+ * Response shape note (F18.2 fix): `/api/tickets/purchase` uses the
+ * shared `successResponse()` helper, which wraps the payload as
+ * `{ data: { tickets, subtotal, total, coupon, warning? } }`. We unwrap
+ * the envelope here so callers get the flat shape declared by
+ * `PurchaseResponse`. The defensive guards (`?? []`, `Array.isArray`)
+ * also protect against future server changes — if `tickets` ever comes
+ * back malformed, we render an empty success state instead of crashing
+ * the page with `TypeError: Cannot read properties of undefined`.
  */
 export async function purchaseTickets(
   payload: PurchaseRequest,
   signal?: AbortSignal,
 ): Promise<PurchaseResponse> {
-  return postJson<PurchaseResponse>("/api/tickets/purchase", payload, signal);
+  const raw = await postJson<{ data?: PurchaseResponse } | PurchaseResponse>(
+    "/api/tickets/purchase",
+    payload,
+    signal,
+  );
+
+  // Tolerate both the wrapped (`{ data: ... }`) and the legacy flat shape.
+  const body =
+    raw && typeof raw === "object" && "data" in raw && raw.data !== undefined
+      ? (raw.data as PurchaseResponse)
+      : (raw as PurchaseResponse);
+
+  const tickets = Array.isArray(body?.tickets) ? body.tickets : [];
+
+  return {
+    tickets,
+    subtotal: typeof body?.subtotal === "number" ? body.subtotal : 0,
+    total: typeof body?.total === "number" ? body.total : 0,
+    coupon: body?.coupon ?? null,
+    warning: body?.warning,
+  };
 }
