@@ -20,6 +20,8 @@ import { LatestNewsWidget } from "@/components/dashboard/LatestNewsWidget";
 import { PointsWidget } from "@/components/dashboard/PointsWidget";
 import { OrdersWidget } from "@/components/dashboard/OrdersWidget";
 import { ActivePollWidget } from "@/components/dashboard/ActivePollWidget";
+import { StandingsWidget } from "@/components/dashboard/StandingsWidget";
+import { TopScorersWidget } from "@/components/dashboard/TopScorersWidget";
 import { QuickLinks } from "@/components/dashboard/QuickLinks";
 import { RecommendedProductsWidget } from "@/components/dashboard/RecommendedProductsWidget";
 import {
@@ -292,12 +294,19 @@ function DashboardContent() {
           <WidgetSkeleton className="lg:col-span-12" rows={3} />
         )}
 
+        {/* Row 4 — La Liga standings (6) + top scorers (6).
+            Both widgets self-fetch and surface their own skeleton/error
+            states, so the dashboard page does not need to track them in
+            its `DashboardData` shape. */}
+        <StandingsWidget index={5} className="lg:col-span-6" />
+        <TopScorersWidget index={6} className="lg:col-span-6" />
+
         {/* Final row — Quick links + optional recommendations.
             RecommendedProductsWidget (F14.3) self-hides when fewer than 3
             ranked products exist, so on a thin dataset the QuickLinks
             naturally reflow back to full width. */}
-        <QuickLinks index={5} className="lg:col-span-8" />
-        <RecommendedProductsWidget index={6} className="lg:col-span-4" />
+        <QuickLinks index={7} className="lg:col-span-8" />
+        <RecommendedProductsWidget index={8} className="lg:col-span-4" />
       </div>
     </div>
   );
