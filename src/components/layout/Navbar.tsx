@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useAuth } from "@/providers/AuthProvider";
 import { useSearchPalette } from "@/providers/SearchProvider";
@@ -16,8 +15,6 @@ import {
   isRouteActive,
 } from "./navigation.config";
 
-const SCROLL_MATERIALIZE_THRESHOLD = 20;
-
 /**
  * Desktop pill-shaped sticky navbar.
  *
@@ -25,14 +22,13 @@ const SCROLL_MATERIALIZE_THRESHOLD = 20;
  * rounded-full pill. Sits hidden on mobile (`md:flex`) — the mobile shell
  * uses `<MobileHeader />` and `<BottomTabBar />` instead.
  *
- * Scroll behaviour: at the top of the page the pill is almost transparent;
- * once the user scrolls > 20px it gains its full glass background and
- * border via the `.glass-nav` utility plus a `data-scrolled` attribute
- * which we use to drive a CSS transition on the wrapper.
+ * Visual state: always renders in the materialized glass-pill state
+ * (border + translucent fill + backdrop blur + shadow). The previous
+ * scroll-driven fade-in has been retired so the pill is recognisable
+ * from the very top of every page.
  */
 export function Navbar() {
   const pathname = usePathname();
-  const scrollY = useScrollPosition();
   const reduced = useReducedMotion();
   const { user } = useAuth();
   const { open: openSearch } = useSearchPalette();
@@ -40,8 +36,6 @@ export function Navbar() {
   // Admin panel ships its own chrome (sidebar + topbar). Suppress the
   // public floating navbar entirely on /admin/* routes.
   if (pathname.startsWith("/admin")) return null;
-
-  const scrolled = scrollY > SCROLL_MATERIALIZE_THRESHOLD;
 
   return (
     <motion.header
@@ -51,25 +45,17 @@ export function Navbar() {
       className="sticky top-4 z-50 hidden px-10 md:flex lg:px-14"
     >
       <nav
-        data-scrolled={scrolled ? "true" : "false"}
         aria-label="Főnavigáció"
         className={[
           // Pill geometry
           "mx-auto flex w-full max-w-6xl items-center justify-between gap-6",
           "rounded-full px-6 py-2.5",
-          // Glass: starts almost invisible, materializes on scroll.
-          // We keep the backdrop-filter on (it's cheap and gives a subtle
-          // refraction on top of any hero content) but ramp up opacity,
-          // border, and shadow only once scrolled.
-          "border border-transparent bg-transparent",
-          "backdrop-blur-0 supports-[backdrop-filter]:backdrop-blur-0",
-          "shadow-none transition-[background-color,border-color,backdrop-filter,box-shadow] duration-300 ease-out",
-          // Materialized state via data-attribute selectors (keeps utility
-          // class composition simple and avoids inline style juggling).
-          "data-[scrolled=true]:border-[var(--glass-border)]",
-          "data-[scrolled=true]:bg-[var(--glass-bg-strong)]",
-          "data-[scrolled=true]:supports-[backdrop-filter]:backdrop-blur-xl",
-          "data-[scrolled=true]:shadow-[var(--shadow-md)]",
+          // Glass: always materialized. Border, translucent fill, backdrop
+          // blur and shadow render from the first paint regardless of
+          // scroll position.
+          "border border-[var(--glass-border)] bg-[var(--glass-bg-strong)]",
+          "supports-[backdrop-filter]:backdrop-blur-xl",
+          "shadow-[var(--shadow-md)]",
         ].join(" ")}
       >
         {/* ─────────────── LEFT: BRAND ─────────────── */}

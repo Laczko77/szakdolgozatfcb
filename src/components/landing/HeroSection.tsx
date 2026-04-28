@@ -70,7 +70,7 @@ export default function HeroSection() {
   return (
     <section
       aria-label="Bevezető"
-      className="relative isolate flex min-h-[100svh] items-center justify-center overflow-hidden"
+      className="relative isolate flex min-h-[calc(100svh+3.5rem)] items-center justify-center overflow-hidden -mt-[3.5rem] md:-mt-[calc(1rem+4.5rem)] md:min-h-[calc(100svh+1rem+4.5rem)]"
     >
       {/* ────────── Background layers ────────── */}
 
@@ -104,33 +104,36 @@ export default function HeroSection() {
         loop
         playsInline
         preload="metadata"
-        poster="/images/hero-poster.jpg"
         aria-hidden
         className="absolute inset-0 -z-20 hidden h-full w-full object-cover md:block"
       >
-        <source src="/videos/camp-nou.mp4" type="video/mp4" />
+        <source src="/videos/hero.mp4" type="video/mp4" />
       </video>
+
+      {/* Veo watermark cover — masks the AI-generator watermark in the
+          bottom-right corner of /videos/hero.mp4. Sits above the video
+          (-z-20) but below the black scrim (-z-10) so the scrim's tint
+          and the bottom fade still flow over it seamlessly. Desktop-only,
+          mirroring the <video> element's md+ visibility. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-0 z-[-15] hidden h-20 w-40 md:block"
+        style={{
+          background:
+            "radial-gradient(ellipse at bottom right, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 45%, rgba(0,0,0,0) 100%)",
+        }}
+      />
 
       {/* Black scrim — pulls the headline forward. */}
       <div aria-hidden className="absolute inset-0 -z-10 bg-black/55" />
 
-      {/* Top fade into bg-primary so the navbar pill floats cleanly. */}
+      {/* Bottom fade — subtle blend into the next section. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 md:h-56"
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-24 md:h-32"
         style={{
           background:
-            "linear-gradient(to bottom, var(--bg-primary) 0%, rgba(0,0,0,0) 100%)",
-        }}
-      />
-
-      {/* Bottom fade — the section bleeds into the next. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-48 md:h-64"
-        style={{
-          background:
-            "linear-gradient(to top, var(--bg-primary) 0%, rgba(0,0,0,0) 100%)",
+            "linear-gradient(to top, color-mix(in srgb, var(--bg-primary) 70%, transparent) 0%, rgba(0,0,0,0) 100%)",
         }}
       />
 

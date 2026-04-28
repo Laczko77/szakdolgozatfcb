@@ -22,7 +22,12 @@
       "Bash(grep -v \"^$\")",
       "Bash(sed 's/=.*//')",
       "Bash(npm run *)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python -c ' *)",
+      "Bash(identify public/images/players/*.jpg)",
+      "Read(//mnt/**)",
+      "Read(//d//**)"
     ]
   }
 }
