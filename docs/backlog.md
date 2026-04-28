@@ -10,8 +10,8 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 100   |
-| Completed tasks     | 100   |
+| Total tasks         | 108   |
+| Completed tasks     | 108   |
 | Remaining tasks     | 0     |
 | Completion          | 100%  |
 
@@ -834,5 +834,39 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - A DM listából a follow/unfollow endpointok hívhatók és atomic módon frissítik a `follows` táblát
 
 **Dependencies:** Iteration 8 (közösségi feed), Iteration 18 (DM & follow rendszer)
+
+---
+
+### Iteration 22 — Közösségi Bug Fix: Követés Jóváhagyás, Profil 404, Komment Nevek, Keresés, Suggested Widget
+
+**Status:** DONE
+
+**Goal:** A közösségi modul tesztelése során feltárt hibák backend javítása + követési rendszer jóváhagyás-alapúvá alakítása.
+
+**UI required:** Részben (frontend F26 párhuzamosan)
+
+**Tasks:**
+
+- [x] 22.1 `follows` tábla migration — `status TEXT NOT NULL DEFAULT 'pending'` oszlop hozzáadása (`'pending'` | `'accepted'`); meglévő sorok migrálása `'accepted'`-re (visszafelé kompatibilis)
+- [x] 22.2 Follow endpoint átdolgozása — `POST /api/users/[id]/follow` mostantól `status = 'pending'` kérelmet hoz létre (nem azonnali követés); `DELETE /api/users/[id]/follow` visszavonja a kérelmet vagy kikövet; `GET /api/users/[id]/follow-status` visszaadja: `'not_following'` | `'pending'` | `'following'`
+- [x] 22.3 Follow-request kezelő endpointok — `GET /api/follow-requests` (beérkező kérelmek listája, pending státuszú), `PUT /api/follow-requests/[id]/accept`, `PUT /api/follow-requests/[id]/reject`
+- [x] 22.4 DM jogosultság frissítése — `POST /api/conversations` és `POST /api/conversations/[id]/messages` csak `status = 'accepted'` státuszú follow esetén engedélyezett (mindkét irányú OR egyirányú — a jelenlegi logika szerint: a küldőnek kell követnie az elfogadottat)
+- [x] 22.5 Üzenetek keresés javítása — `GET /api/users/search` mostantól az ÖSSZES aktív usert keresi (username/email alapján), nem csak a követötteket — hogy az Üzenetek felületen bárki megtalálható és bekövethető legyen; limit 20
+- [x] 22.6 Komment author JOIN javítás — `GET /api/posts` és `GET /api/posts/[id]/comments` válaszában minden kommenthez `author: { id, username, avatar_url }` JOIN a `profiles` táblából
+- [x] 22.7 Publikus profil endpoint — `GET /api/users/[id]/profile` — publikus profil adatok (id, username, avatar_url, created_at, posts count); bárki elérheti, nem kell auth; UUID validáció + 404 ha nem létezik
+- [x] 22.8 Javasolt Szurkolók endpoint — `GET /api/users/suggested` — a bejelentkezett user által még nem követett (és nem pending) userek listája, max 10; rendezés: legutóbb regisztrált vagy véletlenszerű
+
+**Acceptance Criteria:**
+
+- A `follows` táblán a `status` oszlop bevezetésre kerül, létező sorok `'accepted'`-re migrálódnak
+- `POST /api/users/[id]/follow` `pending` státuszú kérelmet hoz létre, `GET /api/users/[id]/follow-status` a három állapotot helyesen tükrözi
+- A follow-request endpointokon az elfogadás `accepted`-re vált, az elutasítás törli a sort
+- DM küldés és beszélgetés indítás csak `accepted` status esetén engedélyezett, egyébként 403
+- `GET /api/users/search` az összes aktív userre keres (nem csak a követöttekre), limit 20
+- `GET /api/posts` és komment endpoint válaszaiban minden poszt és komment item-en konzisztens `author: { id, username, avatar_url }` objektum jelenik meg
+- `GET /api/users/[id]/profile` érvényes UUID-re visszaadja a publikus adatokat, érvénytelen UUID-re 400, nem létező userre 404
+- `GET /api/users/suggested` csak olyan usereket ad vissza, akiket a bejelentkezett user még nem követ és nincs pending kérelem, max 10 elem
+
+**Dependencies:** Iteration 18 (follows, DM rendszer)
 
 ---

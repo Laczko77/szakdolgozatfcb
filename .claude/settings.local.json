@@ -27,7 +27,17 @@
       "Bash(python -c ' *)",
       "Bash(identify public/images/players/*.jpg)",
       "Read(//mnt/**)",
-      "Read(//d//**)"
+      "Read(//d//**)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 80)",
+      "PowerShell(npx tsc --noEmit)",
+      "PowerShell(npx tsc --noEmit; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npx eslint \"src/app/profil/[id]/page.tsx\" \"src/components/social/FollowButton.tsx\" \"src/components/social/PostCard.tsx\" \"src/components/social/CommentItem.tsx\" \"src/components/social/CommentSection.tsx\" \"src/components/social/CommunityFeed.tsx\" \"src/components/social/CommunityRightRail.tsx\" \"src/components/social/CommunityLeftRail.tsx\" \"src/components/social/ConversationListPanel.tsx\" \"src/components/social/NewConversationModal.tsx\" \"src/components/social/FollowRequestsPanel.tsx\" \"src/app/kozosseg/uzenetek/page.tsx\" \"src/lib/dm-api.ts\" \"src/types/dm.ts\" \"src/types/social.ts\" 2>&1 | Select-Object -First 80)",
+      "PowerShell(npx eslint \"src/app/profil/[id]/page.tsx\" 2>&1 | Select-Object -First 30)",
+      "PowerShell(npx eslint \"src/app/profil/[id]/page.tsx\"; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npx eslint \"src/components/social/FollowButton.tsx\" \"src/components/social/PostCard.tsx\" \"src/components/social/CommentItem.tsx\" \"src/components/social/CommentSection.tsx\" \"src/components/social/CommunityFeed.tsx\" \"src/components/social/CommunityRightRail.tsx\" \"src/components/social/CommunityLeftRail.tsx\" \"src/components/social/ConversationListPanel.tsx\" \"src/components/social/FollowRequestsPanel.tsx\" \"src/components/social/ChatView.tsx\" \"src/lib/dm-api.ts\" \"src/types/dm.ts\" \"src/types/social.ts\"; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npx eslint \"src/components/social/NewConversationModal.tsx\"; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npx eslint \"src/app/kozosseg/uzenetek/page.tsx\"; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npx eslint \"src/app/kozosseg/uzenetek/page.tsx\" \"src/components/social/NewConversationModal.tsx\" \"src/app/profil/[id]/page.tsx\"; \"EXIT=$LASTEXITCODE\")"
     ]
   }
 }

@@ -30,3 +30,4 @@
 - [useMediaQuery hook](project_use_media_query.md) — src/hooks/useMediaQuery.ts; queueMicrotask-wrapped initial setState to satisfy React 19 lint
 - [ProductWithRating canonical](project_product_with_rating.md) — /api/products joins average_rating + review_count; ProductGrid reads them off product rows, not via the ratings map
 - [Post composers split + FollowButton variants (F25)](project_post_composer_split.md) — CreatePostForm (user) vs NewPostComposer (admin); FollowButton iconOnly + initialStatus + 404/409 toasts; stretched-link conv rows
+- [Follow request approval flow (F26)](project_follow_request_flow.md) — FollowStatus is now {status: not_following|pending|following}; FollowRequestsPanel on /uzenetek; pendingPosts banner replaces auto-prepend in CommunityFeed

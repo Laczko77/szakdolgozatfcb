@@ -59,8 +59,8 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 157 |
-| Completed tasks | 157 |
+| Total tasks | 165 |
+| Completed tasks | 165 |
 | Remaining tasks | 0 |
 | Completion | 100% |
 
@@ -1211,5 +1211,39 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 - A user nem tud üzenetet küldeni nem-követett partnernek (UI gátol)
 
 **Dependencies:** F11 (közösségi feed), F23 (DM UI), F4 (auth), Backend Iteration 21
+
+---
+
+### Iteration F26 — Közösségi Bug Fix: Scroll Jump, Profil 404, Follow UI, Komment Nevek, Javasolt Widget
+
+**Status:** DONE
+
+**Goal:** A közösségi modul frontend hibáinak javítása + follow jóváhagyás UI + scroll stabilizálás.
+
+**Backend dependency:** Backend Iteration 22 — TODO
+
+**Tasks:**
+
+- [x] F26.1 Közösségi feed — Follow gomb eltávolítása — PostCard és komment sorok NEM tartalmaznak Follow gombot; a FollowButton komponens csak az Üzenetek felületen jelenik meg
+- [x] F26.2 `/profil/[id]` publikus profil oldal — Next.js `src/app/profil/[id]/page.tsx` létrehozása; betölti a `GET /api/users/[id]/profile` adatokat; megjelenít: avatar, username, csatlakozás dátuma, user posztjai; 404 handling ha nincs ilyen user
+- [x] F26.3 Polling scroll jump javítás — a 3 másodpercenkénti feed frissítés ne ugorjon; megoldás: az új posztok nem scrollnak, hanem egy "X új bejegyzés — kattints a frissítéshez" toast/banner jelenik meg felül; vagy: `useRef` + scroll pozíció visszaállítás a DOM frissítés után
+- [x] F26.4 Follow gomb állapotok — három állapot: `not_following` (Követés gomb), `pending` (Kérelem elküldve — disabled), `following` (Követed — kikövetés); Framer Motion állapot-animáció a váltáshoz
+- [x] F26.5 Follow kérelmek kezelő UI — az Üzenetek oldalon beérkező kérelmek szekció: lista a pending kérelmekről (avatar, username, Elfogad / Elutasít gombok); `GET /api/follow-requests` hívás; badge az Üzenetek nav ikonon ha van pending kérelem
+- [x] F26.6 Javasolt Szurkolók widget javítás — `GET /api/users/suggested` hívás; valódi "még nem követett" userek megjelenítése; minden kártya: avatar, username, Követés gomb (az F26.4-es állapotokkal)
+- [x] F26.7 Üzenetek keresés fix — a keresőmező `GET /api/users/search?q=...` hívással az összes usert keresi; találatokon: avatar, username, "Követés kérése" gomb ha `not_following`, "Kérelem elküldve" ha `pending`, "Üzenet" gomb ha `following`
+- [x] F26.8 Komment username megjelenítés — a kommenteknél `comment.author.username` töltődik be; fallback "Ismeretlen szurkoló"; iniciales avatar ha nincs kép
+
+**Acceptance Criteria:**
+
+- A közösségi feed PostCard-ján és komment sorain nincs Follow gomb; a FollowButton csak az Üzenetek felületen él
+- A `/profil/[id]` publikus profil oldal sikeresen tölt és megjeleníti a user adatait + posztjait, érvénytelen ID-re 404 oldal
+- A 3 mp-es polling nem ugrasztja a scrollt; az új tartalom toast/banner formában jelenik meg vagy a scroll pozíció megőrzött
+- A Follow gomb mindhárom állapotban (not_following / pending / following) helyesen viselkedik animált átmenettel
+- Az Üzenetek oldalon megjelennek a beérkező follow kérelmek, elfogadás/elutasítás működik, badge mutatja a pending darabszámot
+- A "Javasolt Szurkolók" widget valódi suggested usereket jelenít meg, nem random/követett listát
+- Az Üzenetek keresés az összes user között keres és a státusznak megfelelő gombot mutat (Követés kérése / Kérelem elküldve / Üzenet)
+- A kommenteknél a szerző neve és avatarja konzisztensen jelenik meg, fallback működik
+
+**Dependencies:** F11 (közösségi feed), F23 (DM UI), F25 (közösségi bug-fix előzmény), Backend Iteration 22
 
 ---
