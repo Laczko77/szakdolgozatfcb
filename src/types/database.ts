@@ -274,6 +274,52 @@ export interface CookieConsent {
   created_at: string
 }
 
+// Iteration 18 — follows + DM ----------------------------------------------
+
+export interface Follow {
+  id: string
+  follower_id: string
+  following_id: string
+  created_at: string
+}
+
+export interface Conversation {
+  id: string
+  participant_a: string
+  participant_b: string
+  last_message_at: string | null
+  created_at: string
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_id: string
+  content: string
+  read_at: string | null
+  created_at: string
+}
+
+// Iteration 19 — dream team persistence ------------------------------------
+
+export type DreamTeamFormation = '4-3-3' | '4-2-3-1' | '3-5-2' | '4-4-2'
+
+export interface DreamTeamPlayerSlot {
+  slotIndex: number
+  playerId: string
+  position: string
+}
+
+export interface DreamTeam {
+  id: string
+  user_id: string
+  name: string
+  formation: DreamTeamFormation
+  players: DreamTeamPlayerSlot[]
+  created_at: string
+  updated_at: string
+}
+
 // ----------------------------------------------------------------------------
 // Supabase Database generic
 // ----------------------------------------------------------------------------
@@ -317,6 +363,10 @@ export interface Database {
       redeemed_coupons:   { Row: RedeemedCoupon;   Insert: RedeemedCouponInsert;   Update: Partial<RedeemedCoupon> }
       page_views:         { Row: PageView;         Insert: PageViewInsert;         Update: Partial<PageView> }
       cookie_consents:    { Row: CookieConsent;    Insert: CookieConsentInsert;    Update: Partial<CookieConsent> }
+      follows:            { Row: Follow;           Insert: FollowInsert;           Update: Partial<Follow> }
+      conversations:      { Row: Conversation;     Insert: ConversationInsert;     Update: Partial<Conversation> }
+      messages:           { Row: Message;          Insert: MessageInsert;          Update: Partial<Message> }
+      dream_teams:        { Row: DreamTeam;        Insert: DreamTeamInsert;        Update: Partial<DreamTeam> }
     }
     Views: Record<string, never>
     Functions: {
@@ -368,6 +418,13 @@ export interface Database {
       audit_rls_coverage: {
         Args: Record<string, never>
         Returns: { table_name: string }[]
+      }
+      is_mutual_follow: {
+        Args: {
+          p_a: string
+          p_b: string
+        }
+        Returns: boolean
       }
     }
     Enums: Record<string, never>
@@ -497,6 +554,34 @@ export type PageViewInsert = Omit<PageView, 'id' | 'created_at'> & {
 export type CookieConsentInsert = Omit<CookieConsent, 'id' | 'created_at'> & {
   id?: string
   created_at?: string
+}
+
+export type FollowInsert = Omit<Follow, 'id' | 'created_at'> & {
+  id?: string
+  created_at?: string
+}
+
+export type ConversationInsert = Omit<Conversation, 'id' | 'created_at' | 'last_message_at'> & {
+  id?: string
+  created_at?: string
+  last_message_at?: string | null
+}
+
+export type MessageInsert = Omit<Message, 'id' | 'created_at' | 'read_at'> & {
+  id?: string
+  created_at?: string
+  read_at?: string | null
+}
+
+export type DreamTeamInsert = Omit<
+  DreamTeam,
+  'id' | 'created_at' | 'updated_at' | 'name' | 'players'
+> & {
+  id?: string
+  name?: string
+  players?: DreamTeamPlayerSlot[]
+  created_at?: string
+  updated_at?: string
 }
 
 // ----------------------------------------------------------------------------

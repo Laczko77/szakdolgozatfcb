@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { ShieldCheck, Trash2 } from "lucide-react";
 import type { EnrichedPost, AuthorSnapshot, OwnReaction } from "@/types/social";
@@ -98,32 +99,42 @@ export function PostCard({
         "relative flex flex-col gap-4 p-5 sm:p-6",
       )}
     >
-      {/* Author row */}
+      {/* Author row — avatar + name link to the public profile */}
       <header className="flex items-start gap-3">
-        <Avatar url={author?.avatar_url ?? null} name={displayName} size={42} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="font-display text-base tracking-wide text-[var(--text-primary)]">
-              {displayName}
-            </span>
-            {isAuthorAdmin && (
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]",
-                  "border border-[var(--accent-gold)] text-[var(--accent-gold)]",
-                )}
-                aria-label="Hivatalos klubadmin"
-              >
-                <ShieldCheck size={10} aria-hidden />
-                Klubadmin
+        <Link
+          href={`/profil/${post.author_id}`}
+          className={cn(
+            "group/auth flex min-w-0 flex-1 items-start gap-3",
+            "rounded-[var(--radius-md)] -m-1 p-1",
+            "transition-colors hover:bg-[var(--glass-bg-hover)]/40",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
+          )}
+        >
+          <Avatar url={author?.avatar_url ?? null} name={displayName} size={42} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-display text-base tracking-wide text-[var(--text-primary)] transition-colors group-hover/auth:text-[var(--accent-gold)]">
+                {displayName}
               </span>
-            )}
+              {isAuthorAdmin && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]",
+                    "border border-[var(--accent-gold)] text-[var(--accent-gold)]",
+                  )}
+                  aria-label="Hivatalos klubadmin"
+                >
+                  <ShieldCheck size={10} aria-hidden />
+                  Klubadmin
+                </span>
+              )}
+            </div>
+            <RelativeTime
+              iso={post.created_at}
+              className="text-xs text-[var(--text-muted)]"
+            />
           </div>
-          <RelativeTime
-            iso={post.created_at}
-            className="text-xs text-[var(--text-muted)]"
-          />
-        </div>
+        </Link>
 
         {isAdmin && onAdminDelete && (
           <button
