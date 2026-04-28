@@ -3,3 +3,4 @@
 - [Iter13 football-data.org migration](project_iter13_football_data.md) — why we left api-sports, FCB id 529→81, stat fields lost
 - [Vercel deployment readiness](project_vercel_deployment.md) — build fixes, required env vars, vercel.json created 2026-04-28
 - [Iter14 backend bugfix root causes](project_iter14_bugfixes.md) — player stats top-100 limit, product rating aggregation, P0001 mapping
+- [Iter20 backend bugfix root causes](project_iter20_bugfixes.md) — UUID 22P02 → 404, pgcrypto missing → gen_random_uuid, admin envelope mismatch

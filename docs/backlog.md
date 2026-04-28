@@ -10,8 +10,8 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 92    |
-| Completed tasks     | 92    |
+| Total tasks         | 96    |
+| Completed tasks     | 96    |
 | Remaining tasks     | 0     |
 | Completion          | 100%  |
 
@@ -779,5 +779,31 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - A megosztás funkció szándékosan nincs (későbbi iteráció lehet)
 
 **Dependencies:** Iteration 4 (players tábla), Iteration 2 (auth)
+
+---
+
+### Iteration 20 — Bug Fix: Hír 500 / Kupon RPC / Játékos Statisztika Szinkron / Szavazás Meccs Szűrő
+
+**Status:** DONE
+
+**Goal:** A manuális tesztelés során feltárt 4 backend hiba kijavítása: cikk részletes oldal 500-as hiba, kupon beváltás pgcrypto hiba, játékos statisztikák szinkronizálásának javítása, szavazás létrehozásnál meccs lista szűrő.
+
+**UI required:** Részben (a meccs lista szűrőhöz frontend admin oldal hívást is módosítani kell)
+
+**Tasks:**
+
+- [x] 20.1 Hír 500-as hiba javítása: `src/app/api/articles/[id]/route.ts`-ban UUID validáció hozzáadása (ha az id nem valid UUID formátumú, 404-et adjon vissza a 500 helyett; `22P02` PostgreSQL hiba catch-elése és 404-re konvertálása)
+- [x] 20.2 Kupon beváltás RPC javítása: A `redeem_coupon` PostgreSQL function-ben `gen_random_bytes(6)` cseréje `gen_random_uuid()` alapú kódgenerálásra (pl. `BARCA-` prefix + uuid első 8 karaktere nagybetűsen) — a `pgcrypto` extension nincs engedélyezve Supabase-ben; szükséges migrációs fájl létrehozása (`supabase/migrations/<dátum>_fix_redeem_coupon_rpc.sql`)
+- [x] 20.3 Játékos statisztika szinkron javítása: `src/app/api/admin/players/sync/route.ts` és `src/lib/football-data.ts` ellenőrzése — a `getScorers()` hívás valóban mappel-i-e a player ID-kat a `players` táblában lévő `api_football_id` (football-data.org player ID) alapján; ha a matching hibás, javítás; a `stats` JSONB mezőbe írt kulcsok (`goals`, `assists`, `playedMatches`, `yellowCards`, `redCards`) konzisztensek legyenek a frontend parser (`readPlayerStats`) által várt kulcsokkal
+- [x] 20.4 Szavazás meccs lista szűrő: Az admin szavazás létrehozó formhoz meccseket visszaadó endpoint szűrési feltételének javítása — a `SCHEDULED`, `TIMED` és `IN_PLAY` státuszú (tehát még nem lejátszott) meccsek jelenjenek meg; a `FINISHED`, `CANCELLED`, `POSTPONED` státuszú meccsek ne szerepeljenek a listában; ha az endpoint a `matches` táblát `status` alapján szűri, a feltétel legyen: `status NOT IN ('FINISHED', 'CANCELLED', 'POSTPONED', 'AWARDED')`
+
+**Acceptance Criteria:**
+
+- Hír részletes oldal érvénytelen ID esetén 404-et ad, nem 500-at
+- Kupon beváltás sikeres, "gen_random_bytes" hiba megszűnik
+- A játékos szinkronizáció után a `stats` mezők valós adatokat tartalmaznak (legalább Alex Baldé és más érintett játékosok esetén)
+- Az admin szavazás létrehozó formban megjelennek a nem lejátszott meccsek
+
+**Dependencies:** Iteration 13, 10, 4, 9
 
 ---

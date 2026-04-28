@@ -1,17 +1,17 @@
 ---
 name: Iteration Status Snapshot
-description: Backend 100% (92/92), Frontend 100% (149/149) as of 2026-04-28 — entire project backlog complete
+description: Backend 96/96 (100%), Frontend 153/153 (100%) as of 2026-04-28 — minden backlog tétel kész, beleértve a bug-fix iterations 20 / F24
 type: project
 ---
 
-Backend: 92/92 tasks DONE (100%) — all iterations 1–19 complete as of 2026-04-28
-Frontend: 149/149 tasks DONE (100%) — all iterations F1–F23 complete as of 2026-04-28
+Backend: 96/96 tasks DONE (100%) — iterations 1–20 complete as of 2026-04-28
+Frontend: 153/153 tasks DONE (100%) — iterations F1–F24 complete as of 2026-04-28
 
-Combined: 241/241 tasks done (100%) — project backlog fully complete
+Combined: 249/249 tasks done (100%)
 
-**Why:** Track final completion state so future requests don't reopen completed work or attempt to select a "next" iteration.
+**Why:** A teljes backlog implementálva, beleértve a manuális tesztelés során feltárt hibákra létrehozott bug-fix iterációkat is (Iteration 20 backend + F24 frontend). A projekt backlog teljesen befejezve.
 
 **How to apply:**
-- Both backlogs are fully complete — no iterations to select
-- If user requests new work, it must be added as a NEW iteration (with explicit user instruction) before selection
-- Last completed frontend iteration: F22 (dream team drag-and-drop) — completed 2026-04-28
+- Ha az orchestrator következő iterációt kér: jelezni kell, hogy a backlog kész, nincs több TODO
+- Új iterációt csak akkor szabad hozzáadni, ha a user kifejezetten utasít rá
+- Bug-fix iterations utolsó frissítés: 2026-04-28

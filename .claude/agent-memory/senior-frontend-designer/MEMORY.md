@@ -28,3 +28,4 @@
 - [DM + follow primitives (F23)](project_dm_components.md) — dm-api/types/dm + Community 3-col layout, ChatView (Realtime), NewConversationModal, FollowButton, /profil/[id]
 - [Dream team primitives (F22)](project_dream_team.md) — @dnd-kit/core builder, PitchSVG/PlayerSlot/PlayerPool, formation slot map in lib/dream-team-formations.ts; /jatekosok/almomcsapat
 - [useMediaQuery hook](project_use_media_query.md) — src/hooks/useMediaQuery.ts; queueMicrotask-wrapped initial setState to satisfy React 19 lint
+- [ProductWithRating canonical](project_product_with_rating.md) — /api/products joins average_rating + review_count; ProductGrid reads them off product rows, not via the ratings map
