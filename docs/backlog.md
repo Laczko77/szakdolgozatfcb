@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 92    |
-| Completed tasks     | 70    |
-| Remaining tasks     | 22    |
-| Completion          | 76%   |
+| Completed tasks     | 75    |
+| Remaining tasks     | 17    |
+| Completion          | 82%   |
 
 ---
 
@@ -611,7 +611,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 16 — Jegyrendszer: Fix Szektor Architektúra
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A jegyrendszer szektor logikájának átalakítása: dinamikus admin által létrehozott szektorok helyett 4 fix szektor (TRIBUNA, LATERAL, GOL NORD, GOL SUD) automatikus seed-elése minden meccshez. Az admin csak az árat és a kapacitást módosíthatja, új szektort nem hozhat létre. A meglévő szektorok és jegyek törlésre kerülnek (teszt fázis).
 
@@ -619,21 +619,21 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 16.1 Adatbázis migráció: meglévő szektorok és jegyek törlése + sémabővítés (`supabase/migrations/<dátum>_fixed_sectors.sql`):
+- [x] 16.1 Adatbázis migráció: meglévő szektorok és jegyek törlése + sémabővítés (`supabase/migrations/<dátum>_fixed_sectors.sql`):
   - `DELETE FROM tickets`; `DELETE FROM match_sectors;` (teszt fázis, jegyek törölhetők)
   - Új constants/enum a szektor nevekre: `TRIBUNA`, `LATERAL`, `GOL NORD`, `GOL SUD`
   - Opcionális: `match_sectors.sector_name` CHECK constraint a 4 fix értékre
   - A `match_sectors` tábla struktúrája változatlan (id, match_id, sector_name, total_seats, sold_seats, price)
-- [ ] 16.2 Auto-seed logika a meccs sync-ben (`POST /api/admin/matches/sync` kibővítése):
+- [x] 16.2 Auto-seed logika a meccs sync-ben (`POST /api/admin/matches/sync` kibővítése):
   - Minden új meccs upsert után: ellenőrzés hogy létezik-e a 4 fix szektor a meccshez
   - Ha nem, beillesztés default kapacitással és default árral (pl. TRIBUNA: 5000 hely 80€, LATERAL: 8000 hely 50€, GOL NORD: 3000 hely 30€, GOL SUD: 3000 hely 30€)
   - Idempotens: már létező meccsre nem írja felül a már módosított szektorokat
-- [ ] 16.3 Admin szektor endpoint módosítása:
+- [x] 16.3 Admin szektor endpoint módosítása:
   - `POST /api/admin/matches/[id]/sectors` — DEPRECATED (404 vagy 405 visszaadása új szektor létrehozási kísérletre)
   - `PUT /api/admin/matches/[id]/sectors/[sectorId]` — csak `total_seats` és `price` módosítható, a `sector_name` immutable
-- [ ] 16.4 Manuális seed admin endpoint (biztonsági háló):
+- [x] 16.4 Manuális seed admin endpoint (biztonsági háló):
   - `POST /api/admin/matches/[id]/seed-sectors` — ha egy meccsnek hiányzik szektora, manuálisan újra-seed a 4 fix szektort default értékekkel
-- [ ] 16.5 Default érték konstansok (`src/lib/constants/sectors.ts`):
+- [x] 16.5 Default érték konstansok (`src/lib/constants/sectors.ts`):
   - A 4 szektor neve és default kapacitás/ár konstansként exportálva
   - Frontend és backend közösen használja
 

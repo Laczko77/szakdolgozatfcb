@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 149 |
-| Completed tasks | 113 |
-| Remaining tasks | 36 |
-| Completion | 76% |
+| Completed tasks | 118 |
+| Remaining tasks | 31 |
+| Completion | 79% |
 
 ---
 
@@ -877,7 +877,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F19 — Dashboard: La Liga Tabella & Góllövőlista Widget
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A dashboard kibővítése két új widgettel: La Liga állás (top 5 + lenyitható teljes tabella, FC Barcelona kiemelve) és góllövőlista (top 5-10). A widgetek a Backend Iteration 15-ben létrehozott `/api/standings` és `/api/scorers` endpointokat fogyasztják.
 
@@ -885,7 +885,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F19.1 "La Liga állás" widget komponens (`src/components/dashboard/StandingsWidget.tsx`):
+- [x] F19.1 "La Liga állás" widget komponens (`src/components/dashboard/StandingsWidget.tsx`):
   - Glass kártya, fejléc: "La Liga állás" + verseny logó (opcionális)
   - Adatlekérés: `GET /api/standings?competition=2014` (SWR vagy React Query)
   - Top 5 sor megjelenítése táblázatos formában: pozíció, csapat logó + név, M (mérkőzés), P (pont), GA (gólarány)
@@ -893,23 +893,23 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
   - "Teljes tabella megtekintése" link/gomb → expandable szekció vagy modal a teljes 20 csapattal
   - Skeleton loading állapot (5 placeholder sor)
   - Error state: barátságos hibaüzenet + retry gomb
-- [ ] F19.2 "Góllövőlista" widget komponens (`src/components/dashboard/TopScorersWidget.tsx`):
+- [x] F19.2 "Góllövőlista" widget komponens (`src/components/dashboard/TopScorersWidget.tsx`):
   - Glass kártya, fejléc: "La Liga góllövőlista"
   - Adatlekérés: `GET /api/scorers?competition=2014&limit=10`
   - Top 5 alapból, "Több" gomb a top 10-re
   - Sor: pozíció, játékos név, csapat (kis logóval), gólok száma kiemelten
   - FC Barcelona játékosok kiemelése (akcent szín)
   - Skeleton loading + error state ugyanazzal a mintával mint az F19.1
-- [ ] F19.3 Dashboard layout integráció (`src/app/dashboard/page.tsx`):
+- [x] F19.3 Dashboard layout integráció (`src/app/dashboard/page.tsx`):
   - A két új widget elhelyezése a CSS grid-ben (desktop: span-1 vagy span-2 a többi widget mellé, mobil: 1 oszlop stack)
   - A widgetek pozícionálása: a "Következő meccs" widget után, "Pontegyenlegem" előtt vagy mellett
   - Layout responsive teszt
-- [ ] F19.4 Expandable teljes tabella UI (vagy modal):
+- [x] F19.4 Expandable teljes tabella UI (vagy modal):
   - Megoldás A: a widgeten belül expandable szekció (animáció: max-height + opacity, Framer Motion)
   - Megoldás B: glass modal full table-lel, scroll-able mobil viewra
   - Választás: expandable szekció (kevésbé tolakodó)
   - Tartalom: mind a 20 csapat, ugyanazokkal az oszlopokkal
-- [ ] F19.5 Cache-elt adat UX: ha a backend cache-ből szolgáltat (lassan frissül), egy diszkrét "frissítve: X órája" felirat a widget alján opcionális
+- [x] F19.5 Cache-elt adat UX: ha a backend cache-ből szolgáltat (lassan frissül), egy diszkrét "frissítve: X órája" felirat a widget alján opcionális
 
 **Acceptance Criteria:**
 
