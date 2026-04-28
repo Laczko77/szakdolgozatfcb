@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  HelpCircle,
   Lock,
   Pencil,
   Plus,
@@ -47,6 +48,7 @@ import {
 } from "@/components/admin/AdminInput";
 import { AdminSelect } from "@/components/admin/AdminSelect";
 import { adminFetch, adminFetchRaw, AdminApiError } from "@/lib/admin-fetch";
+import { cn } from "@/lib/utils";
 import type { Match, Poll, PollOption } from "@/types/database";
 
 type EnrichedPoll = Poll & {
@@ -308,26 +310,40 @@ function PollRow({ poll, matches, onEdit, onResolve, onDelete }: PollRowProps) {
             const count = poll.results?.[idx] ?? 0;
             const pct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
             const isCorrect = idx === poll.correct_option;
+            const isNone = opt.is_none === true;
             return (
               <li
                 key={idx}
                 className={
                   isCorrect
                     ? "relative overflow-hidden rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2"
-                    : "relative overflow-hidden rounded-md border border-[var(--glass-border)] bg-[var(--bg-primary)] px-3 py-2"
+                    : isNone
+                      ? "relative overflow-hidden rounded-md border border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--bg-primary)]/60 px-3 py-2"
+                      : "relative overflow-hidden rounded-md border border-[var(--glass-border)] bg-[var(--bg-primary)] px-3 py-2"
                 }
               >
                 <div
                   className={
                     isCorrect
                       ? "absolute inset-y-0 left-0 bg-emerald-500/15"
-                      : "absolute inset-y-0 left-0 bg-[var(--glass-bg-hover)]"
+                      : isNone
+                        ? "absolute inset-y-0 left-0 bg-amber-500/10"
+                        : "absolute inset-y-0 left-0 bg-[var(--glass-bg-hover)]"
                   }
                   style={{ width: `${pct}%` }}
                   aria-hidden
                 />
                 <div className="relative flex items-center justify-between gap-3 text-sm">
-                  <span className="font-medium text-[var(--text-primary)]">
+                  <span
+                    className={
+                      isNone
+                        ? "flex items-center gap-1.5 italic text-[var(--text-secondary)]"
+                        : "font-medium text-[var(--text-primary)]"
+                    }
+                  >
+                    {isNone ? (
+                      <HelpCircle className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                    ) : null}
                     {opt.label}
                     {isCorrect ? (
                       <span className="ml-2 text-xs text-emerald-400">
@@ -378,6 +394,9 @@ interface PollFormProps {
   onSaved: () => void | Promise<void>;
 }
 
+const DEFAULT_NONE_TEXT = "Más / Egyik sem";
+const NONE_TEXT_MAX = 100;
+
 function PollFormDialog({
   mode,
   poll,
@@ -385,12 +404,26 @@ function PollFormDialog({
   onClose,
   onSaved,
 }: PollFormProps) {
+  // Iter17: split the existing options into "regular" + "none" so the
+  // form's options[] array only contains user-defined entries. The none
+  // toggle and its label are tracked separately.
+  const initialNoneEntry = poll?.options.find((o) => o.is_none === true);
+  const initialRegularLabels =
+    poll?.options.filter((o) => o.is_none !== true).map((o) => o.label) ?? [
+      "",
+      "",
+    ];
+
   const [question, setQuestion] = useState(poll?.question ?? "");
-  const [options, setOptions] = useState<string[]>(
-    poll?.options.map((o) => o.label) ?? ["", ""],
-  );
+  const [options, setOptions] = useState<string[]>(initialRegularLabels);
   const [matchId, setMatchId] = useState<string>(
     poll?.match_id ?? NO_MATCH_VALUE,
+  );
+  const [addNoneOption, setAddNoneOption] = useState<boolean>(
+    Boolean(initialNoneEntry),
+  );
+  const [noneOptionText, setNoneOptionText] = useState<string>(
+    initialNoneEntry?.label ?? DEFAULT_NONE_TEXT,
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -411,9 +444,27 @@ function PollFormDialog({
       return;
     }
 
+    // Iter17: validate the none-option label only if the toggle is on.
+    const trimmedNoneText = noneOptionText.trim();
+    if (addNoneOption) {
+      if (trimmedNoneText.length === 0) {
+        setError('A "Más / Egyik sem" opció szövege nem lehet üres');
+        return;
+      }
+      if (trimmedNoneText.length > NONE_TEXT_MAX) {
+        setError(
+          `A "Más / Egyik sem" opció szövege legfeljebb ${NONE_TEXT_MAX} karakter lehet`,
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
 
+    // The `options` array sent to the backend contains only the
+    // user-defined entries. The server's applyNoneOption() helper will
+    // append the is_none:true entry when add_none_option is true.
     const payloadOptions: PollOption[] = trimmed.map((label) => ({ label }));
     const payloadMatchId = matchId === NO_MATCH_VALUE ? null : matchId;
 
@@ -425,6 +476,8 @@ function PollFormDialog({
             question: question.trim(),
             options: payloadOptions,
             match_id: payloadMatchId,
+            add_none_option: addNoneOption,
+            ...(addNoneOption ? { none_option_text: trimmedNoneText } : {}),
           }),
         });
       } else if (poll) {
@@ -433,7 +486,12 @@ function PollFormDialog({
           match_id: payloadMatchId,
         };
         if (!optionsLocked) {
+          // We must always send the trio together so the backend
+          // re-derives the final options[]: existing regular options
+          // (possibly edited) + a fresh none entry (or none at all).
           body.options = payloadOptions;
+          body.add_none_option = addNoneOption;
+          if (addNoneOption) body.none_option_text = trimmedNoneText;
         }
         await adminFetch(`/api/admin/polls/${poll.id}`, {
           method: "PUT",
@@ -512,6 +570,66 @@ function PollFormDialog({
                 ) : null}
               </div>
             </AdminField>
+
+            {/* Iter17: "Más / Egyik sem" toggle */}
+            <div
+              className={cn(
+                "rounded-md border border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--bg-primary)]/60 p-3",
+                "space-y-3",
+              )}
+            >
+              <label className="flex items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={addNoneOption}
+                  disabled={optionsLocked}
+                  onChange={(e) => setAddNoneOption(e.target.checked)}
+                  className={cn(
+                    "mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded",
+                    "border border-[var(--glass-border-hover)] bg-[var(--bg-primary)]",
+                    "accent-[var(--accent-gold)]",
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                  )}
+                />
+                <span className="space-y-0.5">
+                  <span className="flex items-center gap-1.5 font-medium text-[var(--text-primary)]">
+                    <HelpCircle className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                    „Más / Egyik sem” opció hozzáadása
+                  </span>
+                  <span className="block text-xs text-[var(--text-secondary)]">
+                    Egy extra, vizuálisan elkülönített opció a lista végén — a
+                    szavazók akkor választhatják, ha a tippjük nem szerepel a
+                    felsorolásban.
+                  </span>
+                </span>
+              </label>
+
+              {addNoneOption ? (
+                <div className="space-y-1.5 pl-6">
+                  <AdminInput
+                    value={noneOptionText}
+                    onChange={(e) => setNoneOptionText(e.target.value)}
+                    maxLength={NONE_TEXT_MAX}
+                    placeholder={DEFAULT_NONE_TEXT}
+                    disabled={optionsLocked}
+                    aria-label="Egyik sem opció szövege"
+                  />
+                  <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                    <span>Megjelenítendő szöveg ({DEFAULT_NONE_TEXT})</span>
+                    <span className="tabular-nums">
+                      {noneOptionText.length}/{NONE_TEXT_MAX}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              {optionsLocked ? (
+                <p className="pl-6 text-[11px] italic text-[var(--text-muted)]">
+                  Lezárt szavazás — a „Más / Egyik sem” opció nem
+                  módosítható.
+                </p>
+              ) : null}
+            </div>
 
             <AdminField
               label="Kapcsolódó meccs (opcionális)"
@@ -610,24 +728,50 @@ function ResolvePollDialog({ poll, onClose, onResolved }: ResolveProps) {
             {poll.question}
           </p>
           <div className="space-y-2">
-            {poll.options.map((opt, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => !confirmStep && setSelected(idx)}
-                disabled={confirmStep}
-                className={
-                  selected === idx
-                    ? "flex w-full items-center justify-between rounded-md border border-[var(--accent-gold)] bg-[var(--accent-gold)]/10 px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed"
-                    : "flex w-full items-center justify-between rounded-md border border-[var(--glass-border)] bg-[var(--bg-primary)] px-3 py-2 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--glass-bg-hover)] disabled:cursor-not-allowed"
-                }
-              >
-                <span>{opt.label}</span>
-                {selected === idx ? (
-                  <CheckCircle2 className="h-4 w-4 text-[var(--accent-gold)]" />
-                ) : null}
-              </button>
-            ))}
+            {poll.options.map((opt, idx) => {
+              const isNone = opt.is_none === true;
+              const isSelected = selected === idx;
+              return (
+                <div key={idx}>
+                  {isNone ? (
+                    <div
+                      aria-hidden
+                      className="my-2 h-px bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent"
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => !confirmStep && setSelected(idx)}
+                    disabled={confirmStep}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed",
+                      isSelected
+                        ? "border-[var(--accent-gold)] bg-[var(--accent-gold)]/10 font-medium text-[var(--text-primary)]"
+                        : isNone
+                          ? "border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--bg-primary)]/60 text-[var(--text-secondary)] hover:bg-[var(--glass-bg-hover)]/60"
+                          : "border-[var(--glass-border)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:bg-[var(--glass-bg-hover)]",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      {isNone ? (
+                        <>
+                          <HelpCircle className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                          <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                            Egyik sem / Más
+                          </span>
+                          <span className="italic">— {opt.label}</span>
+                        </>
+                      ) : (
+                        opt.label
+                      )}
+                    </span>
+                    {isSelected ? (
+                      <CheckCircle2 className="h-4 w-4 text-[var(--accent-gold)]" />
+                    ) : null}
+                  </button>
+                </div>
+              );
+            })}
           </div>
           {error ? (
             <div className="rounded-md border border-[var(--accent-red)]/30 bg-[var(--accent-red)]/10 px-3 py-2 text-sm text-[var(--accent-red)]">

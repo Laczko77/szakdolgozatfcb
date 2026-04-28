@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, Crown, Star } from "lucide-react";
+import { Check, Crown, HelpCircle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PollResultBarProps {
@@ -17,6 +17,12 @@ interface PollResultBarProps {
   isCorrect: boolean;
   /** Drives the staggered bar fill animation. */
   index: number;
+  /**
+   * Iter17: marks the special "Más / Egyik sem" option. Visually
+   * differentiated with a slate/amber neutral fill and an italic label —
+   * unless `isCorrect` also fires, in which case correct styling wins.
+   */
+  isNone?: boolean;
 }
 
 /**
@@ -40,6 +46,7 @@ export function PollResultBar({
   isUserVote,
   isCorrect,
   index,
+  isNone = false,
 }: PollResultBarProps) {
   const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
 
@@ -53,7 +60,9 @@ export function PollResultBar({
           ? "border-emerald-400/50 bg-emerald-400/[0.06]"
           : isUserVote
             ? "border-[var(--accent-gold)]/50 bg-[var(--accent-gold)]/[0.05]"
-            : "border-[var(--glass-border)] bg-[var(--glass-bg)]",
+            : isNone
+              ? "border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--glass-bg)]/40"
+              : "border-[var(--glass-border)] bg-[var(--glass-bg)]",
       )}
     >
       {/* Animated fill */}
@@ -63,7 +72,9 @@ export function PollResultBar({
           "absolute inset-y-0 left-0 origin-left",
           isCorrect
             ? "bg-gradient-to-r from-emerald-500/40 via-emerald-400/25 to-emerald-300/15"
-            : "bg-gradient-to-r from-[var(--accent-blue)]/45 via-[var(--accent-blue)]/25 to-[var(--accent-red)]/30",
+            : isNone
+              ? "bg-gradient-to-r from-slate-400/25 via-amber-500/20 to-slate-400/10"
+              : "bg-gradient-to-r from-[var(--accent-blue)]/45 via-[var(--accent-blue)]/25 to-[var(--accent-red)]/30",
         )}
         initial={{ width: 0 }}
         whileInView={{ width: `${pct}%` }}
@@ -103,6 +114,13 @@ export function PollResultBar({
               <Check size={12} strokeWidth={3} />
             </span>
           )}
+          {isNone && !isCorrect && !isUserVote && (
+            <HelpCircle
+              size={14}
+              className="shrink-0 text-[var(--text-muted)]"
+              aria-label="Más / Egyik sem"
+            />
+          )}
           <span
             className={cn(
               "truncate text-sm sm:text-[0.95rem]",
@@ -110,7 +128,9 @@ export function PollResultBar({
                 ? "font-medium text-emerald-100"
                 : isUserVote
                   ? "font-medium text-[var(--text-primary)]"
-                  : "text-[var(--text-secondary)]",
+                  : isNone
+                    ? "italic text-[var(--text-muted)]"
+                    : "text-[var(--text-secondary)]",
             )}
           >
             {label}

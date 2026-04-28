@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Loader2, MessageSquareQuote, Users2 } from "lucide-react";
+import { Check, HelpCircle, Loader2, MessageSquareQuote, Users2 } from "lucide-react";
 import type { EnrichedPoll } from "@/lib/polls-api";
 import { castVote } from "@/lib/polls-api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -68,6 +68,16 @@ export function PollCard({
     userVote !== null &&
     poll.correct_option !== null &&
     userVote === poll.correct_option;
+
+  // Iter17: the special "Más / Egyik sem" entry always sits at the end
+  // of `options[]` (DB constraint). We split it out so it can be rendered
+  // below a divider with subtler styling, while regular options keep
+  // their current treatment. The original poll-option index is preserved
+  // because vote selection / results bars are keyed by index.
+  const noneOptionIndex = poll.options.findIndex((o) => o.is_none === true);
+  const hasNoneOption = noneOptionIndex >= 0;
+  const correctIsNone =
+    poll.correct_option !== null && poll.correct_option === noneOptionIndex;
 
   async function handleVote() {
     if (pendingOption === null || submitting) return;
@@ -180,14 +190,48 @@ export function PollCard({
             <ul role="radiogroup" aria-label={poll.question} className="space-y-2.5">
               {poll.options.map((option, idx) => {
                 const checked = pendingOption === idx;
+                const isNone = option.is_none === true;
+                const regularCount = hasNoneOption
+                  ? poll.options.length - 1
+                  : poll.options.length;
+                // Stagger: regular options reveal first, then the divider,
+                // then the none option. Cap the cumulative delay so a poll
+                // with many options doesn't feel sluggish.
+                const itemDelay = isNone
+                  ? Math.min(regularCount * 0.06 + 0.18, 0.6)
+                  : Math.min(idx * 0.06, 0.36);
                 return (
-                  <li key={idx}>
+                  <motion.li
+                    key={idx}
+                    initial={{ opacity: 0, y: isNone ? 4 : 0 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: itemDelay }}
+                  >
+                    {isNone && (
+                      <motion.div
+                        aria-hidden
+                        className="mb-2.5 flex items-center gap-3"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{
+                          duration: 0.4,
+                          delay: Math.min(regularCount * 0.06 + 0.1, 0.5),
+                        }}
+                      >
+                        <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent" />
+                        <span className="text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                          vagy
+                        </span>
+                        <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent" />
+                      </motion.div>
+                    )}
                     <button
                       type="button"
                       role="radio"
                       aria-checked={checked}
                       disabled={submitting}
                       onClick={() => setPendingOption(idx)}
+                      title={isNone ? "Ha a te tipped nem szerepel a listában" : undefined}
                       className={cn(
                         "group relative flex w-full items-center gap-3 rounded-[var(--radius-md)]",
                         "border px-4 py-3 text-left",
@@ -195,7 +239,9 @@ export function PollCard({
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
                         checked
                           ? "border-[var(--accent-gold)]/60 bg-[var(--accent-gold)]/[0.07] shadow-[0_0_0_1px_var(--accent-gold-subtle)_inset]"
-                          : "border-[var(--glass-border)] bg-[var(--glass-bg)] hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
+                          : isNone
+                            ? "border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--glass-bg)]/40 hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]/60"
+                            : "border-[var(--glass-border)] bg-[var(--glass-bg)] hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
                         submitting && "opacity-60",
                       )}
                     >
@@ -214,18 +260,33 @@ export function PollCard({
                           />
                         )}
                       </span>
+                      {isNone && !checked && (
+                        <HelpCircle
+                          size={14}
+                          className="shrink-0 text-[var(--text-muted)]"
+                          aria-hidden
+                        />
+                      )}
                       <span
                         className={cn(
                           "text-sm sm:text-[0.95rem]",
+                          isNone && !checked && "italic",
                           checked
                             ? "text-[var(--text-primary)]"
-                            : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]",
+                            : isNone
+                              ? "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]"
+                              : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]",
                         )}
                       >
                         {option.label}
                       </span>
                     </button>
-                  </li>
+                    {isNone && (
+                      <p className="mt-1.5 pl-1 text-[10.5px] italic text-[var(--text-muted)]">
+                        Ha a te tipped nem szerepel a listában.
+                      </p>
+                    )}
+                  </motion.li>
                 );
               })}
             </ul>
@@ -274,12 +335,19 @@ export function PollCard({
             <ul className="space-y-2">
               {poll.options.map((option, idx) => (
                 <li key={idx}>
+                  {option.is_none && (
+                    <div
+                      aria-hidden
+                      className="my-2 h-px bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent"
+                    />
+                  )}
                   <PollResultBar
                     label={option.label}
                     votes={results[idx] ?? 0}
                     totalVotes={totalVotes}
                     isUserVote={userVote === idx}
                     isCorrect={false}
+                    isNone={option.is_none === true}
                     index={idx}
                   />
                 </li>
@@ -309,17 +377,29 @@ export function PollCard({
             <ul className="space-y-2">
               {poll.options.map((option, idx) => (
                 <li key={idx}>
+                  {option.is_none && (
+                    <div
+                      aria-hidden
+                      className="my-2 h-px bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent"
+                    />
+                  )}
                   <PollResultBar
                     label={option.label}
                     votes={results[idx] ?? 0}
                     totalVotes={totalVotes}
                     isUserVote={userVote === idx}
                     isCorrect={poll.correct_option === idx}
+                    isNone={option.is_none === true}
                     index={idx}
                   />
                 </li>
               ))}
             </ul>
+            {correctIsNone && (
+              <p className="rounded-[var(--radius-md)] border border-emerald-400/30 bg-emerald-400/[0.06] px-3 py-2 text-center text-xs italic text-emerald-200/90">
+                A helyes tipp nem szerepelt az előre megadott lehetőségek között.
+              </p>
+            )}
             {hasVoted && !isCorrectVoter && poll.correct_option !== null && (
               <p className="text-center text-xs text-[var(--text-muted)]">
                 Sajnos nem találtad el. Tartson a szerencse a következő

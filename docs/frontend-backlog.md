@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 149 |
-| Completed tasks | 125 |
-| Remaining tasks | 24 |
-| Completion | 84% |
+| Completed tasks | 130 |
+| Remaining tasks | 19 |
+| Completion | 87% |
 
 ---
 
@@ -984,7 +984,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F21 — Szavazás UI: "Más / Egyik sem" Opció
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A szavazórendszer UI kibővítése: az admin a szavazás létrehozó form-ban hozzáadhatja a "Más / Egyik sem" opciót egy checkbox-szal és egy testreszabható szöveggel. A szavazó UI és az eredmény megjelenítés is támogatja ezt.
 
@@ -992,21 +992,21 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F21.1 Admin szavazás létrehozó form frissítése (`src/app/admin/szavazasok/page.tsx` + `SzavazasForm.tsx`):
+- [x] F21.1 Admin szavazás létrehozó form frissítése (`src/app/admin/szavazasok/page.tsx` + `SzavazasForm.tsx`):
   - Új checkbox: "'Más / Egyik sem' opció hozzáadása"
   - Ha be van pipálva: text input a szöveg testreszabására (default: "Más / Egyik sem"), max 100 karakter
   - Submit-kor a `addNoneOption` és `noneOptionText` body field-ek átadása a backendnek
-- [ ] F21.2 Admin szerkesztő form frissítése:
+- [x] F21.2 Admin szerkesztő form frissítése:
   - A meglévő szavazás szerkesztésekor a "none" opció jelölve van (ha van)
   - Lehetőség a hozzáadásra/eltávolításra (csak resolve előtt)
-- [ ] F21.3 User szavazás UI frissítése (`src/app/szavazasok/page.tsx` + `PollCard.tsx`):
+- [x] F21.3 User szavazás UI frissítése (`src/app/szavazasok/page.tsx` + `PollCard.tsx`):
   - A "none" opció vizuálisan elkülönítve jelenjen meg (pl. szürkébb háttér, dőlt betű, vagy egy elválasztó vonal a normál opciók után)
   - Ikon (pl. kérdőjel) a "none" opció mellett
-- [ ] F21.4 Eredmény megjelenítés frissítése:
+- [x] F21.4 Eredmény megjelenítés frissítése:
   - Lezárt szavazásnál ha a `correct_option = 'none'`: a "none" opció zöld kiemelést kap
   - A bar chart-on a "none" opció külön színnel (pl. szürke vagy lila)
   - Ha a user a "none"-ra szavazott és az volt a helyes: "+50 pont" badge megjelenik (ugyanaz a logika mint a normál helyes válasznál)
-- [ ] F21.5 Admin lezáró form frissítése:
+- [x] F21.5 Admin lezáró form frissítése:
   - A "Helyes válasz kiválasztása" select tartalmazza a "none" opciót is (ha a szavazásnak van ilyen)
 
 **Acceptance Criteria:**

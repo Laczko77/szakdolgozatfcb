@@ -11,9 +11,9 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 | Metric              | Value |
 |---------------------|-------|
 | Total tasks         | 92    |
-| Completed tasks     | 80    |
-| Remaining tasks     | 12    |
-| Completion          | 87%   |
+| Completed tasks     | 88    |
+| Remaining tasks     | 4     |
+| Completion          | 96%   |
 
 ---
 
@@ -690,7 +690,7 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 ### Iteration 18 — Közösségi: Direct Messaging & Követés Rendszer
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** A közösségi modul kibővítése privát üzenetküldéssel (DM) Supabase Realtime alapokon, és egy egyszerű követési rendszerrel ami szabályozza ki kinek küldhet üzenetet. A scope döntés: a követési rendszer kis méretű (≤3 task), ezért a "csak követöttek küldhetnek" modellt választjuk (b opció).
 
@@ -698,34 +698,34 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 **Tasks:**
 
-- [ ] 18.1 Adatbázis séma — DM (`supabase/migrations/<dátum>_direct_messaging.sql`):
+- [x] 18.1 Adatbázis séma — DM (`supabase/migrations/<dátum>_direct_messaging.sql`):
   - `conversations` tábla: `id` (uuid PK), `participant_a` (uuid FK profiles), `participant_b` (uuid FK profiles), `created_at`, `last_message_at`. Unique constraint a (least(a,b), greatest(a,b)) párra hogy egy beszélgetés csak egyszer létezzen
   - `messages` tábla: `id` (uuid PK), `conversation_id` (uuid FK), `sender_id` (uuid FK profiles), `content` (text), `created_at`, `read_at` (timestamptz NULL)
   - Indexek: `messages(conversation_id, created_at DESC)`, `conversations(participant_a)`, `conversations(participant_b)`
-- [ ] 18.2 Adatbázis séma — Követés:
+- [x] 18.2 Adatbázis séma — Követés:
   - `follows` tábla: `id` (uuid PK), `follower_id` (uuid FK profiles), `following_id` (uuid FK profiles), `created_at`. Unique (follower_id, following_id), CHECK follower_id != following_id
   - Indexek: `follows(follower_id)`, `follows(following_id)`
-- [ ] 18.3 RLS policy-k:
+- [x] 18.3 RLS policy-k:
   - `conversations`: user csak azt látja amiben résztvevő (participant_a vagy participant_b a saját user_id), insert csak ha a user az egyik résztvevő
   - `messages`: user csak azt látja amelyik egy olyan conversation-höz tartozik amiben résztvevő, insert csak ha a sender_id a user és résztvevője a conversation-nek
   - `follows`: bárki olvashat (publikus follower count), insert csak ha follower_id a user, delete csak ha follower_id a user
-- [ ] 18.4 Követés endpointok:
+- [x] 18.4 Követés endpointok:
   - `POST /api/users/[id]/follow` — a bejelentkezett user követi a [id] usert
   - `DELETE /api/users/[id]/follow` — kikövetés
   - `GET /api/users/[id]/followers` — a [id] user követőinek listája (lapozható)
   - `GET /api/users/[id]/following` — kit követ a [id] user
   - `GET /api/users/[id]/follow-status` — a bejelentkezett user követi-e a [id] usert (boolean)
-- [ ] 18.5 DM endpointok — beszélgetések:
+- [x] 18.5 DM endpointok — beszélgetések:
   - `GET /api/conversations` — a bejelentkezett user beszélgetéseinek listája (utolsó üzenet, partner profil, olvasatlan-szám), `last_message_at DESC` rendezve
   - `POST /api/conversations` — új beszélgetés indítása (recipient_id). Ellenőrzés: a recipient_id-t a user követi (a "csak követöttek" modell). Ha már létezik beszélgetés a két user között, az meglévőt adja vissza (idempotens)
-- [ ] 18.6 DM endpointok — üzenetek:
+- [x] 18.6 DM endpointok — üzenetek:
   - `GET /api/conversations/[id]/messages` — egy beszélgetés üzenetei (lapozott, `created_at DESC`, default limit 50). Auth check: a user résztvevő-e
   - `POST /api/conversations/[id]/messages` — üzenet küldése (content). Ellenőrzés: résztvevő, content nem üres, max 2000 karakter, és a user követi a recipient-et
   - `PUT /api/conversations/[id]/read` — összes üzenet olvasottra állítása amelyek nem a user-től származnak (`read_at = now()`)
-- [ ] 18.7 User kereső a DM-hez:
+- [x] 18.7 User kereső a DM-hez:
   - `GET /api/users/search?q=...` — a bejelentkezett user által követett userek között keres username/email alapján (csak követötteket találja a DM-init flow-hoz)
   - Limit 20 találat
-- [ ] 18.8 Supabase Realtime konfigurálás:
+- [x] 18.8 Supabase Realtime konfigurálás:
   - A `messages` és `conversations` táblák realtime publikációra állítása (`ALTER PUBLICATION supabase_realtime ADD TABLE messages, conversations`)
   - RLS érvényesül a realtime channel-eken is — a kliens csak azokat az üzeneteket kapja, amelyekre jogosult
 

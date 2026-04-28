@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpRight, Check, Loader2, Vote } from "lucide-react";
+import { ArrowUpRight, Check, HelpCircle, Loader2, Vote } from "lucide-react";
 import type { EnrichedPoll } from "@/lib/polls-api";
 import { castVote } from "@/lib/polls-api";
 import { useAuth } from "@/providers/AuthProvider";
@@ -164,14 +164,22 @@ export function ActivePollWidget({
                 >
                   {poll.options.map((option, idx) => {
                     const checked = pendingOption === idx;
+                    const isNone = option.is_none === true;
                     return (
                       <li key={idx}>
+                        {isNone && (
+                          <div
+                            aria-hidden
+                            className="my-1.5 h-px bg-gradient-to-r from-transparent via-[var(--glass-border-hover)] to-transparent"
+                          />
+                        )}
                         <button
                           type="button"
                           role="radio"
                           aria-checked={checked}
                           disabled={submitting}
                           onClick={() => setPendingOption(idx)}
+                          title={isNone ? "Ha a te tipped nem szerepel a listában" : undefined}
                           className={cn(
                             "group flex w-full items-center gap-2.5 rounded-[var(--radius-md)]",
                             "border px-3 py-2.5 text-left text-sm",
@@ -179,7 +187,9 @@ export function ActivePollWidget({
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
                             checked
                               ? "border-[var(--accent-gold)]/60 bg-[var(--accent-gold)]/[0.07]"
-                              : "border-[var(--glass-border)] bg-[var(--glass-bg)] hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
+                              : isNone
+                                ? "border-dashed border-[var(--glass-border-hover)]/70 bg-[var(--glass-bg)]/40 hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]/60"
+                                : "border-[var(--glass-border)] bg-[var(--glass-bg)] hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
                           )}
                         >
                           <span
@@ -194,12 +204,22 @@ export function ActivePollWidget({
                               <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-gold)]" />
                             )}
                           </span>
+                          {isNone && !checked && (
+                            <HelpCircle
+                              size={12}
+                              className="shrink-0 text-[var(--text-muted)]"
+                              aria-hidden
+                            />
+                          )}
                           <span
                             className={cn(
                               "truncate",
+                              isNone && !checked && "italic",
                               checked
                                 ? "text-[var(--text-primary)]"
-                                : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]",
+                                : isNone
+                                  ? "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]"
+                                  : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]",
                             )}
                           >
                             {option.label}
