@@ -10,12 +10,14 @@ import type { MatchSector, TablesUpdate } from '@/types/database'
 /**
  * PUT /api/admin/matches/[id]/sectors/[sectorId]
  *
- * Admin only. Partial update of a sector (extra ticket allotment, rename,
- * price change). All fields are optional; if `total_seats` is provided it
- * must be >= the current `sold_seats` value (database CHECK constraint
- * enforces this too, but we want a friendlier error).
+ * Admin only. Partial update of a sector. As of Iteration 16, only
+ * `total_seats` and `price` may be modified — the sector domain is fixed
+ * (TRIBUNA / LATERAL / GOL NORD / GOL SUD) and sector_name renames are
+ * rejected with 400. If `total_seats` is provided it must be >= the
+ * current `sold_seats` value (DB CHECK constraint enforces this too, but
+ * we surface a friendlier error).
  *
- * Body (JSON): { sector_name?: string, total_seats?: number, price?: number }
+ * Body (JSON): { total_seats?: number, price?: number }
  *
  * Note: `sold_seats` is NOT settable by this endpoint. It is only mutated
  * by the purchase_tickets() RPC.
@@ -105,7 +107,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 // ---------------------------------------------------------------------------
 
 type SectorPatch = {
-  sector_name?: string
   total_seats?: number
   price?: number
 }
@@ -117,11 +118,13 @@ function parsePatch(raw: unknown): SectorPatch | Error {
   const obj = raw as Record<string, unknown>
   const out: SectorPatch = {}
 
+  // Iter 16: sector_name is part of a fixed domain and cannot be renamed.
   if (obj.sector_name !== undefined) {
-    if (typeof obj.sector_name !== 'string' || obj.sector_name.trim().length === 0) {
-      return new Error('A "sector_name" mező nem-üres szöveg kell legyen')
-    }
-    out.sector_name = obj.sector_name.trim()
+    return new Error('A szektor neve nem módosítható')
+  }
+  // sold_seats may only be mutated by the purchase_tickets() RPC.
+  if (obj.sold_seats !== undefined) {
+    return new Error('A "sold_seats" mező nem módosítható ezen az endpointon')
   }
   if (obj.total_seats !== undefined) {
     if (

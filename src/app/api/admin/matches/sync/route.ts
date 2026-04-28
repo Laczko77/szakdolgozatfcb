@@ -12,6 +12,7 @@ import {
   getMatches,
   type NormalizedMatch,
 } from '@/lib/football-data'
+import { seedFixedSectorsForMatch } from '@/lib/sectors-seed'
 import type { TablesInsert } from '@/types/database'
 
 /**
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceRoleClient()
   const errors: string[] = []
   let synced = 0
+  let sectorsSeeded = 0
 
   for (const match of matches) {
     try {
@@ -118,21 +120,38 @@ export async function POST(request: NextRequest) {
         competition: match.competition,
       }
 
-      const { error: upsertError } = await supabase
+      // Upsert + RETURNING to get the local UUID for the sector seed below.
+      const { data: upserted, error: upsertError } = await supabase
         .from('matches')
         .upsert(insert as never, {
           onConflict: 'api_football_id',
           ignoreDuplicates: false,
         })
+        .select('id')
+        .single()
 
-      if (upsertError) {
+      if (upsertError || !upserted) {
         errors.push(
-          `Meccs #${match.id} (${match.homeTeam} vs ${match.awayTeam}): ${upsertError.message}`
+          `Meccs #${match.id} (${match.homeTeam} vs ${match.awayTeam}): ${
+            upsertError?.message ?? 'ismeretlen hiba'
+          }`
         )
         continue
       }
 
       synced += 1
+
+      // Idempotent fixed-sector seed. ignoreDuplicates means subsequent syncs
+      // do NOT overwrite admin-edited prices / capacities.
+      const matchRow = upserted as { id: string }
+      const seedResult = await seedFixedSectorsForMatch(supabase, matchRow.id)
+      if (seedResult.error) {
+        errors.push(
+          `Meccs #${match.id} szektor seed: ${seedResult.error}`
+        )
+      } else {
+        sectorsSeeded += seedResult.inserted
+      }
     } catch (err) {
       errors.push(
         `Meccs #${match.id}: ${
@@ -145,8 +164,8 @@ export async function POST(request: NextRequest) {
   const elapsedMs = Date.now() - startedAt
   console.log(
     `${LOG_PREFIX} season=${season} fetched=${matches.length} synced=${synced} ` +
-      `errors=${errors.length} elapsedMs=${elapsedMs}`
+      `sectorsSeeded=${sectorsSeeded} errors=${errors.length} elapsedMs=${elapsedMs}`
   )
 
-  return successResponse({ synced, errors, season })
+  return successResponse({ synced, sectorsSeeded, errors, season })
 }
