@@ -67,7 +67,12 @@ export function CommentItem({
     }
   };
 
-  const displayName = author?.username || "Vendég";
+  // F26.8 — comment author display:
+  //   · Prefer the joined `author.username` (API now returns it inline).
+  //   · Fall back to "Ismeretlen szurkoló" rather than the cryptic
+  //     "Vendég" placeholder used previously, which matched the post-
+  //     card fallback and confused users (a "guest" can't post).
+  const displayName = author?.username || "Ismeretlen szurkoló";
 
   return (
     <motion.li

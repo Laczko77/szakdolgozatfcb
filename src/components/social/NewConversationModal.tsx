@@ -8,36 +8,47 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Search, UserCheck, UserPlus, X } from "lucide-react";
+import {
+  Clock,
+  Loader2,
+  MessageCircle,
+  Search,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useToast } from "@/providers/ToastProvider";
 import {
   ApiError,
   fetchFollowStatus,
+  followUser,
   searchUsers,
   startConversation,
 } from "@/lib/dm-api";
-import type { UserSearchResult } from "@/types/dm";
+import type { FollowStatusKind, UserSearchResult } from "@/types/dm";
 import { Avatar } from "./Avatar";
 import { cn } from "@/lib/utils";
 
 const DEBOUNCE_MS = 300;
 
 /**
- * "Új üzenet" modal.
+ * "Új üzenet" modal — F26.7 rewrite.
  *
- * Two distinct states:
- *  - `idle`: empty input, hint text in the body.
- *  - `searching` / `results`: we run a debounced GET /api/users/search,
- *    show the results as picker rows with a mutual-follow badge and
- *    a "Beszélgetés indítása" CTA.
+ * The backend now returns the full set of matching users (not just
+ * mutual follows) and may inline a `follow_status` field per row. We
+ * render a state-aware row:
  *
- * Picking a result calls POST /api/conversations. The endpoint enforces
- * mutual follow — if the response is `403` we emit a Hungarian toast
- * explaining that, instead of bubbling the raw server error.
+ *   · `not_following` → "Követés kérése" button (POST /follow). On
+ *     success the row flips to `pending` in place; the user can keep
+ *     searching or close the modal.
+ *   · `pending` → disabled "Kérelem elküldve" pill.
+ *   · `following` → "Üzenet" button. Click opens (or creates) the
+ *     conversation via POST /api/conversations and dismisses the modal.
  *
- * Keyboard:
- *  - Escape closes the modal.
- *  - The first interactive element (search input) is auto-focused on open.
+ * Mutual follow is no longer required to *start* the conversation —
+ * the new flow only asks for the target's `follow_status === following`.
+ * This matches the backend's new approval-based pairing model.
+ *
+ * Keyboard: Escape closes; the search input is auto-focused on open.
  */
 interface NewConversationModalProps {
   open: boolean;
@@ -57,16 +68,20 @@ export function NewConversationModal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+  /** id of the row currently in-flight for either follow OR start-conv. */
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Reset state on open.
+  // Reset state on open. Wrapped in a microtask so the React 19
+  // set-state-in-effect lint stays quiet — these are pure state resets
+  // tied to a UI lifecycle event, not a "cascading render".
   useEffect(() => {
     if (!open) return;
-    setQuery("");
-    setResults([]);
-    setSearching(false);
-    setCreatingFor(null);
-    // Defer focus so Framer can mount.
+    queueMicrotask(() => {
+      setQuery("");
+      setResults([]);
+      setSearching(false);
+      setBusyId(null);
+    });
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
   }, [open]);
@@ -86,8 +101,10 @@ export function NewConversationModal({
     if (!open) return;
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setResults([]);
-      setSearching(false);
+      queueMicrotask(() => {
+        setResults([]);
+        setSearching(false);
+      });
       return;
     }
 
@@ -100,21 +117,23 @@ export function NewConversationModal({
           if (c.signal.aborted) return;
           setResults(users);
 
-          // Hydrate mutual-follow badges in the background. We don't
-          // block the picker on this — the badge appears the moment
-          // the per-user follow-status round-trip resolves.
+          // Hydrate follow_status for any row missing it. Most backends
+          // ship it inline; this loop is defensive.
           for (const u of users) {
+            if (u.follow_status) continue;
             void (async () => {
               try {
                 const status = await fetchFollowStatus(u.id, c.signal);
                 if (c.signal.aborted) return;
                 setResults((prev) =>
                   prev.map((r) =>
-                    r.id === u.id ? { ...r, isMutual: status.isMutual } : r,
+                    r.id === u.id
+                      ? { ...r, follow_status: status.status }
+                      : r,
                   ),
                 );
               } catch {
-                /* badge stays unknown */
+                /* status stays unknown → row treated as not_following */
               }
             })();
           }
@@ -135,18 +154,51 @@ export function NewConversationModal({
     };
   }, [query, open, toast]);
 
-  const handlePick = useCallback(
+  const updateRowStatus = useCallback(
+    (userId: string, next: FollowStatusKind) => {
+      setResults((prev) =>
+        prev.map((r) => (r.id === userId ? { ...r, follow_status: next } : r)),
+      );
+    },
+    [],
+  );
+
+  const handleFollow = useCallback(
     async (user: UserSearchResult) => {
-      if (creatingFor) return;
-      setCreatingFor(user.id);
+      if (busyId) return;
+      setBusyId(user.id);
+      // Optimistic flip → pending.
+      updateRowStatus(user.id, "pending");
+      try {
+        await followUser(user.id);
+        toast.success("Követési kérelem elküldve");
+      } catch (err) {
+        // Rollback.
+        updateRowStatus(user.id, "not_following");
+        if (err instanceof ApiError && err.status === 409) {
+          toast.info("A kérelem már elküldve");
+        } else {
+          toast.error(
+            err instanceof Error ? err.message : "Kérelem küldése sikertelen",
+          );
+        }
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [busyId, updateRowStatus, toast],
+  );
+
+  const handleMessage = useCallback(
+    async (user: UserSearchResult) => {
+      if (busyId) return;
+      setBusyId(user.id);
       try {
         const conv = await startConversation(user.id);
         onSelect(conv.id);
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) {
-          toast.info(
-            "Előbb kövesd egymást, hogy üzenetet küldhess",
-          );
+          toast.info("Még nem követitek egymást");
         } else {
           toast.error(
             err instanceof Error
@@ -155,10 +207,10 @@ export function NewConversationModal({
           );
         }
       } finally {
-        setCreatingFor(null);
+        setBusyId(null);
       }
     },
-    [creatingFor, onSelect, toast],
+    [busyId, onSelect, toast],
   );
 
   const showHint = query.trim().length < 2;
@@ -293,8 +345,9 @@ export function NewConversationModal({
                       <li key={u.id}>
                         <UserRow
                           user={u}
-                          submitting={creatingFor === u.id}
-                          onSelect={() => void handlePick(u)}
+                          busy={busyId === u.id}
+                          onFollow={() => void handleFollow(u)}
+                          onMessage={() => void handleMessage(u)}
                         />
                       </li>
                     ))}
@@ -304,7 +357,8 @@ export function NewConversationModal({
             </div>
 
             <p className="border-t border-[var(--glass-border)] px-5 py-3 text-[11px] text-[var(--text-muted)] sm:px-7">
-              Beszélgetést csak <span className="text-[var(--accent-gold)]">kölcsönös követés</span> esetén tudsz indítani.
+              Beszélgetést csak akkor tudsz indítani, ha a másik fél
+              elfogadta a követési kérelmedet.
             </p>
           </motion.div>
         </motion.div>
@@ -319,25 +373,27 @@ export function NewConversationModal({
 
 function UserRow({
   user,
-  submitting,
-  onSelect,
+  busy,
+  onFollow,
+  onMessage,
 }: {
   user: UserSearchResult;
-  submitting: boolean;
-  onSelect: () => void;
+  busy: boolean;
+  onFollow: () => void;
+  onMessage: () => void;
 }) {
-  const isMutual = user.isMutual === true;
+  const status: FollowStatusKind = user.follow_status ?? "not_following";
+  const isFollowing = status === "following";
+  const isPending = status === "pending";
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={submitting}
+    <div
       className={cn(
-        "group flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5",
-        "border border-transparent text-left transition-all",
-        "hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
-        "disabled:cursor-not-allowed disabled:opacity-60",
-        "focus-visible:outline-none focus-visible:border-[var(--accent-gold)]/50",
+        "group flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5",
+        "border border-transparent transition-all",
+        isFollowing
+          ? "hover:border-[var(--accent-gold)]/40 hover:bg-[var(--accent-gold)]/[0.05]"
+          : "hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
       )}
     >
       <Avatar
@@ -350,41 +406,77 @@ function UserRow({
           {user.username ?? "Névtelen szurkoló"}
         </p>
         <p className="mt-0.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-          {user.isMutual === undefined ? (
-            <span>Státusz ellenőrzése…</span>
-          ) : isMutual ? (
+          {isFollowing ? (
+            <span className="text-[var(--accent-gold)]">Követed</span>
+          ) : isPending ? (
             <>
-              <UserCheck
-                size={10}
-                className="text-[var(--accent-gold)]"
-                aria-hidden
-              />
-              <span className="text-[var(--accent-gold)]">
-                Kölcsönös követés
-              </span>
+              <Clock size={10} aria-hidden />
+              <span>Kérelem elküldve</span>
             </>
           ) : (
-            <>
-              <UserPlus size={10} aria-hidden />
-              <span>Még nem követitek egymást</span>
-            </>
+            <span>Még nem követed</span>
           )}
         </p>
       </div>
-      {submitting ? (
-        <Loader2 size={14} className="animate-spin text-[var(--text-muted)]" aria-hidden />
-      ) : (
-        <span
+
+      {/* CTA */}
+      {isFollowing ? (
+        <button
+          type="button"
+          onClick={onMessage}
+          disabled={busy}
           className={cn(
-            "rounded-full border px-2.5 py-1 font-display text-[10px] uppercase tracking-[0.18em]",
-            isMutual
-              ? "border-[var(--accent-gold)]/50 text-[var(--accent-gold)] group-hover:bg-[var(--accent-gold)]/[0.08]"
-              : "border-[var(--glass-border)] text-[var(--text-muted)]",
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
+            "border border-[var(--accent-gold)]/50 bg-[var(--accent-gold)]/[0.08]",
+            "font-display text-[10px] uppercase tracking-[0.18em] text-[var(--accent-gold)]",
+            "transition-all duration-200",
+            "hover:bg-[var(--accent-gold)]/[0.16] hover:border-[var(--accent-gold)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
+            "disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >
-          Indítás
+          {busy ? (
+            <Loader2 size={11} className="animate-spin" aria-hidden />
+          ) : (
+            <MessageCircle size={11} aria-hidden />
+          )}
+          <span>Üzenet</span>
+        </button>
+      ) : isPending ? (
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
+            "border border-[var(--glass-border)] bg-[var(--glass-bg)]/60",
+            "font-display text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]",
+            "cursor-not-allowed",
+          )}
+        >
+          <Clock size={11} aria-hidden />
+          <span>Elküldve</span>
         </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onFollow}
+          disabled={busy}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
+            "border border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/[0.04]",
+            "font-display text-[10px] uppercase tracking-[0.18em] text-[var(--accent-gold)]",
+            "transition-all duration-200",
+            "hover:bg-[var(--accent-gold)]/[0.12] hover:border-[var(--accent-gold)]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          )}
+        >
+          {busy ? (
+            <Loader2 size={11} className="animate-spin" aria-hidden />
+          ) : (
+            <UserPlus size={11} aria-hidden />
+          )}
+          <span>Követés kérése</span>
+        </button>
       )}
-    </button>
+    </div>
   );
 }

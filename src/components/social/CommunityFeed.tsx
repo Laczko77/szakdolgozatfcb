@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
 import {
   deleteAdminPost,
   deleteReaction,
@@ -47,6 +48,16 @@ export function CommunityFeed() {
   >({});
 
   const [ownReactions, setOwnReactions] = useState<OwnReactionMap>({});
+
+  // F26.3 — pending-posts buffer. The poll tick *no longer* prepends
+  // fresh posts directly when the user has scrolled; instead it
+  // accumulates them here and a sticky banner asks the user to "load
+  // X new". The banner click flushes the buffer and scrolls to the top
+  // so the page never jumps mid-read. While the user is at scrollY===0
+  // we *do* auto-merge — at that point there's no scroll position to
+  // preserve, and the staggered entry is the more delightful behaviour.
+  const [pendingPosts, setPendingPosts] = useState<EnrichedPost[]>([]);
+  const feedTopRef = useRef<HTMLDivElement | null>(null);
 
   const resolveAuthors = useCallback(
     async (userIds: string[]) => {
@@ -161,28 +172,94 @@ export function CommunityFeed() {
     })();
   }, [loadInitial]);
 
+  // Stable refs for "what posts/pendings do I currently have?". We need
+  // these inside the poll tick so the callback can dedupe without
+  // listing `posts` / `pendingPosts` in its dependency array (which
+  // would re-arm the polling interval on every render).
+  const postsRef = useRef<EnrichedPost[]>([]);
+  const pendingRef = useRef<EnrichedPost[]>([]);
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+  useEffect(() => {
+    pendingRef.current = pendingPosts;
+  }, [pendingPosts]);
+
+  const flushPending = useCallback(
+    (incoming: EnrichedPost[]) => {
+      setPendingPosts([]);
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const fresh = incoming.filter((p) => !seen.has(p.id));
+        return fresh.length === 0 ? prev : [...fresh, ...prev];
+      });
+      // Hydrate authors + reactions for whatever we just merged.
+      void resolveAuthors(incoming.map((p) => p.author_id));
+      void hydrateOwnPostReactions(incoming.map((p) => p.id));
+    },
+    [resolveAuthors, hydrateOwnPostReactions],
+  );
+
+  const handleLoadNew = useCallback(() => {
+    const queued = pendingRef.current;
+    if (queued.length === 0) return;
+    flushPending(queued);
+    // After merging, glide the user back to the top of the feed so the
+    // freshly-loaded post is in view. We use the ref instead of
+    // window.scrollTo(0,0) because the page may have content above the
+    // feed (the page header) that we don't want to crowd.
+    requestAnimationFrame(() => {
+      feedTopRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [flushPending]);
+
   const onPollTick = useCallback(
     async (since: string) => {
       const data = await fetchPosts({ since, limit: PAGE_SIZE });
       if (data.posts.length === 0) return;
 
-      setPosts((prev) => {
-        const seen = new Set(prev.map((p) => p.id));
-        const fresh = data.posts.filter((p) => !seen.has(p.id));
-        return fresh.length === 0 ? prev : [...fresh, ...prev];
-      });
-
+      const seenInList = new Set(postsRef.current.map((p) => p.id));
+      const seenInPending = new Set(pendingRef.current.map((p) => p.id));
       const fresh = data.posts.filter(
-        (p) => !posts.some((existing) => existing.id === p.id),
+        (p) => !seenInList.has(p.id) && !seenInPending.has(p.id),
       );
-      if (fresh.length > 0) {
-        await resolveAuthors(fresh.map((p) => p.author_id));
-        await hydrateOwnPostReactions(fresh.map((p) => p.id));
+      if (fresh.length === 0) return;
+
+      // If the user is at the very top of the page we treat it as
+      // "watching" the feed and merge inline — no banner needed,
+      // because there's no scroll position to preserve.
+      const atTop =
+        typeof window !== "undefined" && window.scrollY < 24;
+
+      if (atTop) {
+        flushPending(fresh);
+        return;
       }
+
+      // Otherwise queue them behind the banner. Hydrate authors now so
+      // when the banner is clicked the merge feels instantaneous —
+      // there's no second loading state.
+      void resolveAuthors(fresh.map((p) => p.author_id));
+      void hydrateOwnPostReactions(fresh.map((p) => p.id));
+      setPendingPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const merged = [...prev];
+        for (const p of fresh) {
+          if (!seen.has(p.id)) merged.push(p);
+        }
+        return merged;
+      });
     },
-    [posts, resolveAuthors, hydrateOwnPostReactions],
+    [flushPending, resolveAuthors, hydrateOwnPostReactions],
   );
 
+  // While the banner is visible we leave the polling enabled so the
+  // counter keeps growing if more posts arrive — that's the correct
+  // affordance for "X new". The hook itself already coalesces
+  // overlapping ticks, so there's no risk of stampede.
   useFeedPolling(onPollTick, { intervalMs: 3000, enabled: !loading });
 
   const applyPostDelta = (
@@ -284,7 +361,61 @@ export function CommunityFeed() {
   };
 
   return (
-    <div className="w-full">
+    <div className="relative w-full">
+      {/* F26.3 — anchor we scroll-into-view after flushing the banner. */}
+      <div ref={feedTopRef} aria-hidden className="absolute -top-4" />
+
+      {/* F26.3 — "X új bejegyzés érkezett" banner. Sticky so it floats
+          above the feed while the user is reading further down. */}
+      <AnimatePresence>
+        {pendingPosts.length > 0 && (
+          <motion.div
+            key="new-posts-banner"
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className={cn(
+              "sticky top-20 z-30 mx-auto mb-4 flex justify-center",
+            )}
+          >
+            <button
+              type="button"
+              onClick={handleLoadNew}
+              className={cn(
+                "group inline-flex items-center gap-2.5 rounded-full",
+                "border border-[var(--accent-gold)]/50",
+                "bg-[var(--bg-primary)]/85 backdrop-blur-md",
+                "px-5 py-2.5 font-display text-[11px] uppercase tracking-[0.2em]",
+                "text-[var(--accent-gold)] shadow-[var(--shadow-glass-lg)]",
+                "transition-all duration-200",
+                "hover:bg-[var(--accent-gold)]/[0.12] hover:border-[var(--accent-gold)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
+              )}
+              aria-live="polite"
+            >
+              <Sparkles
+                size={13}
+                aria-hidden
+                className="transition-transform duration-300 group-hover:rotate-12"
+              />
+              <span className="tabular-nums">
+                {pendingPosts.length}
+              </span>
+              <span>
+                {pendingPosts.length === 1
+                  ? "új bejegyzés érkezett"
+                  : "új bejegyzés érkezett"}
+              </span>
+              <span aria-hidden className="text-[var(--text-muted)]">
+                ·
+              </span>
+              <span className="text-[var(--text-secondary)]">Megnyitás</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/*
         F25.3 — composer rules:
           · admins keep the original NewPostComposer (multipart →

@@ -114,6 +114,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const conversation = await loadParticipantConversation(supabase, conversationId, user.id)
   if (conversation instanceof NextResponse) return conversation
 
+  // Iter22: defense-in-depth — küldéskor is meg kell lennie a kölcsönös
+  // (accepted) követésnek. Ha bármelyik fél időközben kikövette a másikat,
+  // a beszélgetés "fagyott" állapotba kerül és új üzenet nem küldhető.
+  const otherUserId =
+    conversation.participant_a === user.id
+      ? conversation.participant_b
+      : conversation.participant_a
+
+  const { data: mutualData, error: mutualErr } = await supabase.rpc('is_mutual_follow', {
+    p_a: user.id,
+    p_b: otherUserId,
+  } as never)
+  if (mutualErr) {
+    return errorResponse(`Követési ellenőrzés sikertelen: ${mutualErr.message}`, 500)
+  }
+  if (mutualData !== true) {
+    return errorResponse(
+      'Üzenet küldéséhez kölcsönös elfogadott követés szükséges',
+      403
+    )
+  }
+
   const { data: inserted, error: insertErr } = await supabase
     .from('messages')
     .insert({

@@ -6,6 +6,8 @@ import { CalendarDays, MessageCircle, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Match } from "@/types/database";
 import { fetchNextMatch } from "@/lib/dashboard-api";
+import { fetchFollowRequests } from "@/lib/dm-api";
+import { useAuth } from "@/providers/AuthProvider";
 import { useCountdown } from "@/hooks/useCountdown";
 import { TeamCrest } from "@/components/tickets/TeamCrest";
 import { cn } from "@/lib/utils";
@@ -32,8 +34,10 @@ interface CommunityLeftRailProps {
 }
 
 export function CommunityLeftRail({ active }: CommunityLeftRailProps) {
+  const { user } = useAuth();
   const [match, setMatch] = useState<Match | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
 
   useEffect(() => {
     const c = new AbortController();
@@ -51,9 +55,27 @@ export function CommunityLeftRail({ active }: CommunityLeftRailProps) {
     return () => c.abort();
   }, []);
 
+  // F26.5 — show a badge on the "Üzenetek" link when the caller has
+  // pending follow requests. Authenticated only; the panel itself is
+  // gated on auth, so the badge would be misleading on a guest's view.
+  useEffect(() => {
+    if (!user) return;
+    const c = new AbortController();
+    void (async () => {
+      try {
+        const data = await fetchFollowRequests(c.signal);
+        if (c.signal.aborted) return;
+        setPendingRequests(data.length);
+      } catch {
+        /* badge silently stays at 0 if the request fails */
+      }
+    })();
+    return () => c.abort();
+  }, [user]);
+
   return (
     <aside className="sticky top-24 hidden w-[240px] shrink-0 flex-col gap-5 lg:flex">
-      <NavCard active={active} />
+      <NavCard active={active} pendingRequests={pendingRequests} />
       <NextMatchMini match={match} loaded={loaded} />
     </aside>
   );
@@ -63,12 +85,19 @@ export function CommunityLeftRail({ active }: CommunityLeftRailProps) {
 /* Nav card                                                           */
 /* ------------------------------------------------------------------ */
 
-function NavCard({ active }: { active: "feed" | "messages" }) {
+function NavCard({
+  active,
+  pendingRequests,
+}: {
+  active: "feed" | "messages";
+  pendingRequests: number;
+}) {
   const items: {
     id: "feed" | "messages";
     href: string;
     label: string;
     icon: React.ElementType;
+    badge?: number;
   }[] = [
     { id: "feed", href: "/kozosseg", label: "Friss feed", icon: Newspaper },
     {
@@ -76,6 +105,7 @@ function NavCard({ active }: { active: "feed" | "messages" }) {
       href: "/kozosseg/uzenetek",
       label: "Üzenetek",
       icon: MessageCircle,
+      badge: pendingRequests,
     },
   ];
 
@@ -91,6 +121,7 @@ function NavCard({ active }: { active: "feed" | "messages" }) {
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === active;
+          const badge = item.badge && item.badge > 0 ? item.badge : 0;
           return (
             <li key={item.id}>
               <Link
@@ -110,23 +141,44 @@ function NavCard({ active }: { active: "feed" | "messages" }) {
                     className="absolute left-1.5 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full bg-[var(--accent-gold)]"
                   />
                 )}
-                <Icon
-                  size={16}
-                  className={cn(
-                    "shrink-0",
-                    isActive
-                      ? "text-[var(--accent-gold)]"
-                      : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]",
+                <span className="relative shrink-0">
+                  <Icon
+                    size={16}
+                    className={cn(
+                      isActive
+                        ? "text-[var(--accent-gold)]"
+                        : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]",
+                    )}
+                    aria-hidden
+                  />
+                  {badge > 0 && (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute -right-1.5 -top-1 inline-flex h-2 w-2 rounded-full",
+                        "bg-[var(--accent-red)] ring-2 ring-[var(--bg-primary)]",
+                      )}
+                    />
                   )}
-                  aria-hidden
-                />
+                </span>
                 <span
                   className={cn(
-                    "font-display uppercase tracking-[0.16em] text-[11px]",
+                    "flex-1 font-display uppercase tracking-[0.16em] text-[11px]",
                   )}
                 >
                   {item.label}
                 </span>
+                {badge > 0 && (
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full bg-[var(--accent-red)] px-1.5 py-0.5",
+                      "font-display text-[9px] tabular-nums tracking-wider text-white",
+                    )}
+                    aria-label={`${badge} kérelem`}
+                  >
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
               </Link>
             </li>
           );

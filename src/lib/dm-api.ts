@@ -14,9 +14,12 @@
 import type { Conversation, Message } from "@/types/database";
 import type {
   EnrichedConversation,
+  FollowRequest,
   FollowStatus,
+  SuggestedUser,
   UserSearchResult,
 } from "@/types/dm";
+import type { Profile } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Response shapes
@@ -188,14 +191,27 @@ export async function searchUsers(
   return data.users;
 }
 
+/**
+ * F26.4 — the backend now returns
+ *   { status: 'not_following' | 'pending' | 'following',
+ *     isSelf?: boolean, isFollowedBy?: boolean }
+ *
+ * For backwards compatibility with older /profil/[id] code-paths that
+ * still read the legacy boolean trio, we synthesise `isMutual` here.
+ */
 export async function fetchFollowStatus(
   userId: string,
   signal?: AbortSignal,
 ): Promise<FollowStatus> {
-  return getJson<FollowStatus>(
+  const raw = await getJson<FollowStatus>(
     `/api/users/${encodeURIComponent(userId)}/follow-status`,
     signal,
   );
+  return {
+    ...raw,
+    isMutual:
+      (raw.status === "following" && (raw.isFollowedBy ?? false)) || false,
+  };
 }
 
 export async function followUser(
@@ -225,6 +241,117 @@ export async function unfollowUser(
   if (!res.ok) {
     throw new ApiError(await readErrorMessage(res), res.status);
   }
+}
+
+// ---------------------------------------------------------------------------
+// F26.5 — Incoming follow requests
+// ---------------------------------------------------------------------------
+
+interface FollowRequestsResponse {
+  requests: FollowRequest[];
+}
+
+export async function fetchFollowRequests(
+  signal?: AbortSignal,
+): Promise<FollowRequest[]> {
+  // The endpoint is allowed to return either a bare array or a wrapped
+  // envelope — accept both so a backend tweak later doesn't break us.
+  const res = await fetch("/api/follow-requests", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) throw new ApiError(await readErrorMessage(res), res.status);
+  const body = (await res.json()) as FollowRequest[] | FollowRequestsResponse;
+  return Array.isArray(body) ? body : body.requests;
+}
+
+async function mutateFollowRequest(
+  requestId: string,
+  action: "accept" | "reject",
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `/api/follow-requests/${encodeURIComponent(requestId)}/${action}`,
+    {
+      method: "PUT",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    },
+  );
+  if (!res.ok) throw new ApiError(await readErrorMessage(res), res.status);
+}
+
+export async function acceptFollowRequest(
+  requestId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return mutateFollowRequest(requestId, "accept", signal);
+}
+
+export async function rejectFollowRequest(
+  requestId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return mutateFollowRequest(requestId, "reject", signal);
+}
+
+// ---------------------------------------------------------------------------
+// F26.6 — Suggested users
+// ---------------------------------------------------------------------------
+
+interface SuggestedUsersResponse {
+  users: SuggestedUser[];
+}
+
+export async function fetchSuggestedUsers(
+  signal?: AbortSignal,
+): Promise<SuggestedUser[]> {
+  const res = await fetch("/api/users/suggested", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) throw new ApiError(await readErrorMessage(res), res.status);
+  const body = (await res.json()) as SuggestedUser[] | SuggestedUsersResponse;
+  return Array.isArray(body) ? body : body.users;
+}
+
+// ---------------------------------------------------------------------------
+// F26.2 — Public profile
+// ---------------------------------------------------------------------------
+
+export interface PublicProfile {
+  id: string;
+  username: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  post_count: number;
+  role?: Profile["role"];
+}
+
+export async function fetchPublicProfile(
+  userId: string,
+  signal?: AbortSignal,
+): Promise<PublicProfile | null> {
+  const res = await fetch(
+    `/api/users/${encodeURIComponent(userId)}/profile`,
+    {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(await readErrorMessage(res), res.status);
+  const body = (await res.json()) as
+    | PublicProfile
+    | { profile: PublicProfile };
+  return "profile" in body ? body.profile : body;
 }
 
 // Re-export so callers can `instanceof` differentiate 403 (mutual missing).

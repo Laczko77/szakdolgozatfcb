@@ -345,7 +345,9 @@ export function CommentSection({
                       <CommentItem
                         key={c.id}
                         comment={c}
-                        author={authorCache[c.user_id] ?? null}
+                        // F26.8 — prefer the JOIN-ed author the API ships
+                        // inline; fall back to the lazy cache lookup.
+                        author={c.author ?? authorCache[c.user_id] ?? null}
                         currentUserId={user?.id ?? null}
                         isAdmin={isAdmin}
                         ownReaction={ownReactions[ownReactionKey("comment", c.id)]}

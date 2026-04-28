@@ -6,9 +6,9 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Sparkles, Users, Vote } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchPolls, type EnrichedPoll } from "@/lib/polls-api";
+import { fetchSuggestedUsers } from "@/lib/dm-api";
 import { useAuth } from "@/providers/AuthProvider";
-import type { Profile } from "@/types/database";
-import type { ProfileSnapshot } from "@/types/dm";
+import type { ProfileSnapshot, SuggestedUser } from "@/types/dm";
 import { Avatar } from "./Avatar";
 import { FollowButton } from "./FollowButton";
 import { cn } from "@/lib/utils";
@@ -184,60 +184,33 @@ function OnlineNowCard() {
 /* "Javasolt szurkolók" widget — F24.3                                */
 /* ------------------------------------------------------------------ */
 
-type SuggestedProfile = Pick<Profile, "id" | "username" | "avatar_url">;
-
 function SuggestedFansCard() {
-  const supabase = useMemo(() => createClient(), []);
   const { user } = useAuth();
-  const [suggestions, setSuggestions] = useState<SuggestedProfile[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // F26.6 — replaced the hand-rolled "newest profiles minus my follows"
+  // query with a call to the new GET /api/users/suggested endpoint. The
+  // server already excludes self + already-followed and orders by
+  // whatever signal it deems most useful (mutuals-of-mutuals, etc.).
   useEffect(() => {
     if (!user) return;
     const c = new AbortController();
 
     void (async () => {
       try {
-        // Step 1: pull the ids the current user already follows so we
-        // can subtract them client-side (no view exists for "not
-        // followed"; doing it in JS keeps the widget self-contained).
-        let excludeIds: string[] = [];
-        if (user) {
-          const { data: following } = await supabase
-            .from("follows")
-            .select("following_id")
-            .eq("follower_id", user.id);
-          excludeIds = (following ?? []).map(
-            (r: { following_id: string }) => r.following_id,
-          );
-        }
-
-        // Step 2: fetch a small pool of recently-joined fans, then
-        // filter out self + already-followed in JS. We pull a handful
-        // extra so the post-filter list is still ~5.
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .order("created_at", { ascending: false })
-          .limit(15);
-
-        if (error || c.signal.aborted) return;
-
-        const exclude = new Set([...(user ? [user.id] : []), ...excludeIds]);
-        const pool = ((data ?? []) as SuggestedProfile[]).filter(
-          (p) => !exclude.has(p.id) && p.username,
-        );
-
-        if (!c.signal.aborted) setSuggestions(pool.slice(0, 5));
+        const data = await fetchSuggestedUsers(c.signal);
+        if (c.signal.aborted) return;
+        setSuggestions(data.slice(0, 5));
       } catch {
-        /* tolerated */
+        /* tolerated — the empty-state covers it */
       } finally {
         if (!c.signal.aborted) setLoaded(true);
       }
     })();
 
     return () => c.abort();
-  }, [supabase, user]);
+  }, [user]);
 
   // Hide the whole card for guests — there's no follow CTA to offer.
   if (!user) return null;
@@ -278,8 +251,7 @@ function SuggestedFansCard() {
         </ul>
       ) : suggestions.length === 0 ? (
         <p className="mt-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
-          Mindenkit követsz a közösségből — szép. Új arc érkezésével
-          megint megjelennek itt javaslatok.
+          Mindenkit ismersz már a közösségből.
         </p>
       ) : (
         <ul className="mt-3 flex flex-col gap-3">

@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ConversationListPanel } from "@/components/social/ConversationListPanel";
 import { ChatView } from "@/components/social/ChatView";
 import { NewConversationModal } from "@/components/social/NewConversationModal";
+import { FollowRequestsPanel } from "@/components/social/FollowRequestsPanel";
 import { fetchConversations } from "@/lib/dm-api";
 import { useToast } from "@/providers/ToastProvider";
 import type { EnrichedConversation } from "@/types/dm";
@@ -48,6 +49,10 @@ function DmHubContent() {
   const [conversations, setConversations] = useState<EnrichedConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  // F26.5 — bumping this signal forces FollowRequestsPanel to refetch.
+  // We bump it after a conversation is created/marked-read so a freshly
+  // accepted follow request that the user just sent doesn't linger.
+  const [requestsRefreshTick, setRequestsRefreshTick] = useState(0);
 
   const reload = useCallback(
     async (signal?: AbortSignal) => {
@@ -69,7 +74,13 @@ function DmHubContent() {
 
   useEffect(() => {
     const c = new AbortController();
-    void reload(c.signal);
+    // Defer one microtask so any synchronous setState inside `reload`
+    // (e.g. an early-return error path) does not run during the same
+    // commit — keeps the React 19 set-state-in-effect lint happy.
+    queueMicrotask(() => {
+      if (c.signal.aborted) return;
+      void reload(c.signal);
+    });
     return () => c.abort();
   }, [reload]);
 
@@ -92,6 +103,9 @@ function DmHubContent() {
       setModalOpen(false);
       // Refresh the list so the new (or now-promoted) thread appears.
       void reload();
+      // Also re-fetch follow requests — accepting one in another tab
+      // shouldn't leave a stale row behind.
+      setRequestsRefreshTick((t) => t + 1);
       setActive(id);
     },
     [reload, setActive],
@@ -127,6 +141,12 @@ function DmHubContent() {
           üzenetek élőben érkeznek — nem kell frissítened az oldalt.
         </p>
       </motion.header>
+
+      {/* F26.5 — incoming follow requests sit above the inbox list on
+          both mobile and desktop. The panel hides itself when empty. */}
+      <div className="mb-5 sm:mb-6">
+        <FollowRequestsPanel refreshSignal={requestsRefreshTick} />
+      </div>
 
       {/* Mobile: list-only view (rows link to the [id] route). */}
       <div className="md:hidden">

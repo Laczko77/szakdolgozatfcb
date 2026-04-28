@@ -25,6 +25,12 @@ export interface EnrichedPost extends Post {
 export interface EnrichedComment extends Comment {
   reactions: Record<string, number>;
   reactionTotal: number;
+  /**
+   * F26.8 — backend now joins the author profile snapshot directly into
+   * each comment row so the username/avatar render in the very first
+   * paint instead of waiting for the per-author cache fill.
+   */
+  author?: AuthorSnapshot | null;
 }
 
 /** Lightweight profile snapshot displayed alongside posts/comments. */

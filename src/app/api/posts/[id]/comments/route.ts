@@ -1,28 +1,36 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import {
   errorResponse,
   requireAuthApi,
   successResponse,
 } from '@/lib/api-utils'
-import type { Comment, TablesInsert } from '@/types/database'
+import type { Comment, Profile, TablesInsert } from '@/types/database'
 
 /**
  * /api/posts/[id]/comments
  *
  * GET  — public, lists comments under a post sorted by popularity
  *        (reaction count desc, then created_at desc as tie-breaker).
- *        Each comment is enriched with `reactions` (per-emoji counts) and
- *        `reactionTotal`.
+ *        Each comment is enriched with:
+ *          - author:        { id, username, avatar_url } | null
+ *          - reactions:     { [emoji]: number }
+ *          - reactionTotal: number
+ *
  * POST — authenticated, creates a comment under the post on behalf of the
- *        current user.
+ *        current user. A frissen létrehozott komment is a hídrált author
+ *        mezővel tér vissza, hogy a frontend optimistic-render mehessen
+ *        utólagos lookup nélkül.
  */
 
 type RouteContext = {
   params: Promise<{ id: string }>
 }
 
+type PublicAuthor = Pick<Profile, 'id' | 'username' | 'avatar_url'>
+
 type EnrichedComment = Comment & {
+  author: PublicAuthor | null
   reactions: Record<string, number>
   reactionTotal: number
 }
@@ -49,36 +57,21 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   const comments = (commentsRaw ?? []) as Comment[]
   const commentIds = comments.map((c) => c.id)
+  const authorIds = Array.from(new Set(comments.map((c) => c.user_id)))
 
-  // Fetch all reactions for the loaded comments in one round-trip.
-  let reactionsRaw: Array<{ target_id: string; emoji: string }> = []
-  if (commentIds.length > 0) {
-    const { data, error: reactionError } = await supabase
-      .from('reactions')
-      .select('target_id, emoji')
-      .eq('target_type', 'comment')
-      .in('target_id', commentIds)
+  // Reactions + author profilok párhuzamosan.
+  const [reactionsResult, authorsById] = await Promise.all([
+    fetchReactions(supabase, commentIds),
+    fetchAuthors(authorIds),
+  ])
 
-    if (reactionError) {
-      return errorResponse(
-        `Reakciók lekérése sikertelen: ${reactionError.message}`,
-        500
-      )
-    }
-    reactionsRaw = (data ?? []) as Array<{ target_id: string; emoji: string }>
-  }
-
-  const reactionsByComment: Record<string, Record<string, number>> = {}
-  const totalByComment: Record<string, number> = {}
-  for (const row of reactionsRaw) {
-    const bucket = (reactionsByComment[row.target_id] ??= {})
-    bucket[row.emoji] = (bucket[row.emoji] ?? 0) + 1
-    totalByComment[row.target_id] = (totalByComment[row.target_id] ?? 0) + 1
-  }
+  if (reactionsResult instanceof NextResponse) return reactionsResult
+  const { reactionsByComment, totalByComment } = reactionsResult
 
   const enriched: EnrichedComment[] = comments
     .map((c) => ({
       ...c,
+      author: authorsById.get(c.user_id) ?? null,
       reactions: reactionsByComment[c.id] ?? {},
       reactionTotal: totalByComment[c.id] ?? 0,
     }))
@@ -163,5 +156,89 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  return successResponse(data as Comment, 201)
+  // Author hidratálás közvetlenül a hívó user-éből — nincs szükség
+  // service-role lookup-ra.
+  const authorsById = await fetchAuthors([user.id])
+
+  const comment = data as Comment
+  const enriched: EnrichedComment = {
+    ...comment,
+    author: authorsById.get(comment.user_id) ?? null,
+    reactions: {},
+    reactionTotal: 0,
+  }
+
+  return successResponse(enriched, 201)
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function fetchReactions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  commentIds: string[]
+): Promise<
+  | {
+      reactionsByComment: Record<string, Record<string, number>>
+      totalByComment: Record<string, number>
+    }
+  | NextResponse
+> {
+  const reactionsByComment: Record<string, Record<string, number>> = {}
+  const totalByComment: Record<string, number> = {}
+
+  if (commentIds.length === 0) {
+    return { reactionsByComment, totalByComment }
+  }
+
+  const { data, error } = await supabase
+    .from('reactions')
+    .select('target_id, emoji')
+    .eq('target_type', 'comment')
+    .in('target_id', commentIds)
+
+  if (error) {
+    return errorResponse(`Reakciók lekérése sikertelen: ${error.message}`, 500)
+  }
+
+  for (const row of (data ?? []) as Array<{ target_id: string; emoji: string }>) {
+    const bucket = (reactionsByComment[row.target_id] ??= {})
+    bucket[row.emoji] = (bucket[row.emoji] ?? 0) + 1
+    totalByComment[row.target_id] = (totalByComment[row.target_id] ?? 0) + 1
+  }
+
+  return { reactionsByComment, totalByComment }
+}
+
+/**
+ * Author profilok lekérdezése service-role klienssel.
+ *
+ * Miért service-role: a profiles SELECT RLS policy
+ * (`auth.uid() = id OR is_admin()`) miatt a normál (cookie-alapú) kliens csak
+ * a saját profilt látná, így minden idegen komment szerző nélkül érkezne a
+ * frontendre. Csak a publikus mezőket adjuk vissza (id, username,
+ * avatar_url), bizalmas mező nem szivárog.
+ */
+async function fetchAuthors(
+  authorIds: string[]
+): Promise<Map<string, PublicAuthor>> {
+  const out = new Map<string, PublicAuthor>()
+  if (authorIds.length === 0) return out
+
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, avatar_url')
+    .in('id', authorIds)
+
+  if (error) {
+    console.error('[comments] author profile lookup failed:', error.message)
+    return out
+  }
+
+  for (const row of (data ?? []) as PublicAuthor[]) {
+    out.set(row.id, row)
+  }
+  return out
 }

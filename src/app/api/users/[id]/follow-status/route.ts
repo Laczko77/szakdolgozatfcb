@@ -5,9 +5,16 @@ import { errorResponse, requireAuthApi } from '@/lib/api-utils'
 /**
  * /api/users/[id]/follow-status
  *
- * GET — visszaadja, hogy a hívó user követi-e [id]-t (`isFollowing`),
- *       és hogy [id] követi-e a hívót (`isFollowedBy`). A két irány alapján
- *       a frontend tudja eldönteni, hogy DM-szál indítható-e (mutual follow).
+ * GET — visszaadja a hívó user kapcsolatát az [id] target user-rel:
+ *
+ *   { status: 'not_following' | 'pending' | 'following' }
+ *
+ *     - `not_following` — nincs sor a follows táblában
+ *     - `pending`       — a hívó már küldött kérelmet, de még nincs elfogadva
+ *     - `following`     — elfogadott követés (status = 'accepted')
+ *
+ * A RLS policy biztosítja, hogy a hívó saját pending sorát is látja,
+ * így a SELECT korrekt eredményt ad.
  */
 
 type RouteContext = {
@@ -15,6 +22,8 @@ type RouteContext = {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+type FollowStatus = 'not_following' | 'pending' | 'following'
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const guard = await requireAuthApi()
@@ -26,32 +35,27 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return errorResponse('Érvénytelen felhasználói azonosító', 400)
   }
   if (targetId === user.id) {
-    return NextResponse.json({ isFollowing: false, isFollowedBy: false, isSelf: true })
+    return NextResponse.json({ status: 'not_following' satisfies FollowStatus })
   }
 
   const supabase = await createClient()
 
-  const [{ data: outbound, error: outErr }, { data: inbound, error: inErr }] = await Promise.all([
-    supabase
-      .from('follows')
-      .select('id')
-      .eq('follower_id', user.id)
-      .eq('following_id', targetId)
-      .maybeSingle(),
-    supabase
-      .from('follows')
-      .select('id')
-      .eq('follower_id', targetId)
-      .eq('following_id', user.id)
-      .maybeSingle(),
-  ])
+  const { data, error } = await supabase
+    .from('follows')
+    .select('status')
+    .eq('follower_id', user.id)
+    .eq('following_id', targetId)
+    .maybeSingle()
 
-  if (outErr) return errorResponse(`Követési státusz lekérése sikertelen: ${outErr.message}`, 500)
-  if (inErr) return errorResponse(`Követési státusz lekérése sikertelen: ${inErr.message}`, 500)
+  if (error) {
+    return errorResponse(`Követési státusz lekérése sikertelen: ${error.message}`, 500)
+  }
 
-  return NextResponse.json({
-    isFollowing: outbound !== null,
-    isFollowedBy: inbound !== null,
-    isMutual: outbound !== null && inbound !== null,
-  })
+  let status: FollowStatus = 'not_following'
+  if (data) {
+    const raw = (data as { status: string }).status
+    status = raw === 'accepted' ? 'following' : 'pending'
+  }
+
+  return NextResponse.json({ status })
 }

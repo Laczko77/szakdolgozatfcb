@@ -6,9 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ShieldCheck, Trash2 } from "lucide-react";
 import type { EnrichedPost, AuthorSnapshot, OwnReaction } from "@/types/social";
-import { useAuth } from "@/providers/AuthProvider";
 import { Avatar } from "./Avatar";
-import { FollowButton } from "./FollowButton";
 import { ReactionBar } from "./ReactionBar";
 import { CommentSection } from "./CommentSection";
 import { Lightbox } from "./Lightbox";
@@ -66,7 +64,6 @@ export function PostCard({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { user: currentUser } = useAuth();
 
   // F25.1 — prefer the JOIN-ed author the API may now ship inline; fall
   // back to the lazy `authorCache` lookup; finally render an "unknown
@@ -76,13 +73,9 @@ export function PostCard({
   const displayName = resolvedAuthor?.username || "Ismeretlen szurkoló";
   const isAuthorAdmin = resolvedAuthor?.role === "admin";
 
-  // F24.3 — show a compact follow toggle on the author header. Hide it
-  // for guests, on the user's own posts, and when the author is an
-  // admin (admin posts are first-party broadcasts, not personal feeds).
-  const showFollow =
-    Boolean(currentUser) &&
-    currentUser?.id !== post.author_id &&
-    !isAuthorAdmin;
+  // F26.1 — the follow CTA was removed from feed cards entirely. The
+  // public profile (/profil/[id]) is the canonical place to follow,
+  // reachable via the avatar/username link below.
 
   const handleDelete = async () => {
     if (!onAdminDelete || deleting) return;
@@ -151,14 +144,6 @@ export function PostCard({
             />
           </div>
         </Link>
-
-        {showFollow && (
-          <FollowButton
-            targetUserId={post.author_id}
-            size="sm"
-            className="shrink-0 self-center px-3 py-1 text-[10px] tracking-[0.14em]"
-          />
-        )}
 
         {isAdmin && onAdminDelete && (
           <button

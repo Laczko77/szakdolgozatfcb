@@ -5,8 +5,7 @@ import { motion } from "framer-motion";
 import { MessageSquarePlus } from "lucide-react";
 import { RelativeTime } from "./RelativeTime";
 import { Avatar } from "./Avatar";
-import { FollowButton } from "./FollowButton";
-import type { EnrichedConversation, FollowStatus } from "@/types/dm";
+import type { EnrichedConversation } from "@/types/dm";
 import { cn } from "@/lib/utils";
 
 /**
@@ -135,20 +134,6 @@ function ConvRow({
   const ts = conv.lastMessage?.created_at ?? conv.created_at;
   const unread = conv.unreadCount > 0;
 
-  // F25.4 — backend now ships `is_following` inline on the partner
-  // snapshot; if present we hand it to FollowButton as `initialStatus`
-  // so it skips the per-row hydration round-trip.
-  const initialFollow: FollowStatus | null =
-    conv.otherUser && typeof conv.otherUser.is_following === "boolean"
-      ? {
-          isFollowing: conv.otherUser.is_following,
-          isFollowedBy: conv.otherUser.is_followed_by ?? false,
-          isMutual:
-            conv.otherUser.is_following &&
-            (conv.otherUser.is_followed_by ?? false),
-        }
-      : null;
-
   const inner = (
     <>
       {active && (
@@ -202,61 +187,42 @@ function ConvRow({
     </>
   );
 
-  // The row uses a "stretched link/button" pattern so the FollowButton
-  // can be layered on top without becoming a nested interactive element
-  // (invalid HTML inside <a>/<button>).
-  return (
-    <span
-      className={cn(
-        "relative flex w-full items-start gap-3 rounded-[var(--radius-md)] px-3 py-3",
-        "border border-transparent transition-all duration-200",
-        active
-          ? "border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/[0.08]"
-          : "hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
-      )}
-    >
-      {/* Stretched click target sitting under the visual content. */}
-      {useLink ? (
-        <Link
-          href={`/kozosseg/uzenetek/${conv.id}`}
-          aria-label={`Beszélgetés ${username}-vel`}
-          aria-current={active ? "true" : undefined}
-          className="absolute inset-0 z-0 rounded-[var(--radius-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={onSelect}
-          aria-label={`Beszélgetés ${username}-vel`}
-          aria-current={active ? "true" : undefined}
-          className="absolute inset-0 z-0 rounded-[var(--radius-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60"
-        />
-      )}
+  // F26.1 — the follow toggle no longer sits on conversation rows; the
+  // row itself is now a single-purpose link/button straight to the
+  // chat. Following is handled on /profil/[id] and inside the "Új
+  // üzenet" search modal (F26.7).
+  const rowClass = cn(
+    "relative flex w-full items-start gap-3 rounded-[var(--radius-md)] px-3 py-3",
+    "border border-transparent text-left transition-all duration-200",
+    active
+      ? "border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/[0.08]"
+      : "hover:border-[var(--glass-border-hover)] hover:bg-[var(--glass-bg-hover)]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
+  );
 
-      {/* Visual content sits above the stretched link. */}
-      <span className="pointer-events-none relative z-10 flex w-full items-start gap-3">
+  if (useLink) {
+    return (
+      <Link
+        href={`/kozosseg/uzenetek/${conv.id}`}
+        aria-label={`Beszélgetés ${username}-vel`}
+        aria-current={active ? "true" : undefined}
+        className={rowClass}
+      >
         {inner}
-      </span>
+      </Link>
+    );
+  }
 
-      {/* Follow toggle, raised above the stretched link so its own
-          click handler wins. Hidden when the partner snapshot is
-          missing — there's nothing to follow then. */}
-      {conv.otherUser && (
-        <span
-          className="pointer-events-auto relative z-20 ml-1 self-center"
-          // Stop propagation defensively in case some user-agent still
-          // bubbles the click up to the stretched anchor.
-          onClick={(e) => e.stopPropagation()}
-        >
-          <FollowButton
-            targetUserId={conv.otherUser.id}
-            initialStatus={initialFollow}
-            size="xs"
-            iconOnly
-          />
-        </span>
-      )}
-    </span>
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={`Beszélgetés ${username}-vel`}
+      aria-current={active ? "true" : undefined}
+      className={rowClass}
+    >
+      {inner}
+    </button>
   );
 }
 

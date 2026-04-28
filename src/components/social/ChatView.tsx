@@ -523,9 +523,15 @@ function chatHeaderInitialStatus(
   other: ProfileSnapshotWithFollow,
 ): FollowStatus | null {
   if (typeof other.is_following !== "boolean") return null;
+  // F26.4 — the conversation list endpoint still ships the legacy
+  // boolean; normalise into the three-state `status` field. We map
+  // `is_following=true` → "following" and false → "not_following".
+  // The pending state is unreachable here because conversations
+  // require an accepted follow.
   return {
-    isFollowing: other.is_following,
+    status: other.is_following ? "following" : "not_following",
     isFollowedBy: other.is_followed_by ?? false,
-    isMutual: other.is_following && (other.is_followed_by ?? false),
+    isMutual:
+      other.is_following && (other.is_followed_by ?? false),
   };
 }

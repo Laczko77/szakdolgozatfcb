@@ -5,14 +5,16 @@ import { errorResponse, requireAuthApi } from '@/lib/api-utils'
 /**
  * /api/users/[id]/follow
  *
- * POST   — a hívó user követni kezdi az [id] user-t.
- * DELETE — a hívó user kikövet az [id] user-ből.
+ * Iter22-től a követés jóváhagyás-alapú:
+ *   POST   — `pending` állapotú sort hoz létre. Idempotens: ha már van sor
+ *            (akár pending, akár accepted), success-szel térünk vissza.
+ *   DELETE — törli a sort (kikövetés vagy függő kérelem visszavonása).
  *
  * Saját magát senki nem követheti — a follows tábla CHECK is védi, de
  * itt 400-zal térünk vissza, hogy értelmes hibaüzenetet adjunk.
  *
- * RLS: follows_insert_own / follows_delete_own gondoskodik arról, hogy
- *      egy user csak a saját follower_id-jével tudjon írni.
+ * RLS: follows_insert_own gondoskodik arról, hogy csak saját follower_id-vel
+ *      és csak `pending` státusszal lehessen INSERT-et végezni.
  */
 
 type RouteContext = {
@@ -36,9 +38,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
   // Target profil ellenőrzés service-role klienssel: a profiles SELECT RLS
   // policy `auth.uid() = id OR is_admin()`, így a normál user kliens nem
-  // látna idegen profilt és minden követés 404-gyel végződne. A service-role
-  // bypass-olja az RLS-t, de csak a létezésre kérdezünk rá — nem szivárogtat
-  // bizalmas mezőt vissza a frontendnek.
+  // látna idegen profilt és minden követés 404-gyel végződne.
   const adminSupabase = createServiceRoleClient()
   const { data: targetProfile, error: targetErr } = await adminSupabase
     .from('profiles')
@@ -56,17 +56,22 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
   const { error } = await supabase
     .from('follows')
-    .insert({ follower_id: user.id, following_id: targetId } as never)
+    .insert({
+      follower_id: user.id,
+      following_id: targetId,
+      status: 'pending',
+    } as never)
 
   if (error) {
-    // Egyedi pair constraint (már követed) — idempotensen kezeljük.
+    // Egyedi pair constraint (már van pending vagy accepted sor) — idempotensen
+    // kezeljük: a kliens szempontjából a "kérelem elküldve" állapot már létezik.
     if (error.code === '23505') {
-      return NextResponse.json({ success: true, alreadyFollowing: true })
+      return NextResponse.json({ success: true, alreadyRequested: true })
     }
-    return errorResponse(`Követés sikertelen: ${error.message}`, 500)
+    return errorResponse(`Követési kérelem küldése sikertelen: ${error.message}`, 500)
   }
 
-  return NextResponse.json({ success: true }, { status: 201 })
+  return NextResponse.json({ success: true, status: 'pending' }, { status: 201 })
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
