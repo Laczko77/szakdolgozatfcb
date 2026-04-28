@@ -10,8 +10,8 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 96    |
-| Completed tasks     | 96    |
+| Total tasks         | 100   |
+| Completed tasks     | 100   |
 | Remaining tasks     | 0     |
 | Completion          | 100%  |
 
@@ -805,5 +805,34 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - Az admin szavazás létrehozó formban megjelennek a nem lejátszott meccsek
 
 **Dependencies:** Iteration 13, 10, 4, 9
+
+---
+
+### Iteration 21 — Bug Fix: Követés 404, Profil Név Megjelenítés, User Posztolás & DM Követés
+
+**Status:** DONE
+
+**Goal:** A közösségi modul élesüzemi tesztelése során feltárt hibák backend oldali javítása: a `POST /api/users/[id]/follow` endpoint 404-es hibát dob (a target user nem található vagy UUID validáció hiányzik), a poszt feed response-ban az author profil adatok (username, avatar_url) inkonzisztensek vagy hiányoznak, a feed posztolás csak adminra van korlátozva (a userek számára is engedélyezni kell), és a DM oldalon nincs lehetőség egymást bekövetni a meglévő follow endpointokon keresztül.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 21.1 Követés endpoint 404 hiba javítása: `src/app/api/users/[id]/follow/route.ts`-ben (POST és DELETE) UUID validáció hozzáadása az `[id]` paraméterre (ha nem valid UUID formátum, 400 Bad Request, nem 404); a target user létezésének ellenőrzése a `profiles` táblában (ha nem található, értelmes 404 üzenettel `{ error: 'Felhasználó nem található' }`); a `22P02` PostgreSQL hiba catch-elése; ellenőrzés hogy a `follower_id != following_id` (saját magát ne tudja követni) — ha igen, 400; logging: a hibás kérések root cause-ának logolása szerveroldalon
+- [x] 21.2 Posztok endpoint author profil JOIN: `GET /api/posts` és a polling endpoint response-ainak ellenőrzése — minden poszthoz konzisztensen visszaadódik az author profil adatai (`profiles` JOIN-nal: `username`, `avatar_url`, `id`); a Supabase query a `posts` és `profiles` táblát explicit JOIN-olja (`select('*, author:profiles!author_id(id, username, avatar_url)')`); a response shape-ben az author objektum minden mezővel jelen van, üres user esetén default fallback ("Ismeretlen szurkoló"); azonos JOIN logika alkalmazása a `GET /api/posts/[id]` és `GET /api/posts/[id]/comments` endpointokon is, hogy a komment szerzők is legyenek profillel
+- [x] 21.3 User feed posztolás endpoint: új `POST /api/posts` endpoint létrehozása (`src/app/api/posts/route.ts`) bejelentkezett userek számára — body: `{ content: string, image?: File }`, validáció: content nem üres, max 2000 karakter; a `posts` táblába `author_id = auth.uid()` mezővel insert; opcionális kép feltöltés a `post-images` bucketbe (admin endpointtal megegyező logika); RLS policy frissítése a `posts` táblán: insert engedélyezve minden bejelentkezett usernek (eddig csak admin); az admin poszt endpoint (`POST /api/admin/posts`) változatlan marad (kompatibilitás); user csak a saját posztját szerkesztheti/törölheti (új `PUT /api/posts/[id]` és `DELETE /api/posts/[id]` user endpoint, RLS-szel védve); admin bármely posztot törölhet
+- [x] 21.4 DM oldal — follow integráció backend ellenőrzés: `GET /api/conversations` response kibővítése a partner profil mezőivel + `is_following` boolean (a bejelentkezett user követi-e a partnert, follow-status JOIN); a meglévő `POST /api/users/[id]/follow` és `DELETE /api/users/[id]/follow` endpointok elérhetők és validálnak helyesen DM kontextusban is; RLS policy ellenőrzése a `follows` táblán (insert/delete csak a `follower_id = auth.uid()`-re); regressziós teszt: DM listából követés/kikövetés flow végigfutása
+
+**Acceptance Criteria:**
+
+- A `POST /api/users/[id]/follow` endpoint érvénytelen UUID-re 400-at, nem létező userre 404-et ad világos hibaüzenettel — nem dob 500-at vagy néma 404-et
+- A `GET /api/posts` és `GET /api/posts/[id]/comments` response-ok minden item-en konzisztens author objektumot tartalmaznak (`id`, `username`, `avatar_url`)
+- Bejelentkezett user (nem admin) sikeresen tud posztot létrehozni a `POST /api/posts` endpointon át, opcionális képpel
+- User csak a saját posztját szerkesztheti/törölheti, admin bármelyiket
+- Az admin poszt endpoint továbbra is működik (regression-mentes)
+- A `GET /api/conversations` response tartalmazza a partner profil adatait és `is_following` mezőjét
+- A DM listából a follow/unfollow endpointok hívhatók és atomic módon frissítik a `follows` táblát
+
+**Dependencies:** Iteration 8 (közösségi feed), Iteration 18 (DM & follow rendszer)
 
 ---

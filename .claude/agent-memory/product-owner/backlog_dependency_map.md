@@ -28,7 +28,9 @@ Frontend → Backend dependency map:
 - F21 → Backend 17 (poll "none" option)
 - F22 → Backend 19 (dream team persistence)
 - F23 → Backend 18 (DM & follow system)
+- F24 → Backend 20 (player stat sync fix)
+- F25 → Backend 21 (follow 404 / profile / user posting / DM follow)
 
 **Why:** Parallel iteration selection requires checking the frontend iteration's backend dependency state.
 
-**How to apply:** When selecting parallel iterations, verify the frontend candidate's backend dependency is DONE. If not, only the backend iteration runs that cycle. Special note: F22 depends on Backend 19 (the LAST new backend iteration), so frontend cannot run F22 until late in the cycle. F23 depends on Backend 18 (DM + follows). The natural parallel order is: Backend 14 + F18 (after B14 done), Backend 15 + F19 (after B15 done), Backend 16 + F20, Backend 17 + F21, Backend 18 + F23, Backend 19 + F22.
+**How to apply:** When selecting parallel iterations, verify the frontend candidate's backend dependency is DONE. If not, only the backend iteration runs that cycle. Special note: F22 depends on Backend 19 (the LAST core backend iteration), so frontend cannot run F22 until late in the cycle. F23 depends on Backend 18 (DM + follows). F25 depends on Backend 21 — the social bug fix iteration must run on backend first or in parallel. The natural parallel order is: Backend 14 + F18, Backend 15 + F19, Backend 16 + F20, Backend 17 + F21, Backend 18 + F23, Backend 19 + F22, Backend 20 + F24, Backend 21 + F25.

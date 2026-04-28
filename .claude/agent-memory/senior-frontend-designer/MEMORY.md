@@ -29,3 +29,4 @@
 - [Dream team primitives (F22)](project_dream_team.md) — @dnd-kit/core builder, PitchSVG/PlayerSlot/PlayerPool, formation slot map in lib/dream-team-formations.ts; /jatekosok/almomcsapat
 - [useMediaQuery hook](project_use_media_query.md) — src/hooks/useMediaQuery.ts; queueMicrotask-wrapped initial setState to satisfy React 19 lint
 - [ProductWithRating canonical](project_product_with_rating.md) — /api/products joins average_rating + review_count; ProductGrid reads them off product rows, not via the ratings map
+- [Post composers split + FollowButton variants (F25)](project_post_composer_split.md) — CreatePostForm (user) vs NewPostComposer (admin); FollowButton iconOnly + initialStatus + 404/409 toasts; stretched-link conv rows

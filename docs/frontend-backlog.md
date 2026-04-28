@@ -59,8 +59,8 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 153 |
-| Completed tasks | 153 |
+| Total tasks | 157 |
+| Completed tasks | 157 |
 | Remaining tasks | 0 |
 | Completion | 100% |
 
@@ -1182,5 +1182,34 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 - A játékos kártyákon 0-0-0-0 helyett informatív "feltöltés alatt" üzenet látható ha nincs stat
 
 **Dependencies:** F7 (játékos lista), F4 (auth), F23 (közösségi oldal), Backend Iteration 20
+
+---
+
+### Iteration F25 — Bug Fix: Profil Név, Követés Gomb, User Posztolás UI & DM Követés
+
+**Status:** DONE
+
+**Goal:** A közösségi modul frontend hibáinak javítása: a feed kártyákon a poszt szerzőjének neve nem jelenik meg másik bejelentkezett user nézetében, a követés gomb 404-es hibával fut, a userek nem tudnak posztot írni a feed UI-ban (csak adminok), és a DM oldalon hiányzik a követés/kikövetés gomb a beszélgetéshez tartozó partnerre.
+
+**Backend dependency:** Backend Iteration 21 (követés/profil/posztolás/DM follow backend fixek)
+
+**Tasks:**
+
+- [x] F25.1 Feed poszt szerző név megjelenítés fix: `src/components/social/PostCard.tsx` (és az adott `FeedCard` ha külön komponens) komponensben az author username helyes forrásból töltődik (a backend response `author.username` mezőjéből, nem `post.user.username` vagy hibás kulcsból); a Supabase query / fetch hook (`src/lib/community-api.ts` vagy hasonló) is használja a backend response shape-ét (`author: { id, username, avatar_url }`); fallback "Ismeretlen szurkoló" ha az author hiányzik; az avatar src is konzisztensen tölt; mind a feed listán, mind a poszt detail view-ban
+- [x] F25.2 Követés gomb javítása a közösségi oldalon: `src/components/social/FollowButton.tsx` (vagy ahol a follow logika van) — a target user ID a helyes forrásból jön (a `post.author.id`, nem `post.id`!); error handling: ha a backend 404-et vagy 400-at ad, értelmes toast üzenet ("Ez a felhasználó nem található" / "Érvénytelen kérés") sonner toast-on át; loading state a kattintás alatt; optimista UI frissítés (gomb azonnal "Követed"-re vált, hibánál visszavon); a `CommunityRightRail` "Javasolt szurkolók" listán is ugyanaz a komponens használata
+- [x] F25.3 Feed poszt létrehozás UI usereknek: új `src/components/social/CreatePostForm.tsx` komponens — content textarea (max 2000 karakter karakter-számlálóval), opcionális image upload (drag-and-drop vagy file picker, kép preview), "Közzététel" gomb; `POST /api/posts` hívás; a komponens a `/kozosseg` feed oldal tetején jelenjen meg minden bejelentkezett user számára (nem csak admin); siker után optimista frissítés a feed listán (új poszt a tetejére); az admin nézetben a meglévő admin posztoló UI továbbra is elérhető (kettős kompatibilitás); validáció zod-dal, react-hook-form integrálással a meglévő stack szerint
+- [x] F25.4 DM oldal követés gomb integráció: `src/components/social/messaging/ConversationList.tsx` minden beszélgetés sorához kompakt `FollowButton size="sm"` hozzáadása a partner mellé (a `is_following` mező alapján a `GET /api/conversations` response-ból); `src/components/social/messaging/ChatView.tsx` headerébe (partner avatar + username mellé) is "Követés" / "Követed" gomb; a meglévő FollowButton komponens újrahasznosítása (F25.2-vel közös); siker után a `is_following` állapot frissül lokálisan (nem kell teljes refetch); ha a bejelentkezett user kikövet egy partnert, a DM küldési input letiltása vagy figyelmeztetés ("Csak követett felhasználóval írhatsz") — a backend modell szerint
+
+**Acceptance Criteria:**
+
+- A feed kártyákon minden poszt szerzőjének neve és avatarja helyesen jelenik meg másik user nézetében is
+- A követés gomb a feedben sikeresen követ/kikövet, 404-es hiba esetén értelmes hibaüzenet
+- Bejelentkezett user (nem admin) tud új posztot létrehozni a `/kozosseg` oldalon szöveggel és opcionális képpel
+- Az admin posztoló UI továbbra is működik (regresszió-mentes)
+- A DM oldalon (lista + chat header) követés gomb látható és működik
+- Optimista UI frissítések minden follow/unfollow akciónál
+- A user nem tud üzenetet küldeni nem-követett partnernek (UI gátol)
+
+**Dependencies:** F11 (közösségi feed), F23 (DM UI), F4 (auth), Backend Iteration 21
 
 ---
