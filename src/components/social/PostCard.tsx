@@ -68,8 +68,13 @@ export function PostCard({
   const [deleting, setDeleting] = useState(false);
   const { user: currentUser } = useAuth();
 
-  const displayName = author?.username || "FCB";
-  const isAuthorAdmin = author?.role === "admin";
+  // F25.1 — prefer the JOIN-ed author the API may now ship inline; fall
+  // back to the lazy `authorCache` lookup; finally render an "unknown
+  // fan" placeholder rather than the meaningless "FCB" default that
+  // confused logged-in users when an author profile failed to resolve.
+  const resolvedAuthor = post.author ?? author ?? null;
+  const displayName = resolvedAuthor?.username || "Ismeretlen szurkoló";
+  const isAuthorAdmin = resolvedAuthor?.role === "admin";
 
   // F24.3 — show a compact follow toggle on the author header. Hide it
   // for guests, on the user's own posts, and when the author is an
@@ -121,7 +126,7 @@ export function PostCard({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
           )}
         >
-          <Avatar url={author?.avatar_url ?? null} name={displayName} size={42} />
+          <Avatar url={resolvedAuthor?.avatar_url ?? null} name={displayName} size={42} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="font-display text-base tracking-wide text-[var(--text-primary)] transition-colors group-hover/auth:text-[var(--accent-gold)]">

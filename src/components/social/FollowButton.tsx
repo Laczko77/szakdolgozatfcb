@@ -6,6 +6,7 @@ import { Check, Loader2, UserPlus } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 import {
+  ApiError,
   fetchFollowStatus,
   followUser,
   unfollowUser,
@@ -14,48 +15,78 @@ import type { FollowStatus } from "@/types/dm";
 import { cn } from "@/lib/utils";
 
 /**
- * Toggle "Követés" / "Követed" button used on other-user profile pages.
+ * Toggle "Követés" / "Követed" button.
  *
  * Behaviour notes:
- *   - On mount we hydrate the current follow status from the server.
- *     Until that response lands the button stays in a neutral skeleton
- *     state — never starts as "Követed" then snaps to "Követés".
- *   - The toggle itself uses optimistic UI: we flip the local boolean
- *     before the request resolves, then roll back on failure.
- *   - The button hides itself for the caller's own profile (isSelf) and
- *     for guests (`useAuth().user === null`) — guests get a sign-in CTA.
- *   - `onStatusChange` lets the parent (e.g. the profile page) react
- *     to mutual-follow transitions, e.g. revealing the "Üzenet" button.
+ *   - On mount we hydrate the current follow status from the server,
+ *     unless the parent supplied a definitive `initialStatus` (e.g. the
+ *     conversation list endpoint returns `is_following` inline, F25.4).
+ *   - The toggle uses optimistic UI: we flip the local boolean before
+ *     the request resolves, then roll back on failure.
+ *   - F25.2 — error differentiation:
+ *       · 404  → toast "Felhasználó nem található"
+ *       · 409  → already following; we keep the optimistic "Követed"
+ *               state instead of rolling back (server is authoritative,
+ *               state agrees).
+ *       · any  → generic toast with the server message.
+ *   - The button hides itself for the caller's own profile and for guests.
+ *   - `iconOnly` collapses the label, used in tight surfaces (chat list
+ *     rows, chat header). The button still announces its label via
+ *     aria-label so screen readers stay informative.
+ *   - `onStatusChange` lets the parent mirror the latest status — used
+ *     on /profil/[id] to gate the "Üzenet" CTA on mutual follow.
  */
 interface FollowButtonProps {
   targetUserId: string;
   /** Optional callback so parents can mirror the latest status. */
   onStatusChange?: (status: FollowStatus) => void;
+  /**
+   * If supplied, skips the status hydration round-trip — the parent
+   * already has authoritative data (e.g. from the conversations list).
+   */
+  initialStatus?: FollowStatus | null;
   className?: string;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
+  /** Render only the icon — the label moves to aria-label. */
+  iconOnly?: boolean;
 }
 
 export function FollowButton({
   targetUserId,
   onStatusChange,
+  initialStatus,
   className,
   size = "md",
+  iconOnly = false,
 }: FollowButtonProps) {
   const { user } = useAuth();
   const toast = useToast();
 
-  const [status, setStatus] = useState<FollowStatus | null>(null);
-  const [hydrating, setHydrating] = useState(true);
+  const [status, setStatus] = useState<FollowStatus | null>(
+    initialStatus ?? null,
+  );
+  const [hydrating, setHydrating] = useState(initialStatus == null);
   const [pending, setPending] = useState(false);
 
-  // Hydrate follow status on mount / when target changes.
+  // Hydrate follow status on mount / when target changes — unless the
+  // parent already supplied an authoritative initial value. The setState
+  // calls are wrapped in an async IIFE so they never execute
+  // synchronously inside the effect body itself (React 19's
+  // `react-hooks/set-state-in-effect` lint).
   useEffect(() => {
-    if (!user || user.id === targetUserId) {
-      setHydrating(false);
-      return;
-    }
     const c = new AbortController();
     void (async () => {
+      if (!user || user.id === targetUserId) {
+        if (!c.signal.aborted) setHydrating(false);
+        return;
+      }
+      if (initialStatus) {
+        if (!c.signal.aborted) {
+          setStatus(initialStatus);
+          setHydrating(false);
+        }
+        return;
+      }
       try {
         const data = await fetchFollowStatus(targetUserId, c.signal);
         if (c.signal.aborted) return;
@@ -68,7 +99,7 @@ export function FollowButton({
       }
     })();
     return () => c.abort();
-  }, [user, targetUserId]);
+  }, [user, targetUserId, initialStatus]);
 
   if (!user || (status?.isSelf ?? user.id === targetUserId)) {
     return null;
@@ -76,7 +107,11 @@ export function FollowButton({
 
   const isFollowing = status?.isFollowing ?? false;
 
-  const handleClick = async () => {
+  const handleClick = async (e: React.MouseEvent) => {
+    // The button often sits inside a clickable row/link — stop the
+    // event so the parent doesn't navigate when the user toggles follow.
+    e.preventDefault();
+    e.stopPropagation();
     if (pending) return;
     setPending(true);
 
@@ -96,7 +131,29 @@ export function FollowButton({
         await followUser(targetUserId);
       }
     } catch (err) {
-      // Roll back.
+      // F25.2 — surface meaningful errors instead of swallowing.
+      if (err instanceof ApiError) {
+        if (err.status === 404) {
+          // Roll back; the user genuinely does not exist.
+          const prior: FollowStatus = {
+            isFollowing,
+            isFollowedBy: status?.isFollowedBy ?? false,
+            isMutual: isFollowing && (status?.isFollowedBy ?? false),
+          };
+          setStatus(prior);
+          onStatusChange?.(prior);
+          toast.error("Felhasználó nem található");
+          return;
+        }
+        if (err.status === 409 && !isFollowing) {
+          // Already following — server is authoritative, but our
+          // optimistic state already shows "Követed". Keep it.
+          toast.info("Már követed ezt a felhasználót");
+          return;
+        }
+      }
+
+      // Generic rollback.
       const prior: FollowStatus = {
         isFollowing,
         isFollowedBy: status?.isFollowedBy ?? false,
@@ -112,36 +169,55 @@ export function FollowButton({
     }
   };
 
-  const sizing =
-    size === "sm" ? "px-3.5 py-1.5 text-[11px]" : "px-5 py-2.5 text-xs";
+  const sizing = iconOnly
+    ? size === "xs"
+      ? "h-7 w-7"
+      : size === "sm"
+        ? "h-8 w-8"
+        : "h-9 w-9"
+    : size === "xs"
+      ? "px-2.5 py-1 text-[10px]"
+      : size === "sm"
+        ? "px-3.5 py-1.5 text-[11px]"
+        : "px-5 py-2.5 text-xs";
 
   if (hydrating) {
     return (
       <span
         aria-hidden
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border",
+          "inline-flex items-center justify-center gap-2 rounded-full border",
           "border-[var(--glass-border)] bg-[var(--glass-bg)]",
           "animate-pulse text-transparent",
           sizing,
           className,
         )}
       >
-        <span className="h-3 w-3" />
-        <span>Követés</span>
+        {iconOnly ? <span className="h-3 w-3" /> : (
+          <>
+            <span className="h-3 w-3" />
+            <span>Követés</span>
+          </>
+        )}
       </span>
     );
   }
+
+  const label = isFollowing ? "Követed" : "Követés";
+  const iconSize = size === "xs" ? 11 : size === "sm" ? 13 : 14;
 
   return (
     <motion.button
       type="button"
       onClick={handleClick}
       disabled={pending}
-      whileTap={{ scale: 0.96 }}
+      whileTap={{ scale: 0.94 }}
       aria-pressed={isFollowing}
+      aria-label={iconOnly ? label : undefined}
+      title={iconOnly ? label : undefined}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full font-display uppercase tracking-[0.18em]",
+        "inline-flex items-center justify-center gap-2 rounded-full",
+        "font-display uppercase tracking-[0.18em]",
         "transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]/60",
         "disabled:cursor-not-allowed disabled:opacity-60",
@@ -161,13 +237,13 @@ export function FollowButton({
       )}
     >
       {pending ? (
-        <Loader2 size={13} className="animate-spin" aria-hidden />
+        <Loader2 size={iconSize} className="animate-spin" aria-hidden />
       ) : isFollowing ? (
-        <Check size={13} aria-hidden />
+        <Check size={iconSize} aria-hidden />
       ) : (
-        <UserPlus size={13} aria-hidden />
+        <UserPlus size={iconSize} aria-hidden />
       )}
-      <span>{isFollowing ? "Követed" : "Követés"}</span>
+      {!iconOnly && <span>{label}</span>}
     </motion.button>
   );
 }

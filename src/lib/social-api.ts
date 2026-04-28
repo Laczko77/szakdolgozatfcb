@@ -190,6 +190,45 @@ export async function deleteReaction(reactionId: string): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
+/* User composer (F25.3)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * POST /api/posts (multipart/form-data).
+ *
+ * Public user-facing endpoint introduced in backlog 21.3 — any
+ * authenticated user can publish to the community feed. The route is
+ * deliberately separate from /api/admin/posts so the admin composer's
+ * elevated permissions (e.g. pin / moderation flags) can diverge later
+ * without breaking this surface.
+ */
+export async function createUserPost(input: {
+  content: string;
+  image?: File | null;
+}): Promise<EnrichedPost> {
+  const fd = new FormData();
+  fd.append("content", input.content);
+  if (input.image) fd.append("image", input.image);
+
+  const response = await fetch(`/api/posts`, {
+    method: "POST",
+    body: fd,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  // The endpoint returns the raw row; the feed expects enrichment
+  // fields, so we synthesise zeroed counters here.
+  const post = (await response.json()) as EnrichedPost;
+  return {
+    ...post,
+    reactions: post.reactions ?? {},
+    reactionTotal: post.reactionTotal ?? 0,
+    commentCount: post.commentCount ?? 0,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Admin composer                                                     */
 /* ------------------------------------------------------------------ */
 

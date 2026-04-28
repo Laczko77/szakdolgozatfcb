@@ -14,6 +14,12 @@ export interface EnrichedPost extends Post {
   reactions: Record<string, number>;
   reactionTotal: number;
   commentCount: number;
+  /**
+   * F25.1 — optional author snapshot returned by the backend JOIN. When
+   * present, the feed UI prefers this over the lazy `authorCache` lookup
+   * so the author's username + avatar render in the very first paint.
+   */
+  author?: AuthorSnapshot | null;
 }
 
 export interface EnrichedComment extends Comment {

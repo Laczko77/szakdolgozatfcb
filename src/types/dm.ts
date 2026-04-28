@@ -13,8 +13,19 @@ export type ProfileSnapshot = Pick<
   "id" | "username" | "avatar_url"
 >;
 
+/**
+ * F25.4 — extended snapshot used inside the conversation list. The DM
+ * endpoint now returns `is_following` for the other participant so the
+ * frontend can render the inline follow toggle without an extra round
+ * trip per row.
+ */
+export interface ProfileSnapshotWithFollow extends ProfileSnapshot {
+  is_following?: boolean;
+  is_followed_by?: boolean;
+}
+
 export interface EnrichedConversation extends Conversation {
-  otherUser: ProfileSnapshot | null;
+  otherUser: ProfileSnapshotWithFollow | null;
   lastMessage: Message | null;
   unreadCount: number;
 }

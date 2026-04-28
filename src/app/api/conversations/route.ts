@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import {
+  createClient,
+  createServiceRoleClient,
+} from '@/lib/supabase/server'
 import { errorResponse, requireAuthApi } from '@/lib/api-utils'
 import type { Conversation, Message, Profile } from '@/types/database'
 
@@ -45,11 +48,13 @@ export async function GET(_request: NextRequest) {
   )
   const conversationIds = conversations.map((c) => c.id)
 
-  const [profilesById, lastMessageByConv, unreadByConv] = await Promise.all([
-    fetchProfilesByIds(supabase, otherIds),
-    fetchLastMessages(supabase, conversationIds),
-    fetchUnreadCounts(supabase, conversationIds, user.id),
-  ])
+  const [profilesById, lastMessageByConv, unreadByConv, followingSet] =
+    await Promise.all([
+      fetchProfilesByIds(otherIds),
+      fetchLastMessages(supabase, conversationIds),
+      fetchUnreadCounts(supabase, conversationIds, user.id),
+      fetchFollowingSet(supabase, user.id, otherIds),
+    ])
 
   const enriched = conversations.map((c) => {
     const otherId = c.participant_a === user.id ? c.participant_b : c.participant_a
@@ -58,6 +63,7 @@ export async function GET(_request: NextRequest) {
       otherUser: profilesById.get(otherId) ?? null,
       lastMessage: lastMessageByConv.get(c.id) ?? null,
       unreadCount: unreadByConv.get(c.id) ?? 0,
+      is_following: followingSet.has(otherId),
     }
   })
 
@@ -88,10 +94,10 @@ export async function POST(request: NextRequest) {
     return errorResponse('Saját magaddal nem indíthatsz beszélgetést', 400)
   }
 
-  const supabase = await createClient()
-
-  // Target profil ellenőrzés.
-  const { data: targetProfile, error: profileErr } = await supabase
+  // Target profil ellenőrzés service-role klienssel — a profiles SELECT RLS
+  // (`auth.uid() = id OR is_admin()`) különben false-pozitív 404-et adna.
+  const adminSupabase = createServiceRoleClient()
+  const { data: targetProfile, error: profileErr } = await adminSupabase
     .from('profiles')
     .select('id')
     .eq('id', targetUserId)
@@ -102,6 +108,8 @@ export async function POST(request: NextRequest) {
   if (!targetProfile) {
     return errorResponse('A felhasználó nem található', 404)
   }
+
+  const supabase = await createClient()
 
   // Mutual follow ellenőrzés (gyors fail-fast — az RLS WITH CHECK is védi a táblát,
   // de így explicit 403-at és értelmes üzenetet adunk vissza).
@@ -168,20 +176,60 @@ export async function POST(request: NextRequest) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Partner profilok lekérdezése. Service-role klienst használunk, mert a
+ * `profiles` SELECT RLS policy (`auth.uid() = id OR is_admin()`) miatt a
+ * cookie-alapú kliens csak a saját profilt látná, így minden DM partner
+ * profil-mezők nélkül érkezne. Csak a publikus mezőket adjuk vissza.
+ */
 async function fetchProfilesByIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   ids: string[]
 ): Promise<Map<string, Pick<Profile, 'id' | 'username' | 'avatar_url'>>> {
   const out = new Map<string, Pick<Profile, 'id' | 'username' | 'avatar_url'>>()
   if (ids.length === 0) return out
 
-  const { data } = await supabase
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase
     .from('profiles')
     .select('id, username, avatar_url')
     .in('id', Array.from(new Set(ids)))
 
+  if (error) {
+    console.error('[conversations] partner profile lookup failed:', error.message)
+    return out
+  }
+
   for (const p of (data ?? []) as Pick<Profile, 'id' | 'username' | 'avatar_url'>[]) {
     out.set(p.id, p)
+  }
+  return out
+}
+
+/**
+ * A hívó user által követett partnerek halmaza (a megadott otherIds közül).
+ * A `follows` SELECT RLS policy public, így a normál cookie-kliens elég.
+ */
+async function fetchFollowingSet(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  otherIds: string[]
+): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (otherIds.length === 0) return out
+
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .in('following_id', Array.from(new Set(otherIds)))
+
+  if (error) {
+    console.error('[conversations] follow lookup failed:', error.message)
+    return out
+  }
+
+  for (const row of (data ?? []) as Array<{ following_id: string }>) {
+    out.add(row.following_id)
   }
   return out
 }

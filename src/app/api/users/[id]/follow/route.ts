@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { errorResponse, requireAuthApi } from '@/lib/api-utils'
 
 /**
@@ -34,11 +34,13 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     return errorResponse('Saját magadat nem követheted', 400)
   }
 
-  const supabase = await createClient()
-
-  // Ellenőrizzük, hogy létezik-e a target profil — különben az auth.users FK
-  // hibát adna kevésbé barátságos formában.
-  const { data: targetProfile, error: targetErr } = await supabase
+  // Target profil ellenőrzés service-role klienssel: a profiles SELECT RLS
+  // policy `auth.uid() = id OR is_admin()`, így a normál user kliens nem
+  // látna idegen profilt és minden követés 404-gyel végződne. A service-role
+  // bypass-olja az RLS-t, de csak a létezésre kérdezünk rá — nem szivárogtat
+  // bizalmas mezőt vissza a frontendnek.
+  const adminSupabase = createServiceRoleClient()
+  const { data: targetProfile, error: targetErr } = await adminSupabase
     .from('profiles')
     .select('id')
     .eq('id', targetId)
@@ -49,6 +51,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   if (!targetProfile) {
     return errorResponse('A felhasználó nem található', 404)
   }
+
+  const supabase = await createClient()
 
   const { error } = await supabase
     .from('follows')

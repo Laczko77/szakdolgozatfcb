@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFeedPolling } from "@/hooks/useFeedPolling";
 import { PostCard } from "@/components/social/PostCard";
 import { NewPostComposer } from "@/components/social/NewPostComposer";
+import { CreatePostForm } from "@/components/social/CreatePostForm";
 import { cn } from "@/lib/utils";
 
 /**
@@ -284,11 +285,25 @@ export function CommunityFeed() {
 
   return (
     <div className="w-full">
-      {isAdmin && (
+      {/*
+        F25.3 — composer rules:
+          · admins keep the original NewPostComposer (multipart →
+            /api/admin/posts) for first-party broadcasts.
+          · every other authenticated user gets the lightweight
+            CreatePostForm (multipart → /api/posts), which expands
+            inline on click.
+          · guests see neither — the toast on the reaction bar already
+            nudges them to sign in.
+      */}
+      {isAdmin ? (
         <div className="mb-6">
           <NewPostComposer onPosted={handlePosted} />
         </div>
-      )}
+      ) : user ? (
+        <div className="mb-6">
+          <CreatePostForm onPosted={handlePosted} />
+        </div>
+      ) : null}
 
       {loading ? (
         <FeedSkeleton />

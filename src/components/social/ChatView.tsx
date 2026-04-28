@@ -11,7 +11,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Message } from "@/types/database";
-import type { ProfileSnapshot } from "@/types/dm";
+import type { FollowStatus, ProfileSnapshotWithFollow } from "@/types/dm";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/dm-api";
 import { subscribeToConversation } from "@/lib/supabase/realtime";
 import { Avatar } from "./Avatar";
+import { FollowButton } from "./FollowButton";
 import { cn } from "@/lib/utils";
 
 const MAX_LEN = 2000;
@@ -49,7 +50,7 @@ const MAX_LEN = 2000;
  */
 interface ChatViewProps {
   conversationId: string;
-  otherUser: ProfileSnapshot | null;
+  otherUser: ProfileSnapshotWithFollow | null;
   /** Optional back-button visibility — used on mobile detail route. */
   showBackButton?: boolean;
   backHref?: string;
@@ -242,7 +243,7 @@ export function ChatView({
           name={otherUser?.username ?? "?"}
           size={36}
         />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg leading-none tracking-wide text-[var(--text-primary)]">
             {otherUser?.username ?? "Ismeretlen szurkoló"}
           </p>
@@ -250,6 +251,18 @@ export function ChatView({
             Privát üzenet
           </p>
         </div>
+
+        {/* F25.4 — inline follow toggle. Hidden until we have an
+            authoritative `otherUser`, and on mobile collapses to the
+            icon-only variant so it never elbows the username. */}
+        {otherUser && (
+          <FollowButton
+            targetUserId={otherUser.id}
+            initialStatus={chatHeaderInitialStatus(otherUser)}
+            size="sm"
+            className="ml-1 shrink-0"
+          />
+        )}
       </header>
 
       {/* ── Scroller ───────────────────────────────────────────── */}
@@ -498,4 +511,21 @@ function groupByDay(messages: DisplayMessage[]): DayGroup[] {
 
 function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Translate the partner snapshot's optional `is_following` flag into a
+ * `FollowStatus` value the FollowButton can use as `initialStatus`.
+ * Returns `null` when the backend hasn't supplied the flag — the
+ * button will fall back to its on-mount hydration in that case.
+ */
+function chatHeaderInitialStatus(
+  other: ProfileSnapshotWithFollow,
+): FollowStatus | null {
+  if (typeof other.is_following !== "boolean") return null;
+  return {
+    isFollowing: other.is_following,
+    isFollowedBy: other.is_followed_by ?? false,
+    isMutual: other.is_following && (other.is_followed_by ?? false),
+  };
 }
