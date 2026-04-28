@@ -6,7 +6,7 @@ import type { Profile } from '@/types/database'
 /**
  * /api/users/search?q=<text>
  *
- * GET — username VAGY email szerinti ILIKE keresés a profiles táblában.
+ * GET — username szerinti ILIKE keresés a profiles táblában.
  *       - max 20 találat
  *       - csak publikus mezők (id, username, avatar_url) a válaszban
  *       - a hívó user nem szerepel a találatokban
@@ -18,6 +18,9 @@ import type { Profile } from '@/types/database'
  * a normál cookie-kliens csak a saját profilját látná, így a keresés mindig
  * üres lenne. Ezért service-role klienst használunk, de a válaszban csak
  * publikus mezőket adunk vissza — bizalmas adat (pl. email) nem szivárog.
+ *
+ * Biztonsági megjegyzés: email szerinti szűrés szándékosan nincs, mivel az
+ * oracle-ként lenne felhasználható email enumeration támadáshoz.
  */
 
 const MAX_RESULTS = 20
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, username, avatar_url')
-    .or(`username.ilike.${pattern},email.ilike.${pattern}`)
+    .ilike('username', pattern)
     .neq('id', user.id)
     .order('username', { ascending: true })
     .limit(MAX_RESULTS)
