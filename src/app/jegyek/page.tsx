@@ -5,13 +5,19 @@ import { motion } from "framer-motion";
 import type { Match } from "@/types/database";
 import { fetchMatches } from "@/lib/tickets-api";
 import { useToast } from "@/providers/ToastProvider";
-import { MatchCard } from "@/components/tickets/MatchCard";
-import { MatchListSkeleton } from "@/components/tickets/MatchListSkeleton";
+import { MatchesTable } from "@/components/tickets/MatchesTable";
+import { MatchListMobile } from "@/components/tickets/MatchListMobile";
+import { MatchesTableSkeleton } from "@/components/tickets/MatchesTableSkeleton";
 import { MatchListEmptyState } from "@/components/tickets/MatchListEmptyState";
 import { cn } from "@/lib/utils";
 
 /**
- * /jegyek — public match list.
+ * /jegyek — public match list (F20.1 — táblázatos nézet).
+ *
+ * The previous card-grid was hard to scan once a season's worth of
+ * matches accumulated. F20 replaces it with a sticky-header table on
+ * desktop and a vertical strip-list on mobile (≤768px), driven by the
+ * same Match[] payload.
  *
  * Behaviour:
  *  - Lands on the "upcoming" scope by default; a segmented control lets
@@ -19,9 +25,8 @@ import { cn } from "@/lib/utils";
  *  - Each scope is fetched independently. Switching tabs shows a skeleton
  *    rather than the previous tab's data so the user never sees stale
  *    upcoming matches under a "Lejátszott" heading.
- *  - Past matches are derived from the same `MatchCard` component but
- *    forced into the "past" status — visually muted but still tappable
- *    for users to review their seats / results later.
+ *  - Past matches are forced into the "past" status — the table shows a
+ *    quiet "Részletek" link instead of a "Vásárlás" CTA in their row.
  *
  * No auth: the listing itself is public. Auth is enforced once the user
  * tries to actually purchase, which is handled by the detail page.
@@ -83,9 +88,7 @@ export default function JegyekPage() {
         <h1 className="font-display text-5xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-6xl lg:text-7xl">
           Mérkőzések
           <br />
-          <span className="text-[var(--text-secondary)]">
-            naptára
-          </span>
+          <span className="text-[var(--text-secondary)]">naptára</span>
         </h1>
         <p className="max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
           A teljes szezon hazai és idegenbeli meccsei. Válaszd ki a találkozót,
@@ -129,25 +132,27 @@ export default function JegyekPage() {
       {/* Body */}
       <div className="mt-8">
         {loading ? (
-          <MatchListSkeleton />
+          <MatchesTableSkeleton />
         ) : matches.length === 0 ? (
           <MatchListEmptyState scope={scope} />
         ) : (
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5",
-              "lg:grid-cols-3 lg:gap-6",
-            )}
-          >
-            {matches.map((match, i) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                index={i}
-                status={scope === "past" ? "past" : undefined}
+          <>
+            {/* Desktop / tablet ≥ 768px → table */}
+            <div className="hidden md:block">
+              <MatchesTable
+                matches={matches}
+                forcedStatus={scope === "past" ? "past" : undefined}
               />
-            ))}
-          </div>
+            </div>
+
+            {/* Mobile → vertical strip list */}
+            <div className="md:hidden">
+              <MatchListMobile
+                matches={matches}
+                forcedStatus={scope === "past" ? "past" : undefined}
+              />
+            </div>
+          </>
         )}
       </div>
     </main>

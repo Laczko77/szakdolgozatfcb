@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Info, Pencil, Plus, RefreshCw } from "lucide-react";
+import { CalendarDays, Info, Pencil, RefreshCw, Sparkles } from "lucide-react";
 
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
@@ -290,7 +290,8 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingSector, setEditingSector] = useState<MatchSector | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
 
   const open = match !== null;
 
@@ -331,6 +332,43 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
     return () => ac.abort();
   }, [match, loadSectors]);
 
+  // Reset transient banners when the dialog re-opens against a different match.
+  useEffect(() => {
+    setError(null);
+    setSeedMessage(null);
+  }, [match?.id]);
+
+  const handleReseed = async () => {
+    if (!match) return;
+    setSeeding(true);
+    setSeedMessage(null);
+    setError(null);
+    try {
+      // The seed-sectors endpoint is idempotent: existing sector rows are
+      // preserved, only missing ones are inserted. So this is safe to call
+      // even when all four sectors already exist.
+      const result = await adminFetch<{ matchId: string; inserted: number }>(
+        `/api/admin/matches/${match.id}/seed-sectors`,
+        { method: "POST" },
+      );
+      const inserted = result?.inserted ?? 0;
+      setSeedMessage(
+        inserted === 0
+          ? "Mind a 4 szektor már létezik — nincs teendő."
+          : `Sikeres újragenerálás: ${inserted} új szektor létrehozva.`,
+      );
+      await loadSectors(match.id);
+    } catch (err) {
+      setError(
+        err instanceof AdminApiError
+          ? `Szektor seed sikertelen: ${err.message}`
+          : "Szektor seed sikertelen",
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   return (
     <>
       <AdminDialogRoot
@@ -353,6 +391,12 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
             {error ? (
               <div className="rounded-md border border-[var(--accent-red)]/30 bg-[var(--accent-red)]/10 px-3 py-2 text-sm text-[var(--accent-red)]">
                 {error}
+              </div>
+            ) : null}
+
+            {seedMessage ? (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+                {seedMessage}
               </div>
             ) : null}
 
@@ -412,29 +456,23 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
             <AdminButton variant="subtle" onClick={onClose}>
               Bezárás
             </AdminButton>
-            <AdminButton onClick={() => setCreating(true)} disabled={!match}>
-              <Plus className="h-4 w-4" />
-              Új szektor
+            <AdminButton
+              variant="subtle"
+              onClick={handleReseed}
+              loading={seeding}
+              disabled={!match || loading}
+            >
+              <Sparkles className="h-4 w-4" />
+              {seeding
+                ? "Újragenerálás folyamatban…"
+                : "Szektorok újragenerálása"}
             </AdminButton>
           </AdminDialogFooter>
         </AdminDialogContent>
       </AdminDialogRoot>
 
-      {match && creating ? (
-        <SectorFormDialog
-          mode="create"
-          matchId={match.id}
-          onClose={() => setCreating(false)}
-          onSaved={async () => {
-            setCreating(false);
-            if (match) await loadSectors(match.id);
-          }}
-        />
-      ) : null}
-
       {match && editingSector ? (
         <SectorFormDialog
-          mode="edit"
           matchId={match.id}
           sector={editingSector}
           onClose={() => setEditingSector(null)}
@@ -449,31 +487,33 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Sector form (create + edit)
+// Sector edit form
+//
+// F20.6 — Az "Új szektor" funkciót teljesen eltávolítottuk: a négy fix
+// szektort (TRIBUNA, LATERAL, GOL NORD, GOL SUD) a meccs-szinkron seedeli
+// (vagy a "Szektorok újragenerálása" gomb pótolja). A szerkesztő kizárólag
+// a `total_seats` és a `price` mezőket mutatja — a `sector_name` read-only
+// szövegként jelenik meg, mert változtatása megtörné a CHECK constraintet
+// és a frontend SVG mappingjét.
 // ---------------------------------------------------------------------------
 
 interface SectorFormProps {
-  mode: "create" | "edit";
   matchId: string;
-  sector?: MatchSector;
+  sector: MatchSector;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }
 
 function SectorFormDialog({
-  mode,
   matchId,
   sector,
   onClose,
   onSaved,
 }: SectorFormProps) {
-  const [name, setName] = useState(sector?.sector_name ?? "");
   const [totalSeats, setTotalSeats] = useState<string>(
-    sector ? String(sector.total_seats) : "",
+    String(sector.total_seats),
   );
-  const [price, setPrice] = useState<string>(
-    sector ? String(sector.price) : "",
-  );
+  const [price, setPrice] = useState<string>(String(sector.price));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -483,10 +523,6 @@ function SectorFormDialog({
     const totalSeatsNum = Number.parseInt(totalSeats, 10);
     const priceNum = Number.parseFloat(price);
 
-    if (!name.trim()) {
-      setError("A szektor neve kötelező");
-      return;
-    }
     if (!Number.isInteger(totalSeatsNum) || totalSeatsNum < 0) {
       setError("Az összes hely nemnegatív egész szám kell legyen");
       return;
@@ -499,28 +535,16 @@ function SectorFormDialog({
     setSubmitting(true);
     setError(null);
     try {
-      if (mode === "create") {
-        await adminFetch(`/api/admin/matches/${matchId}/sectors`, {
-          method: "POST",
-          body: JSON.stringify({
-            sector_name: name.trim(),
-            total_seats: totalSeatsNum,
-            price: priceNum,
-          }),
-        });
-      } else if (sector) {
-        await adminFetch(
-          `/api/admin/matches/${matchId}/sectors/${sector.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              sector_name: name.trim(),
-              total_seats: totalSeatsNum,
-              price: priceNum,
-            }),
-          },
-        );
-      }
+      await adminFetch(`/api/admin/matches/${matchId}/sectors/${sector.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          // sector_name is intentionally NOT in the payload — the backend
+          // PUT handler validates/ignores changes to it, and the four
+          // canonical names are immutable.
+          total_seats: totalSeatsNum,
+          price: priceNum,
+        }),
+      });
       await onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Mentés sikertelen");
@@ -533,36 +557,43 @@ function SectorFormDialog({
     <AdminDialogRoot open onOpenChange={(next) => (next ? null : onClose())}>
       <AdminDialogContent open size="md">
         <AdminDialogHeader>
-          <AdminDialogTitle>
-            {mode === "create" ? "Új szektor" : "Szektor szerkesztése"}
-          </AdminDialogTitle>
+          <AdminDialogTitle>Szektor szerkesztése</AdminDialogTitle>
           <AdminDialogDescription>
-            {mode === "edit" && sector
-              ? `Eladott jegyek: ${sector.sold_seats} (a teljes szám nem mehet ez alá).`
-              : "Adj meg nevet, kapacitást és árat."}
+            Eladott jegyek: {sector.sold_seats} (a teljes szám nem mehet ez
+            alá).
           </AdminDialogDescription>
         </AdminDialogHeader>
         <form onSubmit={handleSubmit}>
           <AdminDialogBody className="space-y-4">
-            <AdminField label="Szektor neve" htmlFor="sector-name">
-              <AdminInput
-                id="sector-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoFocus
-              />
-            </AdminField>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Szektor neve
+              </p>
+              <p
+                className={cn(
+                  "rounded-md border border-[var(--glass-border)]",
+                  "bg-[var(--bg-tertiary)]/40 px-3 py-2",
+                  "font-display text-base tracking-[0.06em] text-[var(--text-primary)]",
+                )}
+              >
+                {sector.sector_name}
+              </p>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                A szektor neve nem módosítható — a négy fix név adatbázis
+                szintű constraint.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <AdminField label="Összes hely" htmlFor="total-seats">
                 <AdminInput
                   id="total-seats"
                   type="number"
-                  min={sector?.sold_seats ?? 0}
+                  min={sector.sold_seats}
                   step={1}
                   value={totalSeats}
                   onChange={(e) => setTotalSeats(e.target.value)}
                   required
+                  autoFocus
                 />
               </AdminField>
               <AdminField label="Ár (Ft)" htmlFor="price">
@@ -593,7 +624,7 @@ function SectorFormDialog({
               Mégse
             </AdminButton>
             <AdminButton type="submit" loading={submitting}>
-              {mode === "create" ? "Létrehozás" : "Mentés"}
+              Mentés
             </AdminButton>
           </AdminDialogFooter>
         </form>
