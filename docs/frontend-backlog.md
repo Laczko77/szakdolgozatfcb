@@ -60,9 +60,9 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 | Metric | Value |
 |--------|-------|
 | Total tasks | 149 |
-| Completed tasks | 140 |
-| Remaining tasks | 9 |
-| Completion | 94% |
+| Completed tasks | 149 |
+| Remaining tasks | 0 |
+| Completion | 100% |
 
 ---
 
@@ -1023,7 +1023,7 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 ### Iteration F22 — Játékosok: Álomcsapat Drag-and-Drop
 
-**Status:** TODO
+**Status:** DONE
 
 **Goal:** Új feature: a felhasználó összeállíthatja saját álomcsapatát egy drag-and-drop felületen. Egy SVG focipálya alapformációval (4-2-3-1), formáció választóval (4-3-3, 4-2-3-1, 3-5-2, 4-4-2), pozíció-alapú slot validációval. A backend menti az álomcsapatot user-hez kötve. Mobilon tap-to-select fallback.
 
@@ -1031,42 +1031,42 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 **Tasks:**
 
-- [ ] F22.1 `@dnd-kit/core` telepítés és konfigurálás:
+- [x] F22.1 `@dnd-kit/core` telepítés és konfigurálás:
   - `npm install @dnd-kit/core @dnd-kit/sortable`
   - `DndContext` provider beállítása az álomcsapat oldalon
   - `useDroppable` és `useDraggable` hook-ok használata
-- [ ] F22.2 Álomcsapat oldal route (`src/app/jatekosok/almomcsapat/page.tsx`):
+- [x] F22.2 Álomcsapat oldal route (`src/app/jatekosok/almomcsapat/page.tsx`):
   - Auth guard: csak bejelentkezett user (egyébként redirect login-ra)
   - Layout: bal oldalon játékos lista (összes FC Barcelona játékos kategorizálva), közepén/jobb oldalon a focipálya
-- [ ] F22.3 SVG focipálya komponens (`src/components/dream-team/PitchSVG.tsx`):
+- [x] F22.3 SVG focipálya komponens (`src/components/dream-team/PitchSVG.tsx`):
   - Sematikus focipálya rajz (vonalak, középkör, büntetőterületek)
   - Formációhoz konfigurálható slot pozíciók: minden slot egy droppable terület koordinátával
   - 4-2-3-1 alapformáció default slot pozíciókkal
-- [ ] F22.4 Formáció választó komponens (`src/components/dream-team/FormationSelector.tsx`):
+- [x] F22.4 Formáció választó komponens (`src/components/dream-team/FormationSelector.tsx`):
   - Pill gombok: 4-3-3, 4-2-3-1, 3-5-2, 4-4-2
   - Kattintásra a pálya slot pozíciói újrarendeződnek (Framer Motion layout animation)
   - Ha az új formációban kevesebb slot van mint amennyi player el van helyezve, a "felesleges" játékosok visszakerülnek a játékos listára
-- [ ] F22.5 Játékos lista panel (`src/components/dream-team/PlayerPool.tsx`):
+- [x] F22.5 Játékos lista panel (`src/components/dream-team/PlayerPool.tsx`):
   - Pozíció szerinti szűrő (Kapus, Védő, Középpályás, Támadó)
   - Játékos kártyák kis méretben: kép, név, pozíció, mezszám
   - Draggable elemek (`useDraggable`)
   - Már a pályán lévő játékosok halványabban vagy elrejtve
-- [ ] F22.6 Pozíció-alapú slot validáció:
+- [x] F22.6 Pozíció-alapú slot validáció:
   - Minden slot tartozik egy "elfogadott pozíció" listához (pl. GK slot csak Goalkeeper-t fogad, CB slot Defender-t)
   - Drop esemény: ha nem egyezik a pozíció, a drop visszaugrik (vagy figyelmeztető toast)
   - Vizuális visszajelzés drag közben: a kompatibilis slotok zöld highlight, inkompatibilisek piros
-- [ ] F22.7 Backend integráció:
+- [x] F22.7 Backend integráció:
   - Oldal mount: `GET /api/dream-team` lekérdezés, ha létezik álomcsapat, betöltés
   - "Mentés" gomb: `POST /api/dream-team` (új) vagy `PUT /api/dream-team/[id]` (meglévő)
   - "Új álomcsapat" gomb: alaphelyzetbe állítás
   - "Törlés" gomb: `DELETE /api/dream-team/[id]` megerősítő modal-lal
   - Toast értesítés mentés sikeres / hiba esetén
-- [ ] F22.8 Mobil tap-to-select fallback:
+- [x] F22.8 Mobil tap-to-select fallback:
   - Mobil viewen (`useMediaQuery('(max-width: 768px)')`) drag-and-drop helyett tap-to-select
   - 1. tap: játékos kiválasztás (highlight)
   - 2. tap egy slotra: játékos elhelyezése
   - "Eltávolítás" gomb minden elhelyezett játékosnál
-- [ ] F22.9 Navigáció hozzáadása:
+- [x] F22.9 Navigáció hozzáadása:
   - A `/jatekosok` oldalon link/gomb az álomcsapat-szerkesztőre
   - A profil oldalon "Álomcsapatom" link/tab
 
