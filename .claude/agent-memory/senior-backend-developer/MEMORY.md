@@ -1,3 +1,4 @@
 - [RPC for atomic mutations](rpc_atomic_pattern.md) — when to reach for a Postgres function instead of multi-step JS
 - [Iter5 webshop RLS gap](rls_iter5_gap.md) — cart/orders/wishlist/reviews/order_items had no policies until migration 012
 - [Iter13 football-data.org migration](project_iter13_football_data.md) — why we left api-sports, FCB id 529→81, stat fields lost
+- [Vercel deployment readiness](project_vercel_deployment.md) — build fixes, required env vars, vercel.json created 2026-04-28

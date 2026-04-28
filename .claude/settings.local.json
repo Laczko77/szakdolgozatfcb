@@ -19,7 +19,9 @@
       "Bash(npx --no-install tsc --noEmit)",
       "Bash(npx --no-install eslint --no-warn-ignored src/lib/consent.ts src/lib/analytics-api.ts src/providers/ConsentProvider.tsx src/components/common/CookieBanner.tsx src/components/common/PageTrackingMount.tsx src/hooks/usePageTracking.ts src/components/shop/PopularProducts.tsx src/components/dashboard/RecommendedProductsWidget.tsx src/app/layout.tsx src/app/shop/page.tsx src/app/dashboard/page.tsx)",
       "Bash(npx --no-install next build)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(sed 's/=.*//')",
+      "Bash(npm run *)"
     ]
   }
 }

@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "src/app/api/admin/matches/sync/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/admin/players/sync/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

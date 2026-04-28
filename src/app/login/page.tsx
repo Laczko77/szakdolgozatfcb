@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -25,8 +25,28 @@ import { GoogleButton } from "@/components/auth/GoogleButton";
  *     are mapped to Hungarian copy (no raw Supabase strings leak).
  *   - Google OAuth uses the implicit redirect flow back to /auth/callback
  *     — the Supabase client handles the rest.
+ *
+ * Next.js requires useSearchParams() to be wrapped in <Suspense> for
+ * static generation. LoginPageInner holds the actual logic; this outer
+ * component provides the boundary.
  */
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthShell title="Belépés" subtitle="Betöltés..." footer={null}>
+          <div className="flex justify-center py-8">
+            <div className="border-glass-border h-8 w-8 animate-spin rounded-full border-2 border-t-[var(--accent-gold)]" />
+          </div>
+        </AuthShell>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
   const search = useSearchParams();
   const reduce = useReducedMotion();

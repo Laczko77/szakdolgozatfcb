@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -23,8 +23,27 @@ import { GoogleButton } from "@/components/auth/GoogleButton";
  *     setting), the page swaps to a "check your inbox" success state.
  *   - If auto-confirm is enabled (no email step), the user has a session
  *     immediately and we redirect to /dashboard.
+ *
+ * Next.js requires useSearchParams() to be wrapped in <Suspense> for
+ * static generation. RegisterPageInner holds the actual logic.
  */
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthShell title="Regisztráció" subtitle="Betöltés..." footer={null}>
+          <div className="flex justify-center py-8">
+            <div className="border-glass-border h-8 w-8 animate-spin rounded-full border-2 border-t-[var(--accent-gold)]" />
+          </div>
+        </AuthShell>
+      }
+    >
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
   const router = useRouter();
   const search = useSearchParams();
   const reduce = useReducedMotion();

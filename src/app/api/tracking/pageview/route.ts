@@ -73,12 +73,12 @@ export async function POST(request: NextRequest) {
   // Consent gate. Silent drop on missing/declined consent so misconfigured
   // clients do not turn into a 4xx flood in the browser console.
   const { data: consent } = await admin
-    .from('cookie_consents')
+    .from('cookie_consents' as never)
     .select('consented')
     .eq('cookie_id', cookieId)
     .maybeSingle()
 
-  if (!consent || consent.consented !== true) {
+  if (!consent || (consent as { consented: boolean }).consented !== true) {
     return new NextResponse(null, { status: 204 })
   }
 

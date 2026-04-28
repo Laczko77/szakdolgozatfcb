@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
     return successResponse({ products: [] as ProductAnalyticsRow[] })
   }
 
+  type ProductRow = { id: string; name: string; image_url: string | null; price: number; category: string | null }
+
   const { data: productRows, error: productErr } = await supabase
     .from('products')
     .select('id, name, image_url, price, category')
@@ -119,20 +121,20 @@ export async function GET(request: NextRequest) {
   }
 
   const productById = new Map(
-    (productRows ?? []).map((p) => [p.id as string, p])
+    (productRows as ProductRow[] ?? []).map((p) => [p.id, p])
   )
 
-  const products: ProductAnalyticsRow[] = topIds
-    .map((id) => {
+  const products = topIds
+    .map((id): ProductAnalyticsRow | null => {
       const p = productById.get(id)
       const stat = counts.get(id)!
       if (!p) return null
       return {
         product_id: id,
-        name: p.name as string,
-        image_url: (p.image_url as string | null) ?? null,
-        price: p.price as number,
-        category: (p.category as string | null) ?? null,
+        name: p.name,
+        image_url: p.image_url ?? null,
+        price: p.price,
+        category: p.category ?? null,
         view_count: stat.view_count,
         last_viewed_at: stat.last_viewed_at,
       }
