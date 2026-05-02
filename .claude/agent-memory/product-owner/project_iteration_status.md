@@ -1,41 +1,41 @@
 ---
 name: Iteration Status Snapshot
-description: Backend 108/108 (100%), Frontend 165/165 (100%) as of 2026-04-28 — Backlog teljesen kész, Iteration 22 + F26 DONE
+description: Backend 113/113 (100%), Frontend 172/172 (100%) as of 2026-05-02 — teljes projekt backlog DONE, F27 befejezve
 type: project
 ---
 
-# Iteráció Státusz Pillanatkép (2026-04-28)
+# Iteráció Státusz Pillanatkép (2026-05-02)
 
 ## Backend Backlog (`/docs/backlog.md`)
 
-- **Total tasks:** 108
-- **Completed:** 108
+- **Total tasks:** 113
+- **Completed:** 113
 - **Remaining:** 0
 - **Completion:** 100%
-- **Iterációk:** 1–22 mind DONE
+- **Iterációk:** 1–23 mind DONE — backend backlog teljes
 
 ## Frontend Backlog (`/docs/frontend-backlog.md`)
 
-- **Total tasks:** 165
-- **Completed:** 165
+- **Total tasks:** 172
+- **Completed:** 172
 - **Remaining:** 0
 - **Completion:** 100%
-- **Iterációk:** F1–F26 mind DONE
+- **Iterációk:** F1–F27 mind DONE — frontend backlog teljes
 
 ## Összesített Haladás
 
-- **Total:** 273 task (108 BE + 165 FE)
-- **Completed:** 273 (108 BE + 165 FE)
+- **Total:** 285 task (113 BE + 172 FE)
+- **Completed:** 285 (113 BE + 172 FE)
 - **Remaining:** 0
 - **Combined Completion:** 100%
 
-## Backlog státusz
+## Projekt státusz
 
-A teljes projekt backlog le van zárva. Minden iteráció (Iteration 1–22 backend, F1–F26 frontend) DONE státuszban van. Új iteráció csak akkor jön létre, ha a user explicit módon kéri (új scope, bug-fix kör, vagy poszt-launch módosítás).
+**A projekt backlog teljesen befejezve.** Mind a 23 backend iteráció és mind a 27 frontend iteráció DONE státuszú. Nincs aktív vagy hátralévő munka a backlogban.
 
-**Why:** Iteration 22 + F26 közösségi bug-fix + follow approval rendszer befejeződött. A `follows` tábla állapot-alapú modellre (`pending`/`accepted`) átállt, a DM jogosultság az `accepted` státuszra épül, a publikus profil oldal és a javasolt szurkolók endpoint élesedett.
+**Why:** Az F27 iteráció (utolsó hátralévő frontend bug-fix iteráció) 2026-05-02-én DONE-ra lett jelölve, miután a Backend Iteration 23 (Supabase warningok, kupon stat & hard delete, játékos kép remove backend) is befejeződött ugyanezen a napon.
 
 **How to apply:**
-- Ha a user új munkát kér, először kérdezz rá: új iterációként vagy bug-fix körként rögzítendő-e
+- Új feature kérés esetén: új iteráció hozzáadása csak explicit user utasításra
+- Bug-fix igények: új iterációba kerülnek (BE: Iteration 24+, FE: F28+)
 - A backlog metrikák frissítésekor mindig számold újra a Total/Completed/Remaining/Completion mezőket mindkét fájlban
-- Új iteráció hozzáadásakor a Total tasks érték is nő — ne felejtsd el frissíteni

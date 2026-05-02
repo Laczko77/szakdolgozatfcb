@@ -38,3 +38,10 @@ slot validation logic, prefer `slotAcceptsPosition()` over inline checks.
 The `position` field persisted to the DB is the slot's role label
 ("GK"/"DEF"/"MID"/"ATT"/"ST"), not the player's football-data position
 string — keep this in mind when reading saved teams.
+
+F27.6 update: `slotAcceptsPosition()` now returns true for any non-null
+position. The `slot.accepts` arrays still drive the role *label* on the
+pitch but no longer reject drops — any player can be placed on any slot
+(supports inverted full-back / false-9 line-ups). The error toast in
+`placePlayerOnSlot` is dormant in practice; PitchSVG drag-highlight now
+glows on every slot during a drag.

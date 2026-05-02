@@ -10,8 +10,8 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 108   |
-| Completed tasks     | 108   |
+| Total tasks         | 113   |
+| Completed tasks     | 113   |
 | Remaining tasks     | 0     |
 | Completion          | 100%  |
 
@@ -868,5 +868,63 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - `GET /api/users/suggested` csak olyan usereket ad vissza, akiket a bejelentkezett user még nem követ és nincs pending kérelem, max 10 elem
 
 **Dependencies:** Iteration 18 (follows, DM rendszer)
+
+---
+### Iteration 23 — Bug Fix: Supabase Warningok, Kupon Statisztika & Hard Delete, Játékos Kép Eltávolítás
+
+**Status:** DONE
+
+**Goal:** Az éles használat során feltárt backend hibák és hiányzó funkciók pótlása: Supabase oldali hibák / warningok javítása (errors.md 8. pont), admin kupon oldal kibővítése statisztika endpointtal és hard delete endpointtal a meglévő soft delete mellé (errors.md 7. pont backend része), valamint az admin játékos szerkesztő endpoint kiegészítése expliccit kép-eltávolítás támogatással (errors.md 6. pont backend része).
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 23.1 Supabase hibák és warningok javítása (errors.md 8. pont):
+  - A Supabase dashboardon megjelenő security advisor / performance advisor warningok átnézése
+  - A jelzett RLS policy hiányosságok javítása (ha van olyan tábla amelyiken hiányzik a policy vagy túl megengedő)
+  - A jelzett indexelési problémák kezelése (hiányzó index foreign key-en, fölösleges duplicate index)
+  - Az auth.users táblát hivatkozó function-ök / view-k `search_path` beállítása explicit `public`-ra ahol Supabase ezt javasolja (mutable search_path warning)
+  - Definer/invoker security a public function-ökön áttekintve, ahol szükséges javítva
+  - Migrációs fájl: `supabase/migrations/<dátum>_supabase_warnings_fix.sql`
+
+- [x] 23.2 Kupon statisztika endpoint (errors.md 7. pont — admin oldal kibővítés):
+  - Új `GET /api/admin/coupons/[id]/stats` endpoint létrehozása
+  - Visszaadja a kuponra vonatkozó aggregált statisztikákat: `redemption_count` (hányan váltották be — `redeemed_coupons` táblából `coupon_id` szerint), `usage_count` (hányan használták fel ténylegesen — `redeemed_coupons` táblából `coupon_id` + `is_used = true` szerint), `unused_count` (`redemption_count - usage_count`)
+  - Opcionális: az aggregált adatok bekerülhetnek a meglévő `GET /api/admin/coupons` listázó válaszába is (`coupon_redeem_stats` view bővítés vagy új JOIN)
+  - Csak admin érheti el (requireAdmin)
+
+- [x] 23.3 Kupon hard delete endpoint (errors.md 7. pont — törlő gomb backend):
+  - Új `DELETE /api/admin/coupons/[id]/hard` endpoint létrehozása (külön a meglévő soft delete `DELETE /api/admin/coupons/[id]` mellett)
+  - A meglévő `DELETE /api/admin/coupons/[id]` endpoint továbbra is soft delete-et végez (is_active=false) — visszafelé kompatibilis
+  - Az új hard delete endpoint TÉNYLEGESEN törli a kupont a `coupons` táblából
+  - Cascade kezelés: a `redeemed_coupons` tábla `coupon_id` foreign key-e SET NULL vagy CASCADE viselkedés egyértelművé tétele migrációval (jelenleg lehet hogy hibát dobna)
+  - Figyelmeztetés a response body-ban: hány felhasználói beváltott kupon érintett (törlés előtt számolás), hogy a frontend megjeleníthesse a megerősítő dialógust
+  - Csak admin érheti el (requireAdmin)
+  - Migrációs fájl: `supabase/migrations/<dátum>_coupons_hard_delete_cascade.sql` (ha kell FK módosítás)
+
+- [x] 23.4 Admin játékos kép eltávolítás backend (errors.md 6. pont — kép törlés gomb backend):
+  - A meglévő `PUT /api/admin/players/[id]` endpoint kibővítése: új form mező `removeImage` (boolean, "true"/"false")
+  - Ha `removeImage = "true"`: a `players.image_url` mezőt `NULL`-ra állítja, és a Storage-ban lévő képet törli (`safeDeleteImage`)
+  - Validáció: a `removeImage = "true"` és új `image` File egyidejű küldése esetén az új kép nyeri a verzenyt (image upload prioritás), vagy 400 hiba — egyértelmű döntés implementáláskor
+  - A meglévő funkcionalitás (bio + új kép feltöltés) változatlan marad
+  - Logging: kép-eltávolítási események logolása
+
+- [x] 23.5 Regressziós tesztelés:
+  - A 4 új/módosított endpoint manuális tesztelése a development környezetben
+  - Edge case-ek: hard delete olyan kuponra ami már beváltott, kép-eltávolítás olyan játékosra akinek nincs képe, statisztika lekérdezés nem létező kupon ID-ra
+  - A meglévő soft delete és image upload regressziómentes
+
+**Acceptance Criteria:**
+
+- A Supabase advisor warningok száma csökken vagy nullára esik
+- A `GET /api/admin/coupons/[id]/stats` helyesen visszaadja a beváltási és felhasználási darabszámokat
+- A `DELETE /api/admin/coupons/[id]/hard` ténylegesen törli a kupont a `coupons` táblából, miközben a `redeemed_coupons` táblát konzisztensen kezeli (cascade vagy SET NULL)
+- A meglévő `DELETE /api/admin/coupons/[id]` továbbra is soft delete-et végez (regressziómentes)
+- A `PUT /api/admin/players/[id]` endpoint a `removeImage=true` form mezővel sikeresen NULL-ra állítja az `image_url`-t és törli a Storage-ban lévő fájlt
+- A meglévő image upload és bio módosítás flow változatlanul működik
+- Csak admin érheti el az új endpointokat
+
+**Dependencies:** Iteration 4 (players), Iteration 10 (coupons), Iteration 12 (RLS)
 
 ---

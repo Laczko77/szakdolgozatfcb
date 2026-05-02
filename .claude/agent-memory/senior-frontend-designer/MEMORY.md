@@ -31,3 +31,7 @@
 - [ProductWithRating canonical](project_product_with_rating.md) — /api/products joins average_rating + review_count; ProductGrid reads them off product rows, not via the ratings map
 - [Post composers split + FollowButton variants (F25)](project_post_composer_split.md) — CreatePostForm (user) vs NewPostComposer (admin); FollowButton iconOnly + initialStatus + 404/409 toasts; stretched-link conv rows
 - [Follow request approval flow (F26)](project_follow_request_flow.md) — FollowStatus is now {status: not_following|pending|following}; FollowRequestsPanel on /uzenetek; pendingPosts banner replaces auto-prepend in CommunityFeed
+- [glass-modal utility (F27.3)](project_glass_modal_utility.md) — `.glass-modal` + `.glass-modal-backdrop` in globals.css; canonical surface for every PUBLIC modal/dialog/popover (admin dialogs stay solid)
+- [glass-card-hover gated by pointer (F27.2)](project_glass_card_hover_pointer.md) — `.glass-card-hover` lives inside `@media (hover: hover)` to avoid sticky hover state on touch
+- [dnd-kit sensor split (F27.5)](project_dnd_kit_sensors.md) — dream-team uses MouseSensor + TouchSensor (delay 150ms) instead of PointerSensor; placePlayerOnSlot() does true swap
+- [/jegyek sector gating (F27.4)](project_jegyek_sectors_gating.md) — listing fetches match_sectors lookup and downgrades "available" to "soon" when a match has no sectors

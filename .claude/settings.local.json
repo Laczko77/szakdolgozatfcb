@@ -37,7 +37,20 @@
       "PowerShell(npx eslint \"src/components/social/FollowButton.tsx\" \"src/components/social/PostCard.tsx\" \"src/components/social/CommentItem.tsx\" \"src/components/social/CommentSection.tsx\" \"src/components/social/CommunityFeed.tsx\" \"src/components/social/CommunityRightRail.tsx\" \"src/components/social/CommunityLeftRail.tsx\" \"src/components/social/ConversationListPanel.tsx\" \"src/components/social/FollowRequestsPanel.tsx\" \"src/components/social/ChatView.tsx\" \"src/lib/dm-api.ts\" \"src/types/dm.ts\" \"src/types/social.ts\"; \"EXIT=$LASTEXITCODE\")",
       "PowerShell(npx eslint \"src/components/social/NewConversationModal.tsx\"; \"EXIT=$LASTEXITCODE\")",
       "PowerShell(npx eslint \"src/app/kozosseg/uzenetek/page.tsx\"; \"EXIT=$LASTEXITCODE\")",
-      "PowerShell(npx eslint \"src/app/kozosseg/uzenetek/page.tsx\" \"src/components/social/NewConversationModal.tsx\" \"src/app/profil/[id]/page.tsx\"; \"EXIT=$LASTEXITCODE\")"
+      "PowerShell(npx eslint \"src/app/kozosseg/uzenetek/page.tsx\" \"src/components/social/NewConversationModal.tsx\" \"src/app/profil/[id]/page.tsx\"; \"EXIT=$LASTEXITCODE\")",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); deps={**p.get\\('dependencies',{}\\), **p.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in sorted\\(deps.items\\(\\)\\) if any\\(x in k for x in ['dompurify','isomorphic','jsdom','next','supabase']\\)]\")",
+      "Bash(node *)",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\(json.dumps\\(p.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(npm ls *)",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('optDeps:', json.dumps\\(p.get\\('optionalDependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('peerDeps:', json.dumps\\(p.get\\('peerDependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(curl -s -o /tmp/hirek_response.txt -w \"%{http_code}\" \"http://localhost:3000/hirek/00000000-0000-0000-0000-000000000000\")",
+      "Bash(kill %1)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /tmp/hirek_response.txt -w \"%{http_code}\" \"http://localhost:3001/hirek/00000000-0000-0000-0000-000000000000\")",
+      "Bash(curl -s -o /tmp/hirek_test.txt -w \"%{http_code}\" \"http://localhost:3002/hirek/550e8400-e29b-41d4-a716-446655440000\")",
+      "Bash(curl *)",
+      "Bash(pkill -f \"next start\")"
     ]
   }
 }

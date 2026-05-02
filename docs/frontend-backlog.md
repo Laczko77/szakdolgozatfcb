@@ -59,8 +59,8 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 165 |
-| Completed tasks | 165 |
+| Total tasks | 172 |
+| Completed tasks | 172 |
 | Remaining tasks | 0 |
 | Completion | 100% |
 
@@ -1245,5 +1245,86 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 - A kommenteknél a szerző neve és avatarja konzisztensen jelenik meg, fallback működik
 
 **Dependencies:** F11 (közösségi feed), F23 (DM UI), F25 (közösségi bug-fix előzmény), Backend Iteration 22
+
+---
+
+### Iteration F27 — Bug Fix: Landing Page, Hover Effektek, Glass Felugró Ablakok, /jegyek Logika, Álomcsapat Drag, Admin Játékos Kép & Admin Kupon UI
+
+**Status:** DONE
+
+**Goal:** A felhasználói tesztelés során feltárt frontend hibák és UX problémák kijavítása: landing page szekció hibák, hover effektek hozzáadása, modális ablakok glass stílusra cserélése, /jegyek oldal jegyvásárlás státusz logika javítása, álomcsapat drag-and-drop hibák, admin játékos szerkesztőben kép-eltávolítás gomb, admin kupon oldal kibővítése statisztika megjelenítéssel és törlő gombbal.
+
+**Backend dependency:** Backend Iteration 23 (Supabase warningok, kupon stat & hard delete, játékos kép remove backend) — DONE (2026-05-02), F27 most teljes körűen indítható
+
+**Tasks:**
+
+- [x] F27.1 Landing page szekció javítások (errors.md 1. pont):
+  - A landing page (`src/app/page.tsx` és kapcsolódó szekció komponensek) átnézése, a hibás vagy törött szekciók javítása
+  - Konkrét javítandó szekciók (errors.md alapján): hero rész igazítás, scroll-triggered szekciók indítási pont, mobile breakpoint hibák, esetleg törött kép referenciák vagy elrontott animáció timing
+  - GSAP ScrollTrigger újrakalibrálás ha a player carousel szakad
+  - Mobile-on a folytonos háttér valóban folytonos (nincs accidental szekció-tördelés)
+
+- [x] F27.2 Hover effektek hozzáadása (errors.md 2. pont):
+  - A liquid glass design system szerint minden interaktív elem (kártya, gomb, link) konzisztens hover effektet kapjon: glass glow, enyhe scale (1.02), border fényesedés
+  - Konkrét érintett komponensek: cikk kártyák, termék kártyák, játékos kártyák (a flip animáción túl), poll kártyák, social poszt kártyák, dashboard widgetek
+  - A `.glass-card-hover` utility class konzisztens alkalmazása mindenhol ahol a hover állapot eddig hiányzott
+  - Mobil: a hover effektek `@media (hover: hover)` mögé mozgatva, hogy ne ragadjon be touch eszközön
+
+- [x] F27.3 Felugró ablakok glass stílusra cserélése (errors.md 3. pont):
+  - Minden modal / dialog / dropdown / popover komponens átnézése, és a liquid glass design system-hez igazítása
+  - Konkrét érintett komponensek: kosár modal, jegy szektor választó modal, login/regisztráció modal (ha modal), szavazás megerősítő modal, kupon beváltás megerősítő modal, admin dialog-ok, user kereső modal (DM), follow request modal
+  - shadcn/ui Dialog komponens: `backdrop-blur`, semi-transparent overlay, glass-card kontent, finom border, shadow-glow
+  - Konzisztens dark/light variánsok minden modálon
+
+- [x] F27.4 /jegyek "Jegyvásárlás elérhető" logika javítása (errors.md 4. pont):
+  - `src/app/jegyek/page.tsx` és kapcsolódó meccs lista komponens átnézése
+  - A jelenlegi logika: minden meccs alatt "Jegyvásárlás hamarosan" üzenet jelenik meg akkor is, amikor az admin már generálta a szektorokat
+  - Új logika: a meccshez tartozó `match_sectors` lekérdezésével (vagy a `GET /api/matches/[id]` válaszának `sectors` mezője alapján) a komponens eldönti: ha **vannak szektorok az adatbázisban** a meccshez (legalább 1 sector ahol `total_seats > 0`), akkor "Jegyvásárlás elérhető" + "Jegyek" CTA jelenik meg; ha **nincsenek szektorok**, "Jegyvásárlás hamarosan" maradjon
+  - Frontend-only fix — backend változás nincs, mert az admin "Szektorok újragenerálása" gomb már létrehozza a szektorokat
+  - Loading state: amíg a szektorok lekérdezése fut, skeleton/loading megjelenítés
+
+- [x] F27.5 Álomcsapat drag-and-drop javítás (errors.md 5. pont):
+  - `src/app/almomcsapat/page.tsx` (vagy ahol az álomcsapat UI van) és a drag komponens átnézése
+  - Konkrét hibák a drag flow-ban: a játékos kártyák nem dobhatók a megfelelő pozíció slotokba, vagy a drop zóna touch-on nem reagál, vagy a csere logika nem működik (két játékos cserélésekor egyik eltűnik)
+  - dnd-kit (vagy az aktuálisan használt drag könyvtár) konfigurációjának javítása
+  - Mobil touch support: `TouchSensor` aktivválása, megfelelő delay/tolerance beállítás
+  - A drag közben vizuális visszajelzés (drag overlay, drop zone highlight)
+  - A mentés (`POST /api/dream-team` vagy `PUT /api/dream-team/[id]`) a javítás után konzisztensen működik
+
+- [x] F27.6 Admin játékos kép eltávolítás gomb (errors.md 6. pont — frontend rész):
+  - `src/app/admin/jatekosok/[id]/page.tsx` (vagy az admin játékos szerkesztő komponens) átnézése
+  - Új "Kép eltávolítása" gomb hozzáadása a kép preview mellé (csak akkor látható ha a játékosnak már van képe)
+  - Gomb kattintásra megerősítő dialog (glass stílusú) → "Biztosan eltávolítod?" → Igen/Nem
+  - Igen esetén: `PUT /api/admin/players/[id]` hívás `removeImage=true` form mezővel (a Backend Iteration 23.4 új flag-jét használva)
+  - Sikeres válasz után: a UI kép preview-t default placeholder-re cseréli, toast "A kép eltávolítva"
+  - Hiba esetén: toast hibaüzenet, gomb újra aktív
+  - A meglévő kép-feltöltés flow változatlan marad (regression-mentes)
+
+- [x] F27.7 Admin kupon oldal kibővítés (errors.md 7. pont — frontend rész):
+  - `src/app/admin/kuponok/page.tsx` (vagy az admin kupon lista / szerkesztő komponens) átnézése
+  - **Statisztika megjelenítés:** minden kupon kártyán/sorban két új mező megjelenítése: "Beváltva: X" és "Felhasználva: Y" (a `GET /api/admin/coupons/[id]/stats` endpointról vagy a kibővített listázó válaszból)
+  - **Inaktívvá tevő gomb (meglévő):** változatlan, "Inaktiválás" felirattal — soft delete (`DELETE /api/admin/coupons/[id]`)
+  - **Új törlő gomb:** "Végleges törlés" felirat, piros / destructive variáns, csak admin
+  - Törlő gomb kattintásra **kétlépcsős megerősítő dialog**:
+    - 1. lépés: "Biztosan véglegesen törlöd? Ez visszafordíthatatlan."
+    - 2. lépés (ha a stat alapján volt beváltás): figyelmeztetés "X felhasználó beváltott kupon érintett — ezek az adatbázisból eltűnnek!" → újabb megerősítés
+  - Megerősítés után: `DELETE /api/admin/coupons/[id]/hard` hívás (Backend Iteration 23.3-as endpoint)
+  - Sikeres válasz után: a kupon eltűnik a listából (optimista frissítés), toast "Kupon véglegesen törölve"
+  - Hiba esetén: toast hibaüzenet
+  - A két gomb világosan megkülönböztethető: az inaktiválás semleges variáns, a végleges törlés destructive piros variáns
+
+**Acceptance Criteria:**
+
+- A landing page szekciói hibátlanul renderelődnek desktopon és mobilon, az animációk (GSAP, Framer Motion) elindulnak
+- Minden interaktív elem (kártya, gomb, link) konzisztens glass hover effektet mutat hover-képes eszközön
+- Az összes modal / dialog / popover liquid glass stílusú (backdrop-blur, semi-transparent, finom border, shadow-glow), dark/light módban egyaránt
+- A /jegyek oldalon a "Jegyvásárlás elérhető" csak akkor jelenik meg ha a meccshez tartozó szektorok léteznek az adatbázisban; egyéb esetben "Jegyvásárlás hamarosan"
+- Az álomcsapat drag-and-drop hibátlanul működik desktop egéren és mobil touch-on, a játékosok cserélhetők és menthetők
+- Az admin játékos szerkesztőben "Kép eltávolítása" gomb látható ha a játékosnak van képe; megerősítés után a kép eltávolítódik (a Backend 23.4 endpoint hívásával)
+- Az admin kupon listán minden kupon mellett megjelenik a beváltási és felhasználási statisztika
+- Az admin kupon oldalon megmaradt az inaktiválás gomb (soft delete) ÉS megjelent egy új "Végleges törlés" gomb (hard delete) kétlépcsős megerősítéssel
+- Optimista UI frissítések minden új gomb akciónál (kép-eltávolítás, hard delete)
+
+**Dependencies:** F1 (design system), F8 (jegyek), F19 (admin panel), F22 (álomcsapat), F26 (közösségi UI), Backend Iteration 23
 
 ---
