@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 /**
  * Strip HTML tags from an article body and collapse it down to a clean
@@ -24,10 +24,9 @@ import DOMPurify from "isomorphic-dompurify";
 export function htmlExcerpt(html: string, maxChars = 160): string {
   if (!html) return "";
 
-  const stripped = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
+  const stripped = sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: false,
   });
 
   // DOMPurify already returns unescaped text content — but the input may

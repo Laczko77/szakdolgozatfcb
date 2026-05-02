@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import { cn } from "@/lib/utils";
 
 interface ArticleContentProps {
@@ -41,33 +41,17 @@ export function ArticleContent({ content }: ArticleContentProps) {
 
   if (looksLikeHtml(trimmed)) {
     // ── HTML branch (Tiptap) ─────────────────────────────────────
-    const cleanHtml = DOMPurify.sanitize(trimmed, {
-      ALLOWED_TAGS: [
-        "p",
-        "br",
-        "strong",
-        "b",
-        "em",
-        "i",
-        "u",
-        "s",
-        "a",
-        "ul",
-        "ol",
-        "li",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "blockquote",
-        "code",
-        "pre",
-        "hr",
-        "img",
+    const cleanHtml = sanitizeHtml(trimmed, {
+      allowedTags: [
+        "p", "br", "strong", "b", "em", "i", "u", "s",
+        "a", "ul", "ol", "li",
+        "h1", "h2", "h3", "h4",
+        "blockquote", "code", "pre", "hr", "img",
       ],
-      ALLOWED_ATTR: ["href", "title", "target", "rel", "src", "alt"],
-      // Force every link to open in a new tab + carry safe rel attrs.
-      ADD_ATTR: ["target", "rel"],
+      allowedAttributes: {
+        a: ["href", "title", "target", "rel"],
+        img: ["src", "alt"],
+      },
     });
 
     return (
