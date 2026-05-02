@@ -49,7 +49,7 @@ export function Toast({ toast, onClose }: ToastProps) {
       animate="visible"
       exit="exit"
       className={cn(
-        "glass-card glass-border-gradient pointer-events-auto",
+        "glass-modal glass-border-gradient pointer-events-auto",
         "flex w-full max-w-sm items-start gap-3 px-4 py-3",
         "min-w-[280px]",
         RING[toast.type],

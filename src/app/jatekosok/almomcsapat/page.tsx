@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -89,11 +90,21 @@ function DreamTeamPageInner() {
     string | null
   >(null);
 
-  // Sensor: a small distance threshold so mouseDown without movement on a
-  // card still allows children (e.g. inner buttons) to fire click events.
+  // F27.5 — split mouse + touch into separate sensors. The single
+  // PointerSensor we used previously caused two regressions on touch:
+  //  1) iOS Safari sometimes skipped the activation distance and fired
+  //     drag immediately, which made the page un-scrollable above the
+  //     pitch.
+  //  2) On Android Chrome a 5px distance was too tight to disambiguate
+  //     scroll-intent from drag-intent when the user's finger drifted.
+  // The TouchSensor's `delay`-based activation (long-press) is the
+  // canonical dnd-kit recipe for mobile lists/grids.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
     }),
   );
 
@@ -244,18 +255,54 @@ function DreamTeamPageInner() {
       }
       setPlacements((prev) => {
         const next = { ...prev };
-        // If the same player is already placed somewhere else, move them.
+        // F27.5 — true swap semantics:
+        //  1. Find the player's previous slot (if any).
+        //  2. Find who currently sits on the target slot (the "displaced").
+        //  3. If both exist AND the displaced fits the source slot's role,
+        //     they swap places. Otherwise the displaced quietly returns to
+        //     the pool (the historical behaviour) and the source slot is
+        //     emptied. We never silently drop the displaced player without
+        //     a trace, which was the regression report behind the task.
+        let sourceSlotIndex: number | null = null;
         for (const k of Object.keys(next)) {
           if (next[Number(k)] === player.id) {
-            delete next[Number(k)];
+            sourceSlotIndex = Number(k);
+            break;
           }
         }
+
+        const displacedPlayerId = next[slot.slotIndex];
+
+        // Clear source slot first.
+        if (sourceSlotIndex !== null) delete next[sourceSlotIndex];
+
+        // Place the dragged player on the target.
         next[slot.slotIndex] = player.id;
+
+        // Try to place the displaced player back onto the source slot, but
+        // only if they fit that role. If not, they fall through to the pool.
+        if (
+          displacedPlayerId &&
+          displacedPlayerId !== player.id &&
+          sourceSlotIndex !== null
+        ) {
+          const displaced = playerById[displacedPlayerId];
+          const sourceSlot = FORMATIONS[formation].find(
+            (s) => s.slotIndex === sourceSlotIndex,
+          );
+          if (
+            displaced &&
+            sourceSlot &&
+            slotAcceptsPosition(sourceSlot, displaced.position)
+          ) {
+            next[sourceSlotIndex] = displacedPlayerId;
+          }
+        }
         return next;
       });
       return true;
     },
-    [toast],
+    [toast, formation, playerById],
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -411,9 +458,9 @@ function DreamTeamPageInner() {
           Építsd meg a tökéletes XI-et
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
-          Válaszd ki a formációt, majd húzd a játékosokat a megfelelő
-          pozícióba. A kapus csak a kapuban, a védő csak a védelemben — a
-          játékvezető szigorú.
+          Válaszd ki a formációt, majd húzd bármelyik játékost bármelyik
+          pozícióra. Inverted full-back, false-9, hátravont csatár — a
+          kreativitásnak nincs határa.
         </p>
       </motion.header>
 

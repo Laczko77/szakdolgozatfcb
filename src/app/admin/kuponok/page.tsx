@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Ticket, Trash2 } from "lucide-react";
+import { Pencil, Plus, Ticket, Trash2, Flame } from "lucide-react";
 
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
@@ -56,6 +56,20 @@ type CouponWithStats = Coupon & {
   stats: { redeemed_count: number; used_count: number };
 };
 
+/**
+ * F27.7 — issuance/redemption stats from the lazy `/api/admin/coupons/[id]/stats`
+ * endpoint (Backend Iteration 23). Distinct from the inline `stats` field
+ * above (that one tracks the on-list redeemed/used counts), this shape
+ * speaks of *issuance*: how many codes were generated, how many of those
+ * have actually been used in a purchase, and the resulting usage rate.
+ */
+interface CouponIssuanceStats {
+  total_issued: number;
+  total_redeemed: number;
+  total_unused: number;
+  usage_rate: number;
+}
+
 const DISCOUNT_TYPE_LABELS: Record<DiscountType, string> = {
   percentage: "Százalékos",
   fixed: "Fix összeg",
@@ -81,10 +95,19 @@ export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<CouponWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CouponWithStats | null>(null);
   const [deleting, setDeleting] = useState<CouponWithStats | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  // F27.7 — separate confirm flow for the irreversible *hard* delete.
+  const [hardDeleting, setHardDeleting] = useState<CouponWithStats | null>(null);
+  const [hardDeleteBusy, setHardDeleteBusy] = useState(false);
+  // Issuance stats keyed by coupon id. Lazy-populated on mount so the
+  // table can render the stat row inline without blocking the initial paint.
+  const [issuanceStats, setIssuanceStats] = useState<
+    Record<string, CouponIssuanceStats | "loading" | "error">
+  >({});
 
   const loadCoupons = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -111,6 +134,33 @@ export default function AdminCouponsPage() {
     });
     return () => ac.abort();
   }, [loadCoupons]);
+
+  // F27.7 — once the coupon list lands, fan out a parallel set of stat
+  // requests. We mark each row's slot as "loading" up-front so the cell
+  // renders a spinner instead of a flash of empty space; on response the
+  // slot flips to either the stats object or "error". A failed stat
+  // request never blocks the rest of the table.
+  const fetchStatsFor = useCallback(async (couponId: string) => {
+    setIssuanceStats((prev) => ({ ...prev, [couponId]: "loading" }));
+    try {
+      const body = await adminFetchRaw<{
+        total_issued: number;
+        total_redeemed: number;
+        total_unused: number;
+        usage_rate: number;
+      }>(`/api/admin/coupons/${couponId}/stats`, { cache: "no-store" });
+      setIssuanceStats((prev) => ({ ...prev, [couponId]: body }));
+    } catch {
+      setIssuanceStats((prev) => ({ ...prev, [couponId]: "error" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (coupons.length === 0) return;
+    // Spread the requests across a microtask queue so a 50-row table
+    // does not enqueue 50 simultaneous fetches synchronously.
+    void Promise.allSettled(coupons.map((c) => fetchStatsFor(c.id)));
+  }, [coupons, fetchStatsFor]);
 
   const handleToggleActive = async (c: CouponWithStats) => {
     // Optimistic update
@@ -153,6 +203,42 @@ export default function AdminCouponsPage() {
     }
   };
 
+  /**
+   * F27.7 — hard delete: irreversibly removes the coupon row plus its
+   * issuance history. The two-step UX (separate "Végleges törlés" button
+   * + ConfirmDialog) is intentional: this is a destructive admin tool and
+   * we want the admin to confirm twice — first by clicking the red action,
+   * then by acknowledging the dialog. We optimistically remove the row
+   * from local state on success so the user gets immediate feedback.
+   */
+  const handleHardDelete = async () => {
+    if (!hardDeleting) return;
+    setHardDeleteBusy(true);
+    setError(null);
+    try {
+      await adminFetch(`/api/admin/coupons/${hardDeleting.id}/hard`, {
+        method: "DELETE",
+      });
+      // Optimistic UI: drop the row locally so the table updates instantly.
+      setCoupons((prev) => prev.filter((c) => c.id !== hardDeleting.id));
+      setIssuanceStats((prev) => {
+        const next = { ...prev };
+        delete next[hardDeleting.id];
+        return next;
+      });
+      setInfo(`A „${hardDeleting.name}” kupon véglegesen törölve.`);
+      setHardDeleting(null);
+    } catch (err) {
+      setError(
+        err instanceof AdminApiError
+          ? err.message
+          : "Végleges törlés sikertelen",
+      );
+    } finally {
+      setHardDeleteBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -170,6 +256,11 @@ export default function AdminCouponsPage() {
         </AdminButton>
       </header>
 
+      {info ? (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">
+          {info}
+        </div>
+      ) : null}
       {error ? (
         <div className="rounded-md border border-[var(--accent-red)]/30 bg-[var(--accent-red)]/10 px-4 py-2 text-sm text-[var(--accent-red)]">
           {error}
@@ -195,16 +286,17 @@ export default function AdminCouponsPage() {
                 <AdminTH className="text-right">Érték</AdminTH>
                 <AdminTH className="text-right">Pontár</AdminTH>
                 <AdminTH className="text-right">Beváltások</AdminTH>
+                <AdminTH className="text-right">Felhasználás</AdminTH>
                 <AdminTH>Státusz</AdminTH>
                 <AdminTH className="text-right">Művelet</AdminTH>
               </tr>
             </AdminTHead>
             {loading ? (
-              <AdminTableSkeleton columns={7} rows={5} />
+              <AdminTableSkeleton columns={8} rows={5} />
             ) : coupons.length === 0 ? (
               <AdminTBody>
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <AdminTableEmpty
                       icon={<Ticket className="h-5 w-5" />}
                       title="Még nincs kupon"
@@ -239,6 +331,9 @@ export default function AdminCouponsPage() {
                     <AdminTD className="text-right tabular-nums text-[var(--text-secondary)]">
                       {c.stats.used_count} / {c.stats.redeemed_count}
                     </AdminTD>
+                    <AdminTD className="text-right">
+                      <IssuanceStatsCell stats={issuanceStats[c.id]} />
+                    </AdminTD>
                     <AdminTD>
                       <button
                         type="button"
@@ -267,10 +362,21 @@ export default function AdminCouponsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleting(c)}
-                          aria-label="Törlés"
+                          aria-label="Inaktiválás"
+                          title="Inaktiválás (a beváltott kódok érvényesek maradnak)"
                           className="text-[var(--accent-red)] hover:bg-[var(--accent-red)]/10 hover:text-[var(--accent-red)]"
                         >
                           <Trash2 className="h-4 w-4" />
+                        </AdminButton>
+                        <AdminButton
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setHardDeleting(c)}
+                          aria-label="Végleges törlés"
+                          title="Végleges törlés (kupon és minden hozzá tartozó beváltási rekord eltűnik)"
+                          className="text-[var(--accent-red)] hover:bg-[var(--accent-red)]/15 hover:text-[var(--accent-red)]"
+                        >
+                          <Flame className="h-4 w-4" />
                         </AdminButton>
                       </div>
                     </AdminTD>
@@ -317,6 +423,67 @@ export default function AdminCouponsPage() {
         loading={deleteBusy}
         onConfirm={handleDelete}
       />
+
+      <ConfirmDialog
+        open={hardDeleting !== null}
+        onOpenChange={(open) => !hardDeleteBusy && !open && setHardDeleting(null)}
+        title="Kupon végleges törlése"
+        description={
+          hardDeleting ? (
+            <span>
+              A <strong>„{hardDeleting.name}”</strong> kupon és{" "}
+              <strong>minden hozzá tartozó beváltási rekord</strong>{" "}
+              véglegesen törlődik. Ez a művelet{" "}
+              <span className="text-[var(--accent-red)]">nem visszavonható</span>
+              . Biztosan véglegesen törölni akarod?
+            </span>
+          ) : (
+            ""
+          )
+        }
+        confirmLabel="Igen, töröld véglegesen"
+        loading={hardDeleteBusy}
+        onConfirm={handleHardDelete}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Issuance stats cell — renders the lazy `/api/admin/coupons/[id]/stats` slot
+// ---------------------------------------------------------------------------
+
+function IssuanceStatsCell({
+  stats,
+}: {
+  stats: CouponIssuanceStats | "loading" | "error" | undefined;
+}) {
+  if (stats === undefined || stats === "loading") {
+    return (
+      <span className="inline-block h-3 w-20 animate-pulse rounded bg-[var(--glass-bg-hover)]" />
+    );
+  }
+  if (stats === "error") {
+    return <span className="text-xs text-[var(--text-muted)]">—</span>;
+  }
+  if (stats.total_issued === 0) {
+    return (
+      <span className="text-xs tabular-nums text-[var(--text-muted)]">
+        Nincs kibocsátva
+      </span>
+    );
+  }
+  // Format as "X / Y beváltva (Z%)" per the F27 spec.
+  const percent = Math.round(stats.usage_rate * 100);
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="text-sm tabular-nums text-[var(--text-primary)]">
+        {stats.total_redeemed} / {stats.total_issued}{" "}
+        <span className="text-xs text-[var(--text-secondary)]">beváltva</span>
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)] tabular-nums">
+        {percent}%
+      </span>
     </div>
   );
 }

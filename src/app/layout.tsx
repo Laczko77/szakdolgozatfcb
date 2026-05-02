@@ -58,6 +58,7 @@ export default function RootLayout({
       <head>
         {/* Prevents the white flash by setting data-theme before paint. */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: themeFlashPreventionScript }}
         />
       </head>

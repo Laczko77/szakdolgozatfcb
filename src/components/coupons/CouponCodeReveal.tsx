@@ -87,7 +87,7 @@ export function CouponCodeReveal({
             type="button"
             aria-label="Bezárás"
             onClick={onClose}
-            className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
+            className="glass-modal-backdrop absolute inset-0 cursor-default"
             tabIndex={-1}
           />
 
@@ -116,10 +116,7 @@ export function CouponCodeReveal({
               mass: 0.9,
             }}
             className={cn(
-              "relative w-full max-w-md overflow-hidden",
-              "rounded-[var(--radius-lg)] border border-[var(--glass-border)]",
-              "bg-[var(--bg-secondary)]/95 backdrop-blur-xl",
-              "shadow-[var(--shadow-lg)]",
+              "glass-modal relative w-full max-w-md overflow-hidden",
             )}
           >
             {/* Top gold sheen */}

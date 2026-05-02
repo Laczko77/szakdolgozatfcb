@@ -84,7 +84,7 @@ export function OrderCancelButton({
             role="dialog"
             aria-modal="true"
             aria-label="Rendelés lemondása"
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm"
+            className="glass-modal-backdrop fixed inset-0 z-[120] flex items-center justify-center px-4 py-8"
           >
             <motion.div
               onClick={(e) => e.stopPropagation()}
@@ -98,7 +98,7 @@ export function OrderCancelButton({
                 ease: [0.25, 0.46, 0.45, 0.94],
               }}
               className={cn(
-                "glass-card-strong glass-border-gradient",
+                "glass-modal glass-border-gradient",
                 "relative w-full max-w-md p-6",
               )}
             >

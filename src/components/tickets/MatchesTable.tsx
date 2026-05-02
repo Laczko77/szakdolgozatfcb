@@ -16,6 +16,16 @@ interface MatchesTableProps {
   matches: Match[];
   /** Override the auto-derived status (used for the "past" archive tab). */
   forcedStatus?: MatchStatusKind;
+  /**
+   * F27.4 — match.id-k, amelyekhez a `match_sectors` táblában legalább egy
+   * sor található. A "Jegyvásárlás elérhető" pillula és a CTA gomb csak
+   * akkor jelenik meg, ha a meccs ebben a Set-ben szerepel; így soha nem
+   * mutatunk vásárlási opciót szektorok nélküli meccsre. Ha a prop
+   * `undefined`, a régi viselkedést használjuk (csak dátum alapján
+   * döntünk) — ez tartja kompatibilisnak a komponenst a hívók azon
+   * részével, amely még nem közli a sector-listát.
+   */
+  matchesWithSectors?: ReadonlySet<string>;
   className?: string;
 }
 
@@ -40,6 +50,7 @@ interface MatchesTableProps {
 export function MatchesTable({
   matches,
   forcedStatus,
+  matchesWithSectors,
   className,
 }: MatchesTableProps) {
   return (
@@ -81,7 +92,16 @@ export function MatchesTable({
 
           <tbody>
             {matches.map((match, i) => {
-              const status = forcedStatus ?? deriveMatchStatus(match.date);
+              const baseStatus = forcedStatus ?? deriveMatchStatus(match.date);
+              // F27.4 — ha a meccshez nincs konfigurált szektor, a vásárlás
+              // logikailag "hamarosan" — még akkor is, ha az időablak
+              // alapján egyébként elérhető lenne.
+              const status: MatchStatusKind =
+                baseStatus === "available" &&
+                matchesWithSectors !== undefined &&
+                !matchesWithSectors.has(match.id)
+                  ? "soon"
+                  : baseStatus;
               const isAvailable = status === "available";
               const rowKey = match.id;
 

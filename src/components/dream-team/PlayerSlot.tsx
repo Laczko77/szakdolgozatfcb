@@ -104,11 +104,11 @@ export function PlayerSlot({
       <span
         className={cn(
           "relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-full",
-          "border backdrop-blur-md transition-colors duration-200",
+          "border backdrop-blur-md transition-all duration-200",
           player
             ? "border-[var(--accent-gold)] bg-[var(--glass-bg-strong)] shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
             : "border-dashed border-white/35 bg-black/35",
-          overOk && "border-[var(--accent-gold)] bg-[rgba(196,163,77,0.18)]",
+          overOk && "border-[var(--accent-gold)] bg-[rgba(196,163,77,0.18)] ring-2 ring-white/40 ring-offset-2 ring-offset-transparent",
           overBad && "border-red-400/70 bg-red-500/15",
         )}
       >

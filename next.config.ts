@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // isomorphic-dompurify uses jsdom on the server side, which includes
+  // native-ish Node modules that cannot be inlined by the Vercel bundler.
+  // Marking them as external lets the Lambda load them at runtime from
+  // node_modules instead of bundling them into the function payload.
+  serverExternalPackages: ["isomorphic-dompurify", "jsdom"],
   images: {
     remotePatterns: [
       {

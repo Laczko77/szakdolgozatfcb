@@ -94,7 +94,7 @@ export function CartDrawer() {
             exit={{ opacity: 0 }}
             transition={{ duration: reduced ? 0 : 0.2 }}
             onClick={closeCart}
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+            className="glass-modal-backdrop fixed inset-0 z-[100]"
             aria-hidden
           />
 

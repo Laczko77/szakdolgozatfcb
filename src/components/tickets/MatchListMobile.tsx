@@ -15,6 +15,13 @@ import { TeamCrest } from "./TeamCrest";
 interface MatchListMobileProps {
   matches: Match[];
   forcedStatus?: MatchStatusKind;
+  /**
+   * F27.4 — a "Jegyvásárlás elérhető" pillula és a "Jegy" CTA csak akkor
+   * jelenik meg, ha a meccs match.id-ja ebben a Set-ben szerepel. Lásd a
+   * `MatchesTable` azonos prop-ját — itt ugyanaz a Set kerül átadásra a
+   * `/jegyek` lapból.
+   */
+  matchesWithSectors?: ReadonlySet<string>;
   className?: string;
 }
 
@@ -33,12 +40,20 @@ interface MatchListMobileProps {
 export function MatchListMobile({
   matches,
   forcedStatus,
+  matchesWithSectors,
   className,
 }: MatchListMobileProps) {
   return (
     <ul className={cn("flex flex-col gap-3", className)}>
       {matches.map((match, i) => {
-        const status = forcedStatus ?? deriveMatchStatus(match.date);
+        const baseStatus = forcedStatus ?? deriveMatchStatus(match.date);
+        // F27.4 — sectors nélküli meccs sosem mutathat "elérhető" pillulát.
+        const status: MatchStatusKind =
+          baseStatus === "available" &&
+          matchesWithSectors !== undefined &&
+          !matchesWithSectors.has(match.id)
+            ? "soon"
+            : baseStatus;
         const isAvailable = status === "available";
 
         return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -16,11 +17,23 @@ interface ThemeToggleProps {
  * inside rotates and cross-fades on theme change.
  *
  * Animation: 0.4s rotate + opacity. Disabled when prefers-reduced-motion.
+ *
+ * Hydration guard: before mount the component renders the server-default (dark)
+ * so server HTML and first client render match. After mount the real theme
+ * kicks in — the flash-prevention script already applied the correct
+ * data-theme to <html>, so there is no visual flicker.
  */
 export function ThemeToggle({ size = 18, className = "" }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
   const reduced = useReducedMotion();
-  const isDark = theme === "dark";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Before mount: default to dark to match server render and avoid mismatch.
+  const isDark = mounted ? theme === "dark" : true;
 
   const transition = reduced
     ? { duration: 0 }

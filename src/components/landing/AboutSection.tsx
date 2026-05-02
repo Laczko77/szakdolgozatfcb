@@ -1,21 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { motion, type Variants } from "framer-motion";
 import { Trophy, Newspaper, Medal } from "lucide-react";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-
-/**
- * About / "miénk a portál" section.
- *
- * Composition:
- *   - Lead paragraph with three highlighted words ("közösség", "szenvedély",
- *     "Barça") that gain a gold text-shadow once they enter the viewport.
- *   - Three feature cards in a 1/3 column grid (mobile/desktop).
- *
- * Animations: parent staggerContainer drives slideUp on each child once the
- * section enters the viewport. The accent words use the `gold-glow-active`
- * CSS animation triggered via Framer Motion's `onViewportEnter`.
- */
 
 const containerVariants: Variants = {
   hidden: {},
@@ -73,7 +61,6 @@ export default function AboutSection() {
       aria-label="Rólunk"
       className="relative mx-auto flex w-full max-w-6xl flex-col items-center px-6 py-24 md:py-36"
     >
-      {/* Soft ambient halo behind the heading */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-[480px] max-w-3xl"
@@ -100,24 +87,23 @@ export default function AboutSection() {
           Rólunk
         </motion.span>
 
-        {/* Lead paragraph */}
+        {/*
+          Lead paragraph — the h2 slides up as a whole, then the 3 accent
+          words individually slide+blur in with sequential delays.
+          The accent words start at opacity:0 so the sentence appears with
+          gaps first, then the key words fill in one by one.
+        */}
         <motion.h2
           variants={slideUpVariants}
           className="font-display max-w-3xl text-center text-3xl leading-[1.15] text-[var(--text-primary)] sm:text-4xl md:text-5xl"
         >
-          A magyar culer-ek portálja, ahol a{" "}
-          <AccentWord delay={400} reduced={reduced}>
-            közösség
-          </AccentWord>
-          , a{" "}
-          <AccentWord delay={700} reduced={reduced}>
-            szenvedély
-          </AccentWord>{" "}
-          és a{" "}
-          <AccentWord delay={1000} reduced={reduced}>
-            Barça
-          </AccentWord>{" "}
-          találkozik.
+          {"A magyar culer-ek portálja, ahol a "}
+          <AccentWord delay={1.0} reduced={reduced}>közösség</AccentWord>
+          {", a "}
+          <AccentWord delay={1.25} reduced={reduced}>szenvedély</AccentWord>
+          {" és a "}
+          <AccentWord delay={1.5} reduced={reduced} gradient>Barça</AccentWord>
+          {" találkozik."}
         </motion.h2>
 
         <motion.p
@@ -140,37 +126,46 @@ export default function AboutSection() {
 }
 
 /**
- * AccentWord — a span that picks up the `gold-glow-active` class once it
- * enters the viewport, producing a delayed glow-in. We use motion's
- * onViewportEnter so the trigger is identical to the rest of the section.
+ * Gold accent word — slides up from below and blurs in after a delay.
+ * Fires the gold-glow CSS animation once it comes to rest.
  */
 function AccentWord({
   children,
   delay,
   reduced,
+  gradient = false,
 }: {
   children: React.ReactNode;
   delay: number;
   reduced: boolean;
+  gradient?: boolean;
 }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const gradientStyle = gradient
+    ? {
+        background: "linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-red) 100%)",
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        color: "transparent",
+      }
+    : { color: "var(--accent-gold)" };
+
   return (
     <motion.span
+      ref={ref}
       className="inline-block font-display"
-      style={{ color: "var(--text-primary)" }}
-      onViewportEnter={(entry) => {
-        if (!entry || reduced) {
-          // In reduced mode, snap to gold instantly without animation.
-          (entry?.target as HTMLElement | undefined)?.classList.add(
-            "text-[var(--accent-gold)]",
-          );
-          return;
+      style={gradientStyle}
+      initial={reduced ? false : { opacity: 0, y: 22, filter: "blur(8px)" }}
+      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      viewport={{ once: true, amount: 0.5 }}
+      transition={{ delay, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      onAnimationComplete={() => {
+        if (!reduced && ref.current && !gradient) {
+          ref.current.classList.add("gold-glow-active");
         }
-        const el = entry.target as HTMLElement;
-        window.setTimeout(() => {
-          el.classList.add("gold-glow-active");
-        }, delay);
       }}
-      viewport={{ once: true, amount: 0.6 }}
     >
       {children}
     </motion.span>
@@ -192,7 +187,6 @@ function FeatureCard({
       variants={variants}
       className="glass-card glass-card-hover group relative flex flex-col gap-3 p-7"
     >
-      {/* Per-card hue accent — top edge gradient */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px"

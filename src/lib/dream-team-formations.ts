@@ -122,15 +122,24 @@ export const SLOT_ROLE_LABELS: Record<SlotRole, string> = {
 
 /**
  * Returns true if a {@link Player} with the given DB position string can be
- * placed on this slot. The `position` field on the players table holds the
- * football-data.org canonical string so we just check for membership.
+ * placed on this slot.
+ *
+ * F27.6 — the slot-role gating used to refuse "wrong position" drops (e.g.
+ * defender on an ATT slot). UX feedback was that creative line-ups (false-9,
+ * inverted full-backs, midfielder-as-striker) all hit a hard wall, so we
+ * relaxed the rule: any positioned player can be placed on any slot. The
+ * `slot.accepts` arrays are still used to *label* the role on the pitch, but
+ * they no longer reject drops. We keep the second argument so existing call
+ * sites (drag highlighting, formation-change carry-over, drop handler) stay
+ * unchanged.
  */
 export function slotAcceptsPosition(
-  slot: FormationSlot,
+  _slot: FormationSlot,
   position: string | null,
 ): boolean {
-  if (!position) return false;
-  return (slot.accepts as ReadonlyArray<string>).includes(position);
+  // Reject only the truly-unknown case — a player record without a position
+  // string is data-quality noise, not a UX choice.
+  return Boolean(position);
 }
 
 /**

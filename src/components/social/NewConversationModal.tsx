@@ -262,7 +262,7 @@ export function NewConversationModal({
             type="button"
             aria-label="Bezárás"
             onClick={onClose}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="glass-modal-backdrop absolute inset-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -275,10 +275,7 @@ export function NewConversationModal({
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] }}
             className={cn(
-              "relative w-full max-w-md overflow-hidden",
-              "rounded-[var(--radius-lg)] border border-[var(--glass-border)]",
-              "bg-[var(--bg-secondary)]/95 backdrop-blur-xl",
-              "shadow-[var(--shadow-glass-lg)]",
+              "glass-modal relative w-full max-w-md overflow-hidden",
             )}
           >
             {heading}

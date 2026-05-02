@@ -72,7 +72,7 @@ export function RedeemConfirmModal({
             type="button"
             aria-label="Bezárás"
             onClick={isSubmitting ? undefined : onCancel}
-            className="absolute inset-0 cursor-default bg-black/55 backdrop-blur-sm"
+            className="glass-modal-backdrop absolute inset-0 cursor-default"
             tabIndex={-1}
           />
 
@@ -85,12 +85,7 @@ export function RedeemConfirmModal({
               reduced ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.97 }
             }
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className={cn(
-              "relative w-full max-w-md",
-              "rounded-[var(--radius-lg)] border border-[var(--glass-border)]",
-              "bg-[var(--bg-secondary)]/95 backdrop-blur-xl",
-              "shadow-[var(--shadow-lg)]",
-            )}
+            className={cn("glass-modal relative w-full max-w-md")}
           >
             {/* Top accent line */}
             <span

@@ -115,6 +115,8 @@
      compositor layer — important on mobile, where dozens of these may be
      in the viewport at once on shop/news/player listings. */
   .glass-card {
+    position: relative;
+    isolation: isolate;
     background: var(--glass-bg);
     backdrop-filter: blur(12px) saturate(140%);
     -webkit-backdrop-filter: blur(12px) saturate(140%);
@@ -125,20 +127,155 @@
     border-radius: var(--radius-lg);
     will-change: transform;
     transition:
-      background-color 300ms ease,
-      border-color 300ms ease,
+      background-color 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      border-color 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
       transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-      box-shadow 300ms ease;
+      box-shadow 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
-  .glass-card-hover:hover,
-  .glass-card.glass-card-hover:hover {
-    background: var(--glass-bg-hover);
-    border-color: var(--glass-border-hover);
-    transform: translateY(-2px) scale(1.01);
+  /* Hover-glow pseudo-element — fades a soft gold radial wash into the
+     card's *background* on hover. The card itself only translates Y, the
+     visual lift comes from the pseudo + border glow. `inset: 0` and
+     `border-radius: inherit` keep it perfectly clipped to the card's
+     rounded corners. We park it at z-index 0 below content, while the
+     card's `isolation: isolate` keeps the stacking context contained. */
+  .glass-card-hover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    background: radial-gradient(
+      120% 80% at 50% 0%,
+      rgba(245, 158, 11, 0.10) 0%,
+      rgba(245, 158, 11, 0.04) 40%,
+      transparent 70%
+    );
+  }
+
+  /* Lift card content above the hover glow. Children that already declare
+     their own z-index keep theirs — only the implicit z-auto siblings get
+     promoted to 1, which is enough to clear z-index 0 of ::after. */
+  .glass-card-hover > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Hover-only — guarded with @media (hover: hover) so touch devices don't
+     trigger the lift state on tap. The original .glass-card-hover relied on
+     :hover firing on tap-and-release on mobile, which left rows visually
+     "stuck" until the next interaction. The pointer media query mirrors what
+     we already do for .player-card, keeping the hover language consistent
+     across the project. */
+  @media (hover: hover) {
+    .glass-card-hover:hover,
+    .glass-card.glass-card-hover:hover {
+      background: var(--glass-bg-strong);
+      border-color: rgba(245, 158, 11, 0.35);
+      transform: translateY(-3px);
+      box-shadow:
+        0 0 28px -4px rgba(245, 158, 11, 0.18),
+        0 18px 40px -12px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+
+    .glass-card-hover:hover::after,
+    .glass-card.glass-card-hover:hover::after {
+      opacity: 1;
+    }
+
+    /* Light-mode hover — Barça blue accent on the cream surface.
+       Blue reads with more contrast than gold on a light background
+       and matches the club's primary colour. */
+    [data-theme="light"] .glass-card-hover:hover,
+    [data-theme="light"] .glass-card.glass-card-hover:hover {
+      background: var(--glass-bg-strong);
+      border-color: rgba(21, 66, 132, 0.45);
+      transform: translateY(-3px);
+      box-shadow:
+        0 0 28px -4px rgba(21, 66, 132, 0.20),
+        0 14px 32px -10px rgba(0, 0, 0, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    /* Light-mode pseudo wash — Barça blue spotlight from the top edge. */
+    [data-theme="light"] .glass-card-hover::after {
+      background: radial-gradient(
+        120% 80% at 50% 0%,
+        rgba(21, 66, 132, 0.10) 0%,
+        rgba(21, 66, 132, 0.04) 40%,
+        transparent 70%
+      );
+    }
+  }
+
+  /* Reduced motion — keep the colour/shadow change but drop the lift so
+     vestibular-sensitive users don't get the Y-shift. The global reduce
+     block already neutralises transition-duration; this rule kills the
+     transform value itself. */
+  @media (prefers-reduced-motion: reduce) {
+    .glass-card-hover:hover,
+    .glass-card.glass-card-hover:hover {
+      transform: none;
+    }
+  }
+
+  /* --- Liquid glass modal (F27.3) ---
+     Canonical surface for every public-facing modal/dialog/popover panel.
+     Heavy backdrop blur with saturation boost gives the panel a "frosted
+     pane" feel; the dark wash sits above the page so the modal floats with
+     the same liquid-glass language as the navbar and shop cards. The light
+     theme variant flips to a milky-white surface so the panel reads against
+     the cream-coloured page. Admin dialogs are intentionally NOT switched
+     to this — they use solid surfaces (see AdminDialog.tsx). */
+  .glass-modal {
+    /* Heavily opaque so page content cannot bleed through and collide
+       with modal text. Glass character is preserved by the saturated
+       backdrop-filter and the inset highlight — opacity does the
+       readability work, not the blur. */
+    background: rgb(10, 10, 20);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
     box-shadow:
-      var(--shadow-lg),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      0 8px 32px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Search palette panel — fully opaque, overrides .glass-modal background. */
+  .glass-search-panel {
+    background: rgb(10, 12, 24);
+  }
+
+  [data-theme="light"] .glass-search-panel {
+    background: rgb(248, 246, 240);
+  }
+
+  [data-theme="light"] .glass-modal {
+    background: rgb(248, 246, 240);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  /* Modal backdrop — pairs with `.glass-modal`. The `backdrop-blur-md` we
+     already had on individual panels is consolidated here so panel and
+     veil scale together. */
+  .glass-modal-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  [data-theme="light"] .glass-modal-backdrop {
+    background: rgba(20, 20, 30, 0.35);
   }
 
   /* --- Strong glass card (CTAs, hero cards, modals) --- */

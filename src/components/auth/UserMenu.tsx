@@ -135,7 +135,7 @@ export function UserMenu({ className }: UserMenuProps) {
             aria-label="Fiók menü"
             className={cn(
               "absolute top-12 right-0 w-64 origin-top-right",
-              "glass-card-strong glass-border-gradient",
+              "glass-modal glass-border-gradient",
               "p-2",
             )}
             style={{

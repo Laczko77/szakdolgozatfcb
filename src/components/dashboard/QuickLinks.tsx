@@ -129,8 +129,9 @@ function QuickLinkTile({ link, index }: { link: QuickLink; index: number }) {
           "group flex h-full items-center gap-3 rounded-[var(--radius-md)]",
           "border border-[var(--glass-border)] bg-[var(--glass-bg)]",
           "p-3.5 transition-all duration-300",
-          "hover:-translate-y-0.5 hover:border-[var(--glass-border-hover)]",
+          "hover:-translate-y-[3px] hover:border-[var(--glass-border-hover)]",
           "hover:bg-[var(--glass-bg-hover)]",
+          "hover:shadow-[0_0_20px_-6px_rgba(245,158,11,0.18)]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
         )}
       >

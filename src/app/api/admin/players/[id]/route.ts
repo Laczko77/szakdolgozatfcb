@@ -13,12 +13,21 @@ import type { Player, TablesUpdate } from '@/types/database'
  * /api/admin/players/[id]
  *
  * PUT — admin only, manual editor for the small subset of fields not owned
- * by the API-Football sync job: `bio` (text) and `image` (optional File).
+ * by the API-Football sync job: `bio` (text), `image` (optional File), and
+ * `removeImage` (optional flag).
  *
  * Synced columns (name, position, number, stats, season, api_football_id)
  * are intentionally NOT mutable here — they would be clobbered on the next
- * sync run anyway. If the admin uploads a new image, the previous one is
- * deleted from Storage AFTER the DB update succeeds (best-effort cleanup).
+ * sync run anyway.
+ *
+ * Image handling rules:
+ *   - If `image` is supplied: upload to player-images, then swap the URL.
+ *     The previously stored image (if it lived in our bucket) is deleted
+ *     after the DB update succeeds (best-effort cleanup).
+ *   - Else if `removeImage === "true"` (form field): set image_url = NULL
+ *     and delete the old object from player-images. New uploads take
+ *     precedence over removeImage if both are sent in the same request.
+ *   - Else: image_url is left untouched.
  */
 
 type RouteContext = {
@@ -32,19 +41,52 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   if (!id) return errorResponse('Hiányzó azonosító', 400)
 
-  let formData: FormData
-  try {
-    formData = await request.formData()
-  } catch {
-    return errorResponse('Érvénytelen multipart/form-data tartalom', 400)
+  // Support both multipart/form-data (image upload) and application/json
+  // (removeImage flag sent without a file). The frontend sends JSON when only
+  // a flag is needed and multipart when a file is included.
+  const contentType = request.headers.get('content-type') ?? ''
+  const isJson = contentType.includes('application/json')
+
+  let bio: string | null | undefined
+  let image: File | null
+  let removeImage: boolean
+
+  if (isJson) {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return errorResponse('Érvénytelen JSON tartalom', 400)
+    }
+    if (typeof body !== 'object' || body === null) {
+      return errorResponse('Érvénytelen kérés tartalom', 400)
+    }
+    const obj = body as Record<string, unknown>
+    bio = obj.bio === undefined
+      ? undefined
+      : (typeof obj.bio === 'string' && obj.bio.trim().length > 0)
+          ? obj.bio.trim()
+          : null
+    image = null
+    removeImage = obj.removeImage === true
+  } else {
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch {
+      return errorResponse('Érvénytelen multipart/form-data tartalom', 400)
+    }
+    bio = readNullableString(formData, 'bio')
+    image = readFile(formData, 'image')
+    removeImage = readBoolean(formData, 'removeImage')
   }
 
-  const bio = readNullableString(formData, 'bio')
-  const image = readFile(formData, 'image')
-
   // No-op guard: if neither field was supplied we have nothing to do.
-  if (bio === undefined && !image) {
-    return errorResponse('Legalább egy mező megadása szükséges (bio vagy image)', 400)
+  if (bio === undefined && !image && !removeImage) {
+    return errorResponse(
+      'Legalább egy mező megadása szükséges (bio, image vagy removeImage)',
+      400
+    )
   }
 
   const supabase = await createClient()
@@ -81,7 +123,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     updated_at: new Date().toISOString(),
   }
   if (bio !== undefined) update.bio = bio
-  if (nextImageUrl !== undefined) update.image_url = nextImageUrl
+  if (nextImageUrl !== undefined) {
+    update.image_url = nextImageUrl
+  } else if (removeImage) {
+    // Explicit clear: only honored when no replacement image was uploaded.
+    update.image_url = null
+  }
 
   const { data, error } = await supabase
     .from('players')
@@ -101,14 +148,20 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // DB succeeded — clean up the previous image if it was replaced AND it
-  // lived in our bucket (we don't try to "delete" external API-Football URLs).
-  if (
-    nextImageUrl &&
-    existing.image_url &&
-    existing.image_url !== nextImageUrl
-  ) {
-    void safeDeleteImage(existing.image_url)
+  // DB succeeded — clean up the previous image if it was replaced or
+  // explicitly removed AND it lived in our bucket (we don't try to "delete"
+  // external API-Football URLs — safeDeleteImage no-ops when the URL does
+  // not point at the player-images bucket).
+  const previousImageUrl = existing.image_url
+  const imageWasReplaced =
+    nextImageUrl !== undefined &&
+    !!previousImageUrl &&
+    previousImageUrl !== nextImageUrl
+  const imageWasRemoved =
+    nextImageUrl === undefined && removeImage && !!previousImageUrl
+
+  if (imageWasReplaced || imageWasRemoved) {
+    void safeDeleteImage(previousImageUrl as string)
   }
 
   return successResponse(data as Player)
@@ -145,4 +198,17 @@ function readFile(form: FormData, key: string): File | null {
   const value = form.get(key)
   if (value instanceof File && value.size > 0) return value
   return null
+}
+
+/**
+ * Read a boolean-flag form field. Treats only the literal strings "true"
+ * and "1" (case-insensitive) as true — everything else, including missing
+ * field, is false. Keeps the contract narrow so callers cannot accidentally
+ * trigger a destructive action by sending the field with an empty value.
+ */
+function readBoolean(form: FormData, key: string): boolean {
+  const value = form.get(key)
+  if (typeof value !== 'string') return false
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'true' || normalized === '1'
 }

@@ -141,7 +141,23 @@ function DesktopPinned({
         },
       });
 
-      return () => trigger.kill();
+      // F27.1 — recompute pin offsets after the surrounding layout settles.
+      // Image fonts and the hero video can land late on first paint, which
+      // shifts the carousel's `top` and leaves the pin starting in the
+      // wrong scroll position. A single `refresh()` after the next frame
+      // re-anchors the trigger without making the user scroll first.
+      const raf = requestAnimationFrame(() => ScrollTrigger.refresh());
+
+      // Re-refresh on viewport changes (orientation flip, devtools open/close,
+      // mobile address-bar collapse) so the pin doesn't drift mid-scroll.
+      const onResize = () => ScrollTrigger.refresh();
+      window.addEventListener("resize", onResize);
+
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener("resize", onResize);
+        trigger.kill();
+      };
     },
     { scope: containerRef, dependencies: [reduced, players.length] },
   );
@@ -153,47 +169,18 @@ function DesktopPinned({
   return (
     <div
       ref={containerRef}
-      className="relative hidden h-screen w-full overflow-hidden md:block"
+      className="relative hidden h-screen w-full overflow-hidden md:block bg-[var(--bg-primary)]"
       aria-hidden={false}
     >
-      {/* Background image — sharp, no blur. AnimatePresence cross-fades. */}
-      <AnimatePresence initial={false} mode="sync">
-        <motion.div
-          key={`bg-${active.name}`}
-          initial={reduced ? false : { opacity: 0, scale: 1.04 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute inset-0"
-        >
-          <Image
-            src={active.image}
-            alt=""
-            fill
-            sizes="100vw"
-            priority={activeIndex === 0}
-            className="object-cover object-top"
-          />
-          {/* Editorial overlay: just enough darkening for legibility. NO blur. */}
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(10,14,26,0.55) 0%, rgba(10,14,26,0.25) 35%, rgba(10,14,26,0.55) 100%)",
-            }}
-          />
-          {/* Side vignette — guides the eye to the centre frame */}
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%)",
-            }}
-          />
-        </motion.div>
-      </AnimatePresence>
+      {/* Static dark background — no player photo behind the frame */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(20,28,56,0.9) 0%, rgba(10,14,26,1) 70%)",
+        }}
+      />
 
       {/* Top + bottom fades into bg-primary */}
       <div
@@ -214,7 +201,7 @@ function DesktopPinned({
       />
 
       {/* Editorial stage */}
-      <div className="relative z-20 mx-auto flex h-full max-w-[1400px] flex-col px-12 py-24 lg:px-20">
+      <div className="relative z-20 mx-auto flex h-full max-w-[1400px] flex-col px-6 py-16 md:px-10 md:py-20 lg:px-20 lg:py-24">
         {/* ── TOP ROW: index left, name right ─────────────────────────── */}
         <div className="flex items-start justify-between">
           <AnimatePresence mode="wait">
@@ -291,7 +278,7 @@ function DesktopPinned({
               </span>
               <div className="flex items-center gap-4">
                 <span className="block h-px w-12 bg-white/40" />
-                <span className="font-display text-2xl uppercase tracking-[0.15em] text-white lg:text-3xl">
+                <span className="font-display text-xl uppercase tracking-[0.12em] text-white md:text-2xl lg:text-3xl lg:tracking-[0.15em]">
                   {active.position}
                 </span>
               </div>
@@ -436,20 +423,20 @@ function EditorialStat({
 }) {
   return (
     <div
-      className="flex min-w-[88px] flex-col items-end gap-1 px-4 py-3"
+      className="flex min-w-[60px] md:min-w-[76px] lg:min-w-[88px] flex-col items-end gap-1 px-2 py-2 md:px-3 md:py-3 lg:px-4"
       style={{
         borderLeft: "1px solid rgba(255,255,255,0.25)",
       }}
     >
       <span
-        className="font-display text-3xl leading-none lg:text-4xl"
+        className="font-display text-2xl leading-none md:text-3xl lg:text-4xl"
         style={{
           color: accent ? "var(--accent-gold)" : "#ffffff",
         }}
       >
         {value}
       </span>
-      <span className="text-[10px] uppercase tracking-[0.3em] text-white/55">
+      <span className="text-[9px] md:text-[10px] uppercase tracking-[0.25em] md:tracking-[0.3em] text-white/55">
         {label}
       </span>
     </div>

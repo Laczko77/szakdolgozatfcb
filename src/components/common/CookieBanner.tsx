@@ -63,7 +63,7 @@ export function CookieBanner() {
           <div
             className={cn(
               "pointer-events-auto mx-auto max-w-4xl",
-              "glass-card",
+              "glass-modal",
               "relative overflow-hidden",
               "p-4 sm:p-5",
             )}

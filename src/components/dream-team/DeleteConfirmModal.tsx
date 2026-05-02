@@ -54,7 +54,7 @@ export function DeleteConfirmModal({
             type="button"
             aria-label="Bezárás"
             onClick={() => !isDeleting && onCancel()}
-            className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            className="glass-modal-backdrop absolute inset-0"
             tabIndex={-1}
           />
 
@@ -65,8 +65,8 @@ export function DeleteConfirmModal({
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className={cn(
-              "relative w-full max-w-md rounded-2xl border border-[var(--accent-gold)]",
-              "bg-[var(--bg-primary)] p-6 shadow-[var(--shadow-glow-gold)]",
+              "glass-modal relative w-full max-w-md p-6",
+              "shadow-[var(--shadow-glow-gold)]",
             )}
           >
             <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">

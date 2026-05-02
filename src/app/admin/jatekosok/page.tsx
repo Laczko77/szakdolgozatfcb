@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ImageOff, Info, Pencil, RefreshCw, Users } from "lucide-react";
+import { ImageOff, Info, Pencil, RefreshCw, Trash2, Users } from "lucide-react";
 
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
@@ -20,6 +20,7 @@ import {
   AdminCardHeader,
   AdminCardTitle,
 } from "@/components/admin/AdminCard";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   AdminDialogBody,
   AdminDialogContent,
@@ -285,12 +286,27 @@ interface EditDialogProps {
 function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
   const [bio, setBio] = useState(player.bio ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  /**
+   * F27.6 — optimista képtörlés. A megerősítő dialógusból érkező
+   * `removeImage: true` payload után az UI azonnal placeholder-re vált:
+   * a `localImageUrl` lokálisan `null`-ra ugrik, így a panel a "kép
+   * törölve" állapotot mutatja, mielőtt a szerver válasza visszatérne.
+   * A backend hiba esetén visszagörgetjük az eredeti `player.image_url`
+   * értéket.
+   */
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(
+    player.image_url,
+  );
   const [submitting, setSubmitting] = useState(false);
+  const [removingImage, setRemovingImage] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
 
     if (bio.trim() === (player.bio ?? "").trim() && !imageFile) {
       setError("Nincs változtatás");
@@ -320,6 +336,37 @@ function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
     }
   };
 
+  const handleConfirmRemoveImage = async () => {
+    setError(null);
+    setInfo(null);
+    setRemovingImage(true);
+    // Optimistic: blank the preview straight away so the admin sees
+    // the placeholder while the request is in flight.
+    const previousImage = localImageUrl;
+    setLocalImageUrl(null);
+    setImageFile(null);
+
+    try {
+      await adminFetch(`/api/admin/players/${player.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ removeImage: true }),
+      });
+      setConfirmRemoveOpen(false);
+      setInfo("Kép eltávolítva");
+      // Refresh the parent list so the row's thumbnail also flips to
+      // the placeholder. We don't close the dialog — the admin may want
+      // to upload a replacement immediately.
+      await onSaved();
+    } catch (err) {
+      // Roll back the optimistic UI on failure.
+      setLocalImageUrl(previousImage);
+      setError(err instanceof Error ? err.message : "Kép eltávolítása sikertelen");
+    } finally {
+      setRemovingImage(false);
+    }
+  };
+
   return (
     <AdminDialogRoot open onOpenChange={(next) => (next ? null : onClose())}>
       <AdminDialogContent open size="lg">
@@ -334,9 +381,24 @@ function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
             <AdminField label="Játékos képe">
               <ImageDropzone
                 file={imageFile}
-                existingUrl={player.image_url}
+                existingUrl={localImageUrl}
                 onFileChange={setImageFile}
               />
+              {localImageUrl ? (
+                <div className="mt-2 flex justify-end">
+                  <AdminButton
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setConfirmRemoveOpen(true)}
+                    disabled={submitting || removingImage}
+                    loading={removingImage}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Kép eltávolítása
+                  </AdminButton>
+                </div>
+              ) : null}
             </AdminField>
             <AdminField label="Bio" htmlFor="bio">
               <AdminTextarea
@@ -347,6 +409,11 @@ function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
                 placeholder="Játékos rövid bemutatása…"
               />
             </AdminField>
+            {info ? (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+                {info}
+              </div>
+            ) : null}
             {error ? (
               <div className="rounded-md border border-[var(--accent-red)]/30 bg-[var(--accent-red)]/10 px-3 py-2 text-sm text-[var(--accent-red)]">
                 {error}
@@ -358,16 +425,28 @@ function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
               type="button"
               variant="subtle"
               onClick={onClose}
-              disabled={submitting}
+              disabled={submitting || removingImage}
             >
               Mégse
             </AdminButton>
-            <AdminButton type="submit" loading={submitting}>
+            <AdminButton type="submit" loading={submitting} disabled={removingImage}>
               Mentés
             </AdminButton>
           </AdminDialogFooter>
         </form>
       </AdminDialogContent>
+
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        onOpenChange={(open) => !removingImage && setConfirmRemoveOpen(open)}
+        title="Kép eltávolítása"
+        description="Biztosan eltávolítod a játékos képét? A művelet után a profil placeholder képet fog mutatni a publikus oldalon, amíg új képet nem töltesz fel."
+        confirmLabel="Eltávolítás"
+        cancelLabel="Mégse"
+        variant="danger"
+        loading={removingImage}
+        onConfirm={handleConfirmRemoveImage}
+      />
     </AdminDialogRoot>
   );
 }

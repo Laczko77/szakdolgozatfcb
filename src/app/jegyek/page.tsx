@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { Match } from "@/types/database";
 import { fetchMatches } from "@/lib/tickets-api";
+import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/providers/ToastProvider";
 import { MatchesTable } from "@/components/tickets/MatchesTable";
 import { MatchListMobile } from "@/components/tickets/MatchListMobile";
@@ -44,6 +45,17 @@ export default function JegyekPage() {
   const [scope, setScope] = useState<Scope>("upcoming");
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  /**
+   * F27.4 — A "Jegyvásárlás elérhető" badge csak akkor szólalhat meg, ha a
+   * meccshez tényleg konfiguráltunk szektorokat a `match_sectors` táblában.
+   * Az `/api/matches` listázó endpoint ezt nem közvetíti, így egyetlen
+   * Supabase query-vel begyűjtjük a sector match_id-kat és a frontenden
+   * építünk egy lookup Set-et, amelyet a tábla / mobil lista átkap a
+   * státusz pillulájához.
+   */
+  const [matchesWithSectors, setMatchesWithSectors] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,12 +71,39 @@ export default function JegyekPage() {
         );
         if (controller.signal.aborted) return;
         setMatches(data);
+
+        // Sector lookup — a single `IN (...)` query against match_sectors.
+        // We only need the match_id distinct list, so the payload stays
+        // tiny even on a 50-match page.
+        if (data.length > 0) {
+          const supabase = createClient();
+          const { data: sectorRows, error } = await supabase
+            .from("match_sectors")
+            .select("match_id")
+            .in(
+              "match_id",
+              data.map((m) => m.id),
+            );
+          if (controller.signal.aborted) return;
+          if (!error && sectorRows) {
+            setMatchesWithSectors(
+              new Set(
+                (sectorRows as { match_id: string }[]).map((r) => r.match_id),
+              ),
+            );
+          } else {
+            setMatchesWithSectors(new Set());
+          }
+        } else {
+          setMatchesWithSectors(new Set());
+        }
       } catch (err) {
         if (controller.signal.aborted) return;
         toast.error(
           err instanceof Error ? err.message : "Meccsek betöltése sikertelen",
         );
         setMatches([]);
+        setMatchesWithSectors(new Set());
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -142,6 +181,7 @@ export default function JegyekPage() {
               <MatchesTable
                 matches={matches}
                 forcedStatus={scope === "past" ? "past" : undefined}
+                matchesWithSectors={matchesWithSectors}
               />
             </div>
 
@@ -150,6 +190,7 @@ export default function JegyekPage() {
               <MatchListMobile
                 matches={matches}
                 forcedStatus={scope === "past" ? "past" : undefined}
+                matchesWithSectors={matchesWithSectors}
               />
             </div>
           </>

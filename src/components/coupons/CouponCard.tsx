@@ -114,7 +114,7 @@ export function CouponCard({
         "bg-[var(--glass-bg)] backdrop-blur-md",
         "shadow-[var(--shadow-md)]",
         "transition-all duration-300",
-        !disabled && "hover:-translate-y-0.5 hover:border-[var(--glass-border-hover)]",
+        !disabled && "hover:-translate-y-[3px] hover:border-[var(--glass-border-hover)]",
       )}
       style={{
         // Subtle tone wash on the top corner — unique per category without

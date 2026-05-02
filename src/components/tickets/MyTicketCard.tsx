@@ -45,10 +45,8 @@ export function MyTicketCard({
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
       className={cn(
-        "relative overflow-hidden rounded-[var(--radius-lg)] p-5 sm:p-6",
-        "border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-md",
-        "transition-colors duration-300",
-        isPast ? "opacity-70" : "hover:bg-[var(--glass-bg-hover)]",
+        "glass-card relative overflow-hidden p-5 sm:p-6",
+        isPast ? "opacity-70" : "glass-card-hover",
       )}
     >
       {/* Left edge accent — gold for upcoming, muted for past */}

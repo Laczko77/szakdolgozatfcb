@@ -98,7 +98,7 @@ export function ReviewModal({
           exit={{ opacity: 0 }}
           transition={{ duration: reduced ? 0 : 0.2 }}
           onClick={onClose}
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm"
+          className="glass-modal-backdrop fixed inset-0 z-[120] flex items-center justify-center px-4 py-8"
         >
           <motion.form
             key="review-modal"
@@ -112,7 +112,7 @@ export function ReviewModal({
               ease: [0.25, 0.46, 0.45, 0.94],
             }}
             className={cn(
-              "glass-card-strong glass-border-gradient",
+              "glass-modal glass-border-gradient",
               "relative w-full max-w-md overflow-hidden p-6",
             )}
           >

@@ -278,7 +278,7 @@ export function CommandPalette() {
             "fixed inset-0 z-[150]",
             "flex items-start justify-center",
             "px-4 py-[12vh] sm:py-[14vh]",
-            "bg-black/65 backdrop-blur-md",
+            "glass-modal-backdrop",
           )}
           onClick={(e) => {
             // Only close on direct backdrop clicks — clicks bubbling up from
@@ -304,7 +304,7 @@ export function CommandPalette() {
             }}
             className={cn(
               "relative w-full max-w-2xl overflow-hidden",
-              "glass-card-strong glass-border-gradient",
+              "glass-modal glass-search-panel glass-border-gradient",
               "shadow-[0_30px_120px_-20px_rgba(0,0,0,0.65)]",
             )}
           >
@@ -385,7 +385,7 @@ export function CommandPalette() {
               className={cn(
                 "flex items-center justify-between gap-3 px-4 py-2.5",
                 "border-t border-[var(--glass-border)]",
-                "bg-[var(--glass-bg)]/40",
+                "bg-[var(--glass-bg)]",
               )}
             >
               <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
