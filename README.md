@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FC Barcelona Szurkolói Portál
 
-## Getting Started
+Fullstack Next.js webalkalmazás — hírportál, webshop, jegyértékesítés, játékos-adatbázis, közösségi feed, szavazórendszer és admin analitika egyetlen platformon. Szakdolgozat projekt.
 
-First, run the development server:
+## Tech Stack
+
+- **Next.js 16** (App Router, TypeScript, Tailwind CSS v4)
+- **Supabase** (PostgreSQL, Auth, RLS, Storage)
+- **Framer Motion + GSAP** animációk
+- **Tiptap** rich text editor (admin CMS)
+- **Recharts** admin analitika dashboard
+
+---
+
+## Előfeltételek
+
+- Node.js 18+
+- Supabase projekt (fiók szükséges: [supabase.com](https://supabase.com))
+- API-Football kulcs (opcionális, meccs- és játékosadatokhoz): football-data.org
+
+---
+
+## Telepítés és indítás
+
+### 1. Függőségek telepítése
+
+```bash
+npm install
+```
+
+### 2. Környezeti változók beállítása
+
+```bash
+cp .env.local.example .env.local
+```
+
+Töltsd ki a `.env.local` fájlt a Supabase projekt adataival (Settings → API):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<project-id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+
+# Opcionális
+API_FOOTBALL_KEY=<api-football-key>
+```
+
+### 3. Adatbázis séma alkalmazása
+
+A `supabase/migrations/` mappában lévő SQL fájlokat sorban futtasd le a Supabase SQL szerkesztőjében (vagy Supabase CLI-vel):
+
+```bash
+# Supabase CLI-vel (ha telepítve van):
+supabase db push
+```
+
+A migrációk sorrendje: `001_storage_buckets.sql` → `021_fix_security_definer_warnings.sql`
+
+### 4. Fejlesztői szerver indítása
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Az alkalmazás elérhető: [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Elérhető szkriptek
 
-## Learn More
+| Parancs | Leírás |
+|---|---|
+| `npm run dev` | Fejlesztői szerver (hot reload) |
+| `npm run build` | Produkciós build |
+| `npm run start` | Produkciós szerver indítása (build után) |
+| `npm run lint` | ESLint ellenőrzés |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Admin hozzáférés
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Regisztráció után az admin role-t manuálisan kell beállítani a Supabase Table Editornál:
 
-## Deploy on Vercel
+```sql
+UPDATE profiles SET role = 'admin' WHERE email = 'sajat@email.com';
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Az `/admin` útvonalak csak `admin` role-lal érhetők el.
