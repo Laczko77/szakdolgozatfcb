@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { BarcaCrest } from "@/components/common/BarcaCrest";
 
 interface AuthShellProps {
   /** H1 / display heading shown above the form. */
@@ -63,13 +63,20 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           }}
         />
 
-        {/* Brand — small crest, kerned wordmark */}
+        {/* Brand — full-color logo, kerned wordmark */}
         <Link
           href="/"
           className="mb-7 flex items-center justify-center gap-3 focus-visible:outline-none"
           aria-label="Vissza a főoldalra"
         >
-          <BarcaCrest className="h-9 w-auto drop-shadow-[0_0_18px_rgba(245,158,11,0.25)]" />
+          <Image
+            src="/images/logo/logo.png"
+            alt="FC Barcelona"
+            width={147}
+            height={80}
+            priority
+            className="h-16 w-auto select-none drop-shadow-[0_0_18px_rgba(245,158,11,0.25)]"
+          />
           <span className="font-display text-[var(--accent-blue)] text-xl tracking-[0.18em]">
             BARCAPULSE
           </span>

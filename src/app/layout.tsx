@@ -37,6 +37,10 @@ export const metadata: Metadata = {
   },
   description:
     "A magyar Barça-rajongók közössége — hírek, mérkőzések, közösség és pontok.",
+  icons: {
+    icon: "/images/logo/logo.png",
+    apple: "/images/logo/logo.png",
+  },
 };
 
 export const viewport: Viewport = {

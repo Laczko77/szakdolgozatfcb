@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 /**
@@ -99,10 +100,23 @@ export function Footer() {
 
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 px-6 md:flex-row md:justify-between md:gap-4">
         {/* Brand */}
-        <div className="flex flex-col items-center gap-1 md:items-start">
-          <span className="font-display text-2xl tracking-wide text-[var(--accent-blue)]">
-            BARCAPULSE
-          </span>
+        <div className="flex flex-col items-center gap-2 md:items-start">
+          <Link
+            href="/"
+            aria-label="BARCAPULSE — főoldal"
+            className="flex items-center gap-3 transition-opacity duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] rounded-sm"
+          >
+            <Image
+              src="/images/logo/logo.png"
+              alt="FC Barcelona"
+              width={102}
+              height={56}
+              className="h-12 w-auto select-none"
+            />
+            <span className="font-display text-2xl tracking-wide text-[var(--accent-blue)]">
+              BARCAPULSE
+            </span>
+          </Link>
           <span className="text-xs text-[var(--text-muted)]">
             © {year} — A magyar culer-ek portálja.
           </span>

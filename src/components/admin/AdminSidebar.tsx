@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
   ChevronRight,
-  CircleDot,
   ClipboardList,
   Coins,
   FileText,
@@ -87,9 +87,13 @@ export function AdminSidebar({ onNavigate, mobile = false }: AdminSidebarProps) 
       )}
     >
       <div className="flex h-14 items-center gap-3 border-b border-[var(--glass-border)] px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--accent-gold)] text-[#0a0e1a]">
-          <CircleDot className="h-4 w-4" strokeWidth={2.5} />
-        </div>
+        <Image
+          src="/images/logo/logo.png"
+          alt="FC Barcelona"
+          width={59}
+          height={32}
+          className="h-8 w-auto select-none"
+        />
         <div className="flex flex-col leading-tight">
           <span className="font-display text-base uppercase tracking-[0.1em] text-[var(--text-primary)]">
             Admin Panel

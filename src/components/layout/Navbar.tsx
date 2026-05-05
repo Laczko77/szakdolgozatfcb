@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
@@ -62,14 +63,29 @@ export function Navbar() {
         <Link
           href="/"
           className={[
-            "font-display text-2xl tracking-wide",
-            "text-[var(--accent-blue)] hover:text-[var(--accent-gold)]",
-            "transition-colors duration-200",
+            "group flex items-center gap-2.5",
+            "transition-opacity duration-200 hover:opacity-90",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] rounded-sm",
           ].join(" ")}
           aria-label="BARCAPULSE — főoldal"
         >
-          BARCAPULSE
+          <Image
+            src="/images/logo/logo.png"
+            alt="FC Barcelona"
+            width={73}
+            height={40}
+            priority
+            className="h-9 w-auto select-none"
+          />
+          <span
+            className={[
+              "font-display text-2xl tracking-wide",
+              "text-[var(--accent-blue)] group-hover:text-[var(--accent-gold)]",
+              "transition-colors duration-200",
+            ].join(" ")}
+          >
+            BARCAPULSE
+          </span>
         </Link>
 
         {/* ─────────────── CENTER: NAV LINKS ─────────────── */}
