@@ -27,8 +27,7 @@ export async function seedFixedSectorsForMatch(
 
   const { data, error } = await supabase
     .from('match_sectors')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .upsert(rows as any, {
+    .upsert(rows as never, {
       onConflict: 'match_id,sector_name',
       ignoreDuplicates: true,
     })

@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { BarcaCrest } from "./BarcaCrest";
 
 interface LoadingScreenProps {
   /** Controls overlay visibility. When false, the screen unmounts. */
@@ -61,7 +61,14 @@ export function LoadingScreen({
               }
               className="drop-shadow-[0_0_24px_rgba(245,158,11,0.35)]"
             >
-              <BarcaCrest className="h-32 w-auto md:h-40" />
+              <Image
+                src="/images/logo/logo.png"
+                alt="FC Barcelona logó"
+                width={160}
+                height={160}
+                priority
+                className="h-32 w-auto md:h-40"
+              />
             </motion.div>
 
             <motion.p

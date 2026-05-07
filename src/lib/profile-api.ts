@@ -98,7 +98,8 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 // ---------------------------------------------------------------------------
 
 export async function fetchProfile(signal?: AbortSignal): Promise<Profile> {
-  return getJson<Profile>("/api/profile", signal);
+  const body = await getJson<{ data: Profile }>("/api/profile", signal);
+  return body.data;
 }
 
 export async function fetchPurchases(
@@ -143,7 +144,8 @@ export async function updateProfile(
     body: form,
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as Profile;
+  const body = (await res.json()) as { data: Profile };
+  return body.data;
 }
 
 export interface ChangePasswordArgs {
@@ -167,7 +169,8 @@ export async function changePassword({
     }),
   });
   if (!res.ok) throw new Error(await readErrorMessage(res));
-  return (await res.json()) as { updated: true };
+  const body = (await res.json()) as { data: { updated: true } };
+  return body.data;
 }
 
 // ---------------------------------------------------------------------------

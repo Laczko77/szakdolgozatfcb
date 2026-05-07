@@ -46,6 +46,13 @@ export function CommunityFeed() {
   const [authorCache, setAuthorCache] = useState<
     Record<string, AuthorSnapshot | undefined>
   >({});
+  // BUG-013 — mirror of `authorCache` kept in a ref so `resolveAuthors`
+  // can read the current cache without listing the state in its
+  // dependency array (which would invalidate `loadInitial`/`loadMore`
+  // on every cache write and risk an infinite refetch loop).
+  const authorCacheRef = useRef<Record<string, AuthorSnapshot | undefined>>(
+    {},
+  );
 
   const [ownReactions, setOwnReactions] = useState<OwnReactionMap>({});
 
@@ -61,8 +68,11 @@ export function CommunityFeed() {
 
   const resolveAuthors = useCallback(
     async (userIds: string[]) => {
+      // Read from the ref (synchronously up to date) rather than the
+      // `authorCache` state, so this callback's identity stays stable
+      // across cache writes.
       const missing = userIds.filter(
-        (id) => id && authorCache[id] === undefined,
+        (id) => id && authorCacheRef.current[id] === undefined,
       );
       if (missing.length === 0) return;
 
@@ -80,10 +90,13 @@ export function CommunityFeed() {
         for (const id of missing) {
           if (!next[id]) next[id] = null as unknown as AuthorSnapshot;
         }
+        // Keep the ref in lock-step with the state so the next call
+        // sees the just-resolved entries and skips them.
+        authorCacheRef.current = next;
         return next;
       });
     },
-    [supabase, authorCache],
+    [supabase],
   );
 
   const hydrateOwnPostReactions = useCallback(

@@ -8,6 +8,7 @@ import {
 import { deleteFile, uploadFile } from '@/lib/storage'
 import { STORAGE_BUCKETS } from '@/lib/constants'
 import type { Profile } from '@/types/database'
+import { readBool, readFile } from './_helpers'
 
 /**
  * /api/profile
@@ -151,19 +152,3 @@ export async function PUT(request: NextRequest) {
   return successResponse(data as Profile)
 }
 
-// ---------------------------------------------------------------------------
-// FormData helpers
-// ---------------------------------------------------------------------------
-
-function readFile(form: FormData, key: string): File | null {
-  const value = form.get(key)
-  if (value instanceof File && value.size > 0) return value
-  return null
-}
-
-function readBool(form: FormData, key: string): boolean {
-  const value = form.get(key)
-  if (typeof value !== 'string') return false
-  const v = value.trim().toLowerCase()
-  return v === 'true' || v === '1' || v === 'yes'
-}

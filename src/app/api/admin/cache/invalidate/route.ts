@@ -32,7 +32,7 @@ export async function POST() {
   const { error: standingsError, count: standingsDeleted } = await supabase
     .from('standings_cache' as never)
     .delete({ count: 'exact' })
-    .gte('id', 0)
+    .not('id', 'is', null)
 
   if (standingsError) {
     return errorResponse(
@@ -44,7 +44,7 @@ export async function POST() {
   const { error: scorersError, count: scorersDeleted } = await supabase
     .from('scorers_cache' as never)
     .delete({ count: 'exact' })
-    .gte('id', 0)
+    .not('id', 'is', null)
 
   if (scorersError) {
     return errorResponse(

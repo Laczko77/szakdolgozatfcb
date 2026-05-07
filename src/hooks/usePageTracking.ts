@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useConsent } from "@/providers/ConsentProvider";
 import { postPageView } from "@/lib/analytics-api";
+import { extractProductId } from "./usePageTracking.helpers";
 
 /**
  * Page-view tracking hook — F14.2.
@@ -25,18 +26,6 @@ import { postPageView } from "@/lib/analytics-api";
  *   and forwards it as `product_id` so the backend can populate the
  *   product analytics view used by F14.3 / admin dashboards.
  */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PRODUCT_PATH_RE = /^\/shop\/([^/?#]+)/i;
-
-function extractProductId(pathname: string): string | null {
-  const match = pathname.match(PRODUCT_PATH_RE);
-  if (!match) return null;
-  const candidate = match[1];
-  if (!UUID_RE.test(candidate)) return null;
-  return candidate.toLowerCase();
-}
-
 export function usePageTracking(): void {
   const pathname = usePathname();
   const { record } = useConsent();

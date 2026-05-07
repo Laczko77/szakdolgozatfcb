@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   if (from) query = query.gte('created_at', from)
   if (to) query = query.lte('created_at', to)
 
-  const { data, error } = await query
+  const { data, error } = await query.limit(100_000)
 
   if (error) {
     return errorResponse(

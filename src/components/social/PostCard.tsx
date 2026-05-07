@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -65,6 +65,22 @@ export function PostCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // BUG-014 — track the "confirm window" timer in a ref so we can
+  // cancel it on unmount (or before scheduling a new one). Without
+  // this, an admin who clicks "Törlés" then navigates away triggers a
+  // setState on an unmounted component 4s later — a benign React
+  // warning today, a real memory leak in long-lived feed sessions.
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+        confirmTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // F25.1 — prefer the JOIN-ed author the API may now ship inline; fall
   // back to the lazy `authorCache` lookup; finally render an "unknown
   // fan" placeholder rather than the meaningless "FCB" default that
@@ -81,8 +97,23 @@ export function PostCard({
     if (!onAdminDelete || deleting) return;
     if (!confirmingDelete) {
       setConfirmingDelete(true);
-      setTimeout(() => setConfirmingDelete(false), 4000);
+      // Clear any prior timer first — if the admin clicks "Törlés"
+      // twice in quick succession we want a fresh 4s window, not two
+      // overlapping ones racing each other.
+      if (confirmTimeoutRef.current) {
+        clearTimeout(confirmTimeoutRef.current);
+      }
+      confirmTimeoutRef.current = setTimeout(() => {
+        setConfirmingDelete(false);
+        confirmTimeoutRef.current = null;
+      }, 4000);
       return;
+    }
+    // Confirmed — cancel the auto-reset timer so it can't flip the
+    // button label mid-delete.
+    if (confirmTimeoutRef.current) {
+      clearTimeout(confirmTimeoutRef.current);
+      confirmTimeoutRef.current = null;
     }
     setDeleting(true);
     try {

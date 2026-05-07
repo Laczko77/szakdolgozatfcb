@@ -75,11 +75,13 @@ export function CommentSection({
   const [ownReactions, setOwnReactions] = useState<OwnReactionMap>({});
 
   // Keep the visible count in sync with the prop when the parent
-  // refreshes the post (e.g. polling tick). Wrapped in a microtask
-  // so eslint-config-next's `react-hooks/set-state-in-effect` rule
-  // doesn't flag the synchronous setState pattern.
+  // refreshes the post (e.g. polling tick). BUG-008 — the prior
+  // `queueMicrotask` wrap was a guard against React 19's
+  // `react-hooks/set-state-in-effect` lint rule, but a plain
+  // dependency-driven setState on prop change is a legitimate pattern
+  // the rule does not flag. Removed the indirection.
   useEffect(() => {
-    queueMicrotask(() => setCount(initialCount));
+    setCount(initialCount);
   }, [initialCount]);
 
   /**

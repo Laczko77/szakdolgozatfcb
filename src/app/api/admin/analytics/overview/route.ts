@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { errorResponse, requireAdminApi, successResponse } from '@/lib/api-utils'
 
 /**
@@ -23,7 +23,7 @@ export async function GET() {
   const guard = await requireAdminApi()
   if (guard instanceof NextResponse) return guard
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const [
     usersRes,

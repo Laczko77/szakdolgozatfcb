@@ -183,9 +183,25 @@ export function ChatView({
 
     try {
       const saved = await sendMessage(conversationId, content);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...saved } : m)),
-      );
+      // BUG-017 — guard the temp→server swap against a Realtime INSERT
+      // that may have landed *before* this POST resolved. If the
+      // Realtime channel already appended the saved row (by real id),
+      // we'd otherwise produce two rows with the same id after the
+      // map below. We map first, then dedupe by id to keep at most
+      // one entry per message.
+      setMessages((prev) => {
+        const swapped = prev.map((m) =>
+          m.id === tempId ? { ...saved } : m,
+        );
+        const seen = new Set<string>();
+        const deduped: DisplayMessage[] = [];
+        for (const m of swapped) {
+          if (seen.has(m.id)) continue;
+          seen.add(m.id);
+          deduped.push(m);
+        }
+        return deduped;
+      });
     } catch (err) {
       // Roll back the optimistic insert.
       setMessages((prev) => prev.filter((m) => m.id !== tempId));

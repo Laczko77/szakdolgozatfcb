@@ -142,18 +142,32 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const commentIds = (commentIdsRaw ?? []).map((c) => (c as { id: string }).id)
 
-  await supabase
+  const { error: reactionsError } = await supabase
     .from('reactions')
     .delete()
     .eq('target_type', 'post')
     .eq('target_id', id)
 
+  if (reactionsError) {
+    return errorResponse(
+      `Reakciók törlése sikertelen: ${reactionsError.message}`,
+      500
+    )
+  }
+
   if (commentIds.length > 0) {
-    await supabase
+    const { error: commentReactionsError } = await supabase
       .from('reactions')
       .delete()
       .eq('target_type', 'comment')
       .in('target_id', commentIds)
+
+    if (commentReactionsError) {
+      return errorResponse(
+        `Komment reakciók törlése sikertelen: ${commentReactionsError.message}`,
+        500
+      )
+    }
   }
 
   const { error: deleteError } = await supabase

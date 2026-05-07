@@ -52,6 +52,18 @@ export function ArticleContent({ content }: ArticleContentProps) {
         a: ["href", "title", "target", "rel"],
         img: ["src", "alt"],
       },
+      // BUG-002 — force `rel="noopener noreferrer"` on every <a>.
+      // The Tiptap editor allows authors to set `target="_blank"`, and
+      // without the rel attribute that exposes us to reverse-tabnabbing
+      // and a leaked Referer header. We overwrite any author-supplied
+      // rel rather than merging — the security posture must not be
+      // negotiable from inside CMS content.
+      transformTags: {
+        a: (tagName, attribs) => ({
+          tagName,
+          attribs: { ...attribs, rel: "noopener noreferrer" },
+        }),
+      },
     });
 
     return (

@@ -38,11 +38,17 @@ export type UploadedFile = {
  *
  * Throws on Supabase errors so the caller can map them to HTTP responses.
  */
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
 export async function uploadFile(
   bucket: string,
   file: File,
   path?: string
 ): Promise<string> {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('A fájl mérete nem haladhatja meg az 5 MB-ot')
+  }
+
   const supabase = createServiceRoleClient()
 
   const objectPath = path ?? generateObjectPath(file.name)

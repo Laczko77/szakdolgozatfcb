@@ -160,16 +160,52 @@ export function CartProvider({ children }: CartProviderProps) {
 
   const removeItem = useCallback(
     async (id: string) => {
-      const prev = cartItems;
-      setCartItems((curr) => curr.filter((item) => item.id !== id));
+      // BUG-006 — capture the removed row inside the functional setState
+      // so the rollback path doesn't depend on a stale `cartItems`
+      // closure. Two rapid removeItem() calls used to share the same
+      // `prev` snapshot (because `cartItems` was frozen at callback
+      // creation time), which silently resurrected a row when the
+      // second call's API request failed. Reading the row from the
+      // setter's `curr` argument guarantees we always see the latest
+      // committed state, and lets us drop `cartItems` from the
+      // dependency array — `removeItem`'s identity is now stable, so
+      // the memoised context value no longer thrashes consumers on
+      // every cart mutation.
+      let removed: CartLineItem | undefined;
+      let removedIndex = -1;
+      setCartItems((curr) => {
+        const idx = curr.findIndex((item) => item.id === id);
+        if (idx === -1) return curr;
+        removed = curr[idx];
+        removedIndex = idx;
+        return [...curr.slice(0, idx), ...curr.slice(idx + 1)];
+      });
       try {
         await apiRemoveCartItem(id);
       } catch (err) {
-        setCartItems(prev);
+        // Restore at the original position when possible — keeps the
+        // visual order stable through a failed delete.
+        if (removed) {
+          const restored = removed;
+          const targetIndex = removedIndex;
+          setCartItems((curr) => {
+            // Bail if a concurrent action already re-added the row.
+            if (curr.some((item) => item.id === restored.id)) return curr;
+            const insertAt =
+              targetIndex >= 0 && targetIndex <= curr.length
+                ? targetIndex
+                : curr.length;
+            return [
+              ...curr.slice(0, insertAt),
+              restored,
+              ...curr.slice(insertAt),
+            ];
+          });
+        }
         throw err;
       }
     },
-    [cartItems],
+    [],
   );
 
   const clearLocalCart = useCallback(() => {

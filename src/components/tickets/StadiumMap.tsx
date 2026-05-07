@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import { FIXED_SECTORS, type SectorName } from "@/lib/constants/sectors";
 import type { SectorWithAvailability } from "@/lib/tickets-api";
+import { buildSlotMap, describeSector } from "./StadiumMap.helpers";
 
 interface StadiumMapProps {
   sectors: SectorWithAvailability[];
@@ -529,31 +530,6 @@ const SLOT_GEOMETRY: Record<SectorName, SlotGeometry> = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function buildSlotMap(
-  sectors: SectorWithAvailability[],
-): Record<SectorName, SectorWithAvailability | null> {
-  const map: Record<SectorName, SectorWithAvailability | null> = {
-    TRIBUNA: null,
-    LATERAL: null,
-    "GOL NORD": null,
-    "GOL SUD": null,
-  };
-  for (const sector of sectors) {
-    const name = sector.sector_name as SectorName;
-    if (name in map) map[name] = sector;
-  }
-  return map;
-}
-
-function describeSector(
-  name: SectorName,
-  sector: SectorWithAvailability | null,
-): string {
-  if (!sector) return `${name} szektor — hamarosan elérhető`;
-  if (sector.is_sold_out) return `${name} szektor — betelt`;
-  return `${name} szektor — ${sector.available_seats} szabad hely, ${formatPrice(Number(sector.price))} jegyenként`;
-}
 
 function LegendDot({
   colorClass,
