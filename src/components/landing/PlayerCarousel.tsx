@@ -169,18 +169,13 @@ function DesktopPinned({
   return (
     <div
       ref={containerRef}
-      className="relative hidden h-screen w-full overflow-hidden md:block bg-[#0a0e1a]"
+      className="relative hidden h-screen w-full overflow-hidden md:block bg-[var(--bg-primary)]"
       aria-hidden={false}
     >
-      {/* Static dark background — no player photo behind the frame */}
-      <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(20,28,56,0.9) 0%, rgba(10,14,26,1) 70%)",
-        }}
-      />
+      {/* Background comes from --bg-primary so the section adapts to the
+          active theme (dark navy in dark mode, warm parchment in light mode).
+          No hardcoded gradient overlay sits on top — the page background is
+          the canvas. */}
 
       {/* Top + bottom fades into bg-primary */}
       <div
@@ -219,8 +214,8 @@ function DesktopPinned({
               >
                 {indexLabel}
               </span>
-              <span className="block h-px w-16 bg-white/40" />
-              <span className="text-xs uppercase tracking-[0.4em] text-white/60">
+              <span className="block h-px w-16 bg-[var(--glass-border)]" />
+              <span className="text-xs uppercase tracking-[0.4em] text-[var(--text-secondary)]">
                 / {totalLabel}
               </span>
             </motion.div>
@@ -235,10 +230,10 @@ function DesktopPinned({
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col items-end gap-2 text-right"
             >
-              <span className="text-xs uppercase tracking-[0.4em] text-white/60">
+              <span className="text-xs uppercase tracking-[0.4em] text-[var(--text-secondary)]">
                 Szezon · 25/26
               </span>
-              <h3 className="font-display text-4xl leading-[0.95] text-white lg:text-5xl xl:text-6xl">
+              <h3 className="font-display text-4xl leading-[0.95] text-[var(--text-primary)] lg:text-5xl xl:text-6xl">
                 {active.name.toUpperCase()}
               </h3>
               <span
@@ -273,12 +268,12 @@ function DesktopPinned({
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col gap-3"
             >
-              <span className="text-xs uppercase tracking-[0.4em] text-white/60">
+              <span className="text-xs uppercase tracking-[0.4em] text-[var(--text-secondary)]">
                 Pozíció
               </span>
               <div className="flex items-center gap-4">
-                <span className="block h-px w-12 bg-white/40" />
-                <span className="font-display text-xl uppercase tracking-[0.12em] text-white md:text-2xl lg:text-3xl lg:tracking-[0.15em]">
+                <span className="block h-px w-12 bg-[var(--glass-border)]" />
+                <span className="font-display text-xl uppercase tracking-[0.12em] text-[var(--text-primary)] md:text-2xl lg:text-3xl lg:tracking-[0.15em]">
                   {active.position}
                 </span>
               </div>
@@ -294,7 +289,7 @@ function DesktopPinned({
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col items-end gap-3"
             >
-              <span className="text-xs uppercase tracking-[0.4em] text-white/60">
+              <span className="text-xs uppercase tracking-[0.4em] text-[var(--text-secondary)]">
                 Idény statisztika
               </span>
               <div className="flex items-stretch gap-3">
@@ -340,9 +335,9 @@ function PortraitFrame({
         aria-hidden
         className="absolute inset-0 rounded-[2px]"
         style={{
-          border: "1px solid rgba(255,255,255,0.7)",
+          border: "1px solid var(--glass-border)",
           boxShadow:
-            "0 30px 80px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.04)",
+            "0 30px 80px rgba(0,0,0,0.5), 0 0 0 8px rgba(0,0,0,0.04)",
         }}
       />
       {/* Inner inset — creates the "matted print" look */}
@@ -350,7 +345,7 @@ function PortraitFrame({
         className="absolute overflow-hidden rounded-[1px]"
         style={{
           inset: "10px",
-          background: "rgba(10,14,26,0.4)",
+          background: "var(--glass-bg-strong)",
         }}
       >
         <Image
@@ -379,7 +374,7 @@ function PortraitFrame({
 
       {/* Caption strip below frame */}
       <div
-        className="absolute -bottom-10 left-0 right-0 flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-white/55"
+        className="absolute -bottom-10 left-0 right-0 flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-[var(--text-secondary)]"
       >
         <span>FCB · {String(player.number).padStart(2, "0")}</span>
         <span>{player.position}</span>
@@ -401,8 +396,8 @@ function CornerTick({
       className={`pointer-events-none absolute h-3 w-3 ${className}`}
       style={{
         transform: `rotate(${rotate}deg)`,
-        borderLeft: "1px solid rgba(255,255,255,0.85)",
-        borderTop: "1px solid rgba(255,255,255,0.85)",
+        borderLeft: "1px solid var(--text-secondary)",
+        borderTop: "1px solid var(--text-secondary)",
       }}
     />
   );
@@ -425,18 +420,18 @@ function EditorialStat({
     <div
       className="flex min-w-[60px] md:min-w-[76px] lg:min-w-[88px] flex-col items-end gap-1 px-2 py-2 md:px-3 md:py-3 lg:px-4"
       style={{
-        borderLeft: "1px solid rgba(255,255,255,0.25)",
+        borderLeft: "1px solid var(--glass-border)",
       }}
     >
       <span
         className="font-display text-2xl leading-none md:text-3xl lg:text-4xl"
         style={{
-          color: accent ? "var(--accent-gold)" : "#ffffff",
+          color: accent ? "var(--accent-gold)" : "var(--text-primary)",
         }}
       >
         {value}
       </span>
-      <span className="text-[9px] md:text-[10px] uppercase tracking-[0.25em] md:tracking-[0.3em] text-white/55">
+      <span className="text-[9px] md:text-[10px] uppercase tracking-[0.25em] md:tracking-[0.3em] text-[var(--text-secondary)]">
         {label}
       </span>
     </div>
@@ -571,7 +566,7 @@ function ProgressDots({ count, active }: { count: number; active: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <li
           key={i}
-          className="h-8 w-px overflow-hidden rounded-full bg-white/15"
+          className="h-8 w-px overflow-hidden rounded-full bg-[var(--glass-bg-strong)]"
         >
           <span
             className="block w-full origin-top transition-transform duration-500"
