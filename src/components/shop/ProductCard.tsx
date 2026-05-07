@@ -22,11 +22,13 @@ interface ProductCardProps {
  * Glass product card used on the storefront listings.
  *
  * The image area sits on a darker glass surface so jersey photography pops
- * without the card looking flat.  Hover reveals a "Részletek" (View)
- * affordance that clarifies the whole card is a navigation target — an
- * actual "Add to cart" CTA is intentionally absent on the listing because
- * variant selection (size/colour) is required before adding to cart, and
- * the listing has no room to host a variant picker without becoming busy.
+ * without the card looking flat.  A persistent "Részletek" (View) pill
+ * sits at the bottom of the info block so the navigation affordance is
+ * always visible — including on touch devices, where the previous
+ * hover-only treatment was a no-op.  An actual "Add to cart" CTA is
+ * intentionally absent on the listing because variant selection
+ * (size/colour) is required before adding to cart, and the listing has
+ * no room to host a variant picker without becoming busy.
  */
 export function ProductCard({
   product,
@@ -106,37 +108,36 @@ export function ProductCard({
             </span>
           )}
 
-          {/* "View" affordance — slides in on hover only on hover-capable
-              devices.  Mobile users see a still card and tap-through. */}
-          <div
-            className={cn(
-              "absolute inset-x-3 bottom-3 z-10",
-              "flex items-center justify-center",
-              "rounded-full px-4 py-2 text-xs font-medium uppercase tracking-wider",
-              "border border-[var(--accent-gold)] bg-[var(--glass-bg-strong)] backdrop-blur-md",
-              "text-[var(--text-primary)]",
-              "translate-y-2 opacity-0",
-              "transition-all duration-300 ease-out",
-              "group-hover:translate-y-0 group-hover:opacity-100",
-              "@media (hover: none) { opacity-100 translate-y-0 }",
-            )}
-          >
-            Részletek
-          </div>
         </div>
 
         {/* Body */}
-        <div className="flex flex-1 flex-col gap-2 p-4">
-          <h3 className="font-display text-lg leading-tight tracking-wide text-[var(--text-primary)]">
+        <div className="flex flex-1 flex-col gap-2 p-4 pt-3">
+          <h3
+            className={cn(
+              "font-display text-base leading-tight tracking-wide",
+              "text-[var(--text-primary)] line-clamp-2",
+            )}
+          >
             {product.name}
           </h3>
 
           <RatingStars value={averageRating} count={reviewCount} />
 
-          <div className="mt-auto pt-2">
-            <span className="font-display text-xl tracking-wide text-[var(--accent-gold)]">
+          <div className="mt-auto space-y-2 pt-2">
+            <span className="block font-display text-xl tracking-wide text-[var(--accent-gold)]">
               {formatPrice(product.price)}
             </span>
+            <div
+              className={cn(
+                "flex w-full items-center justify-center rounded-full py-1.5",
+                "border border-[var(--glass-border)] bg-[var(--glass-bg-strong)]",
+                "text-xs font-medium uppercase tracking-wider text-[var(--text-primary)]",
+                "transition-colors duration-200",
+                "group-hover:border-[var(--accent-gold)] group-hover:text-[var(--accent-gold)]",
+              )}
+            >
+              Részletek
+            </div>
           </div>
         </div>
       </Link>

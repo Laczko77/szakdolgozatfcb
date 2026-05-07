@@ -11,7 +11,7 @@ export function PlayerCardSkeleton() {
   return (
     <li
       className={cn(
-        "list-none aspect-[3/4] w-full overflow-hidden rounded-2xl",
+        "relative list-none aspect-[3/4] w-full overflow-hidden rounded-2xl",
         "border border-[var(--glass-border)] bg-[var(--glass-bg)]",
         "animate-pulse",
       )}

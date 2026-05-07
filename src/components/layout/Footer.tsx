@@ -71,9 +71,9 @@ const ytGlyph = (
 );
 
 const SOCIALS: ReadonlyArray<SocialLink> = [
-  { label: "X / Twitter", href: "#", glyph: xGlyph },
-  { label: "Instagram", href: "#", glyph: igGlyph },
-  { label: "YouTube", href: "#", glyph: ytGlyph },
+  { label: "X / Twitter", href: "https://x.com/FCBarcelona", glyph: xGlyph },
+  { label: "Instagram", href: "https://www.instagram.com/fcbarcelona/", glyph: igGlyph },
+  { label: "YouTube", href: "https://www.youtube.com/fcbarcelona", glyph: ytGlyph },
 ];
 
 export function Footer() {

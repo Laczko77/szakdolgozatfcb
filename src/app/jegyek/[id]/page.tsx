@@ -231,8 +231,8 @@ export default function MatchDetailPage() {
           )}
         </div>
 
-        <h1 className="font-display text-5xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-6xl lg:text-7xl">
-          <span className="flex items-center gap-4 sm:gap-5">
+        <h1 className="flex flex-col font-display text-4xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-5xl lg:flex-row lg:items-center lg:gap-6 lg:text-5xl xl:text-6xl">
+          <span className="flex min-w-0 items-center gap-3 sm:gap-4">
             <TeamCrest
               url={match.home_team_crest}
               teamName={match.home_team}
@@ -250,13 +250,13 @@ export default function MatchDetailPage() {
             <span className="min-w-0 truncate">{match.home_team}</span>
           </span>
 
-          <span className="my-3 flex items-center gap-3 text-base font-normal uppercase tracking-[0.4em] text-[var(--text-muted)] sm:my-4">
-            <span aria-hidden className="h-px w-8 bg-[var(--glass-border)] sm:w-12" />
+          <span className="my-3 flex items-center gap-3 text-base font-normal uppercase tracking-[0.4em] text-[var(--text-muted)] sm:my-4 lg:my-0 lg:mx-2 lg:shrink-0 lg:text-sm">
+            <span aria-hidden className="h-px w-8 bg-[var(--glass-border)] sm:w-12 lg:w-6" />
             <span>vs.</span>
-            <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)]" />
+            <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)] lg:w-6 lg:flex-none" />
           </span>
 
-          <span className="flex items-center gap-4 sm:gap-5">
+          <span className="flex min-w-0 items-center gap-3 sm:gap-4">
             <TeamCrest
               url={match.away_team_crest}
               teamName={match.away_team}

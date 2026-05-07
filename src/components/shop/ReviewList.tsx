@@ -47,7 +47,7 @@ export function ReviewList({ reviews, authors }: ReviewListProps) {
             key={review.id}
             className={cn("glass-card p-4 sm:p-5")}
           >
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-3 flex flex-wrap items-start gap-3">
               <div
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
@@ -58,15 +58,17 @@ export function ReviewList({ reviews, authors }: ReviewListProps) {
               >
                 {initials}
               </div>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <span className="font-display text-sm tracking-wide text-[var(--text-primary)]">
-                  {author?.username ?? "Szurkoló"}
-                </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-display text-sm tracking-wide text-[var(--text-primary)]">
+                    {author?.username ?? "Szurkoló"}
+                  </span>
+                  <RatingStars value={review.rating} size={13} />
+                </div>
                 <span className="text-xs text-[var(--text-muted)]">
                   {formatDate(review.created_at)}
                 </span>
               </div>
-              <RatingStars value={review.rating} size={14} />
             </div>
             {review.comment && (
               <p className="text-sm leading-relaxed text-[var(--text-secondary)]">

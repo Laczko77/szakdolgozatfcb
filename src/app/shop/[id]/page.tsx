@@ -36,6 +36,9 @@ export default function ProductDetailPage({ params }: PageProps) {
   const { addItem, openCart } = useCart();
 
   const [data, setData] = useState<ProductDetailResponse | null>(null);
+  const [authors, setAuthors] = useState<
+    Record<string, { username: string | null; avatarUrl: string | null }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -52,6 +55,45 @@ export default function ProductDetailPage({ params }: PageProps) {
       const fresh = await fetchProduct(id);
       setData(fresh);
       setNotFound(false);
+
+      // Hydrate review authors via the public profiles table.  The reviews
+      // API does not join profiles, so we look them up here in a single
+      // batched query keyed by user_id.  Failure is non-fatal — the list
+      // still renders with the "Szurkoló" fallback if the lookup errors.
+      if (fresh && fresh.reviews.length > 0) {
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          const userIds = [
+            ...new Set(fresh.reviews.map((r) => r.user_id)),
+          ];
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, username, avatar_url")
+            .in("id", userIds);
+          if (profiles) {
+            const map: Record<
+              string,
+              { username: string | null; avatarUrl: string | null }
+            > = {};
+            for (const p of profiles as Array<{
+              id: string;
+              username: string | null;
+              avatar_url: string | null;
+            }>) {
+              map[p.id] = {
+                username: p.username ?? null,
+                avatarUrl: p.avatar_url ?? null,
+              };
+            }
+            setAuthors(map);
+          }
+        } catch {
+          // Swallow — the list renders fine without authors.
+        }
+      } else {
+        setAuthors({});
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Termék nem található";
       if (/404|nem található/i.test(msg)) setNotFound(true);
@@ -333,7 +375,7 @@ export default function ProductDetailPage({ params }: PageProps) {
           )}
         </header>
 
-        <ReviewList reviews={reviews} />
+        <ReviewList reviews={reviews} authors={authors} />
       </section>
 
       {/* Modal */}
