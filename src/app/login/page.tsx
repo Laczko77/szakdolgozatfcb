@@ -58,13 +58,28 @@ function LoginPageInner() {
   const returnUrl =
     search.get("returnUrl") ?? search.get("redirect") ?? "/dashboard";
 
-  const [email, setEmail] = useState("");
+  // ?error=email_exists comes from the /auth/callback route when a Google
+  // login collides with an existing email+password account.
+  const urlError = search.get("error");
+  const urlErrorEmail = search.get("email");
+
+  const [email, setEmail] = useState(urlErrorEmail ?? "");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
     form?: string;
-  }>({});
+  }>(() => {
+    if (urlError === "email_exists") {
+      return {
+        form: `Ezzel az email címmel (${urlErrorEmail ?? ""}) már regisztráltál jelszóval. Jelentkezz be jelszóval — a profilodban később csatolhatod a Google fiókodat.`,
+      };
+    }
+    if (urlError === "auth_failed" || urlError === "oauth_error") {
+      return { form: "A Google-bejelentkezés nem sikerült. Próbáld újra." };
+    }
+    return {};
+  });
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
