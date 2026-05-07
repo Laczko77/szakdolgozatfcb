@@ -169,7 +169,7 @@ function DesktopPinned({
   return (
     <div
       ref={containerRef}
-      className="relative hidden h-screen w-full overflow-hidden md:block bg-[var(--bg-primary)]"
+      className="relative hidden h-screen w-full overflow-hidden md:block bg-[#0a0e1a]"
       aria-hidden={false}
     >
       {/* Static dark background — no player photo behind the frame */}
@@ -201,7 +201,7 @@ function DesktopPinned({
       />
 
       {/* Editorial stage */}
-      <div className="relative z-20 mx-auto flex h-full max-w-[1400px] flex-col px-6 py-16 md:px-10 md:py-20 lg:px-20 lg:py-24">
+      <div className="relative z-20 mx-auto flex h-full max-w-[1400px] flex-col px-6 py-12 md:px-10 md:py-14 lg:px-20 lg:py-20">
         {/* ── TOP ROW: index left, name right ─────────────────────────── */}
         <div className="flex items-start justify-between">
           <AnimatePresence mode="wait">
@@ -252,7 +252,7 @@ function DesktopPinned({
         </div>
 
         {/* ── CENTRE FRAME ────────────────────────────────────────────── */}
-        <div className="relative flex flex-1 items-center justify-center">
+        <div className="relative flex flex-1 min-h-0 items-center justify-center">
           <AnimatePresence mode="wait">
             <PortraitFrame
               key={`frame-${active.name}`}
@@ -331,7 +331,7 @@ function PortraitFrame({
       transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
       className="relative"
       style={{
-        width: "clamp(260px, 26vw, 360px)",
+        width: "clamp(200px, 22vw, 360px)",
         aspectRatio: "3 / 4",
       }}
     >

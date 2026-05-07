@@ -146,7 +146,7 @@ export default function HeroSection() {
         className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 text-center"
       >
         <h1
-          className="font-display text-[14vw] leading-[0.95] tracking-tight text-[var(--text-primary)] sm:text-7xl md:text-8xl lg:text-[clamp(6rem,10vw,11rem)]"
+          className="font-display text-[14vw] leading-[0.95] tracking-tight text-white sm:text-7xl md:text-8xl lg:text-[clamp(6rem,10vw,11rem)]"
           aria-label={HEADLINE}
         >
           {words.map((word, i) => (
@@ -163,7 +163,7 @@ export default function HeroSection() {
 
         <motion.p
           variants={taglineVariants}
-          className="mt-6 max-w-xl text-base text-[var(--text-secondary)] sm:text-lg md:text-xl"
+          className="mt-6 max-w-xl text-base text-white/80 sm:text-lg md:text-xl"
         >
           {TAGLINE}
         </motion.p>
