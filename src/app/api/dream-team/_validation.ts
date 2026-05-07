@@ -42,7 +42,7 @@ export function validateDreamTeamPayload(
   body: unknown,
   options: { partial: boolean }
 ): ValidationResult<DreamTeamPayload> {
-  if (typeof body !== 'object' || body === null) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return { ok: false, error: 'Érvénytelen kérés' }
   }
   const candidate = body as Record<string, unknown>
