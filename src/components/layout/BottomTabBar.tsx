@@ -45,7 +45,7 @@ export function BottomTabBar() {
                 aria-current={active ? "page" : undefined}
                 aria-label={tab.label}
                 className={[
-                  "relative flex h-16 flex-col items-center justify-center gap-1",
+                  "relative flex h-14 flex-col items-center justify-center",
                   "transition-colors duration-200",
                   active
                     ? "text-[var(--accent-gold)]"
@@ -70,9 +70,6 @@ export function BottomTabBar() {
                   />
                 )}
                 <Icon size={22} strokeWidth={active ? 2 : 1.75} />
-                <span className="text-[10px] font-medium leading-none tracking-wide">
-                  {tab.label}
-                </span>
               </Link>
             </li>
           );
