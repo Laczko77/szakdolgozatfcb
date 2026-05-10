@@ -13,6 +13,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { QuantityStepper } from "./QuantityStepper";
+import { SalePriceBlock } from "./SalePriceBlock";
 
 /**
  * Slide-in cart drawer.
@@ -158,7 +159,17 @@ export function CartDrawer() {
                   <AnimatePresence initial={false}>
                     {cartItems.map((item) => {
                       const product = item.variant?.product;
-                      const price = product?.price ?? 0;
+                      const catalogPrice = Number(product?.price ?? 0);
+                      // The snapshot is the price the customer is actually
+                      // charged — when it differs from `catalogPrice` we
+                      // know an active sale was honoured at add-to-cart
+                      // time and should be shown as a strikethrough next
+                      // to the snapshot.
+                      const snapshot = Number(item.unit_price_snapshot ?? 0);
+                      const effectiveUnit =
+                        snapshot > 0 ? snapshot : catalogPrice;
+                      const isDiscounted =
+                        snapshot > 0 && snapshot < catalogPrice;
                       return (
                         <motion.li
                           key={item.id}
@@ -221,9 +232,14 @@ export function CartDrawer() {
                                 size="sm"
                                 max={item.variant?.stock ?? 99}
                               />
-                              <span className="font-display text-base tracking-wide text-[var(--accent-gold)]">
-                                {formatPrice(price * item.quantity)}
-                              </span>
+                              <SalePriceBlock
+                                price={catalogPrice * item.quantity}
+                                effectivePrice={effectiveUnit * item.quantity}
+                                isOnSale={isDiscounted}
+                                size="sm"
+                                layout="stacked"
+                                className="items-end text-right"
+                              />
                             </div>
                           </div>
                         </motion.li>

@@ -282,12 +282,19 @@ export function CartProvider({ children }: CartProviderProps) {
     [cartItems],
   );
 
+  // F29 — total prefers `unit_price_snapshot` (the price the customer saw
+  // at add-to-cart time, sale-aware) over the live product price. Falls
+  // back to the live price for legacy rows where the snapshot may be 0.
+  // Mirrors the server-side calculation in /api/cart so summary, drawer
+  // and checkout always agree.
   const cartTotal = useMemo(
     () =>
-      cartItems.reduce(
-        (sum, item) => sum + (item.variant?.product?.price ?? 0) * item.quantity,
-        0,
-      ),
+      cartItems.reduce((sum, item) => {
+        const snapshot = item.unit_price_snapshot ?? 0;
+        const fallback = item.variant?.product?.price ?? 0;
+        const price = snapshot > 0 ? snapshot : fallback;
+        return sum + price * item.quantity;
+      }, 0),
     [cartItems],
   );
 

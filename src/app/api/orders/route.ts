@@ -68,21 +68,14 @@ export async function POST(request: NextRequest) {
   // coupon path. The route itself is auth-guarded, so user.id is trustworthy.
   const supabase = createServiceRoleClient()
 
-  // 1. Snapshot cart subtotal so we can pass total_price to the RPC. The RPC
-  //    re-reads the cart under FOR UPDATE locks, so a stale subtotal here
-  //    would only affect the persisted total — but the same lock ordering
-  //    means the snapshot is what the RPC sees too. Coupon discount is
-  //    applied separately after the order exists.
+  // 1. Snapshot cart subtotal so we can pass total_price to the RPC. Iter25:
+  //    we use `unit_price_snapshot` (captured at add-to-cart time) instead of
+  //    the live product price — that way an expired sale between add-to-cart
+  //    and checkout still bills the customer at the sale price they saw.
+  //    The RPC reads the same column under FOR UPDATE locks for order_items.
   const { data: cartRows, error: cartError } = await supabase
     .from('cart_items')
-    .select(
-      `
-      quantity,
-      variant:product_variants (
-        product:products ( price )
-      )
-    `
-    )
+    .select('quantity, unit_price_snapshot')
     .eq('user_id', user.id)
 
   if (cartError) {
@@ -91,9 +84,7 @@ export async function POST(request: NextRequest) {
 
   type CartRow = {
     quantity: number
-    variant: {
-      product: { price: number } | null
-    } | null
+    unit_price_snapshot: number
   }
   const cart = (cartRows ?? []) as unknown as CartRow[]
 
@@ -101,10 +92,10 @@ export async function POST(request: NextRequest) {
     return errorResponse('A kosár üres', 400)
   }
 
-  const subtotal = cart.reduce((sum, item) => {
-    const price = item.variant?.product?.price ?? 0
-    return sum + price * item.quantity
-  }, 0)
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.unit_price_snapshot * item.quantity,
+    0
+  )
   const subtotalRounded = Number(subtotal.toFixed(2))
 
   // 2. Atomic checkout: stock validation, order + order_items insert, stock

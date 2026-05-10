@@ -1,87 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Article, Match, PointTransaction } from "@/types/database";
-import type { OrderWithItems } from "@/lib/shop-api";
-import type { EnrichedPoll } from "@/lib/polls-api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { motion } from "framer-motion";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
-import { fetchOrders } from "@/lib/shop-api";
-import {
-  fetchLatestArticles,
-  fetchNextMatch,
-  fetchPoints,
-} from "@/lib/dashboard-api";
-import { fetchPolls } from "@/lib/polls-api";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
-import { NextMatchWidget } from "@/components/dashboard/NextMatchWidget";
-import { LatestNewsWidget } from "@/components/dashboard/LatestNewsWidget";
-import { PointsWidget } from "@/components/dashboard/PointsWidget";
-import { OrdersWidget } from "@/components/dashboard/OrdersWidget";
-import { ActivePollWidget } from "@/components/dashboard/ActivePollWidget";
-import { StandingsWidget } from "@/components/dashboard/StandingsWidget";
-import { TopScorersWidget } from "@/components/dashboard/TopScorersWidget";
-import { QuickLinks } from "@/components/dashboard/QuickLinks";
-import { RecommendedProductsWidget } from "@/components/dashboard/RecommendedProductsWidget";
 import {
   DashboardHeroSkeleton,
   WidgetSkeleton,
 } from "@/components/dashboard/WidgetSkeleton";
+import { QuickLinks } from "@/components/dashboard/QuickLinks";
+import { CustomizeToolbar } from "@/components/dashboard/customize/CustomizeToolbar";
+import { CustomizableWidget } from "@/components/dashboard/customize/CustomizableWidget";
+import { HiddenWidgetsPanel } from "@/components/dashboard/customize/HiddenWidgetsPanel";
+import { ResetConfirmModal } from "@/components/dashboard/customize/ResetConfirmModal";
+import {
+  DASHBOARD_WIDGET_REGISTRY,
+  buildDefaultWidgetConfigClient,
+  renderWidget,
+  type DashboardWidgetId,
+} from "@/lib/dashboard-widgets";
+import {
+  fetchDashboardPreferences,
+  saveDashboardPreferences,
+  resetDashboardPreferences,
+  type WidgetConfigEntry,
+} from "@/lib/dashboard-preferences-api";
 import { cn } from "@/lib/utils";
 
 /**
- * /dashboard — the bejelentkezett user "napi központ".
+ * /dashboard — F30: testreszabható dashboard.
  *
- * Layout:
- *  - 12-column CSS grid on desktop, single column on mobile.
- *  - Hero greeting spans the full row, then the next-match widget
- *    (8 cols) sits next to the points balance (4 cols), then latest
- *    news (8) + orders summary (4), and finally the quick-links strip.
+ * A felhasználó a `Testreszabás` gombbal beléphet egy szerkesztő-módba, ahol
+ *  - drag-and-drop-pal sorrendezhet (desktop) vagy fel/le-nyilakkal (mobil),
+ *  - X-szel elrejthet egy widget-et, vagy a "Rejtett widgetek" panelről
+ *    visszahozhat,
+ *  - Mentés gombra hívja a `PUT /api/dashboard-preferences`-t,
+ *  - Mégse gomb visszaállítja a session előtti állapotot,
+ *  - "Visszaállítás" gomb (megerősítő modal után) törli a mentést és
+ *    visszaadja a default catalogue-konfigurációt.
  *
- * Data:
- *  - Four parallel `fetch()` calls fired off in a single `Promise.all`
- *    so the dashboard's TTFB is the slowest endpoint, not their sum.
- *  - Every widget surfaces its own loading skeleton; we do NOT block
- *    the whole page on a single slow call.
- *  - Failures are caught individually so a flaky news endpoint can't
- *    take the dashboard offline. The user sees a toast + an empty
- *    state for the affected widget.
- *
- * The route is wrapped with {@link ProtectedRoute} — `/dashboard` only
- * makes sense for authenticated users, and the guard handles the
- * `?returnUrl=` redirect dance for us.
+ * Adatbetöltés:
+ *  - Page-szinten csak a widget-config GET-jét hívjuk; a widgetek saját
+ *    maguk fetch-elnek, így rejtett widget adatait sosem kérjük le.
  */
 
-interface DashboardData {
-  match: Match | null;
-  matchLoaded: boolean;
-  articles: Article[];
-  articlesLoaded: boolean;
-  pointsBalance: number;
-  pointsTotalEarned: number;
-  lastPointTransaction: PointTransaction | null;
-  pointsLoaded: boolean;
-  orders: OrderWithItems[];
-  ordersLoaded: boolean;
-  activePoll: EnrichedPoll | null;
-  pollLoaded: boolean;
+interface CustomizeState {
+  /** A jelenleg perzisztált / utoljára mentett konfiguráció. */
+  saved: WidgetConfigEntry[];
+  /** A customize-mód lokális (pre-save) draft-ja. */
+  draft: WidgetConfigEntry[];
+  /** Customize mód aktív? */
+  customizing: boolean;
+  /** Megerősítő modal megnyitva? */
+  resetConfirmOpen: boolean;
 }
 
-const initialData: DashboardData = {
-  match: null,
-  matchLoaded: false,
-  articles: [],
-  articlesLoaded: false,
-  pointsBalance: 0,
-  pointsTotalEarned: 0,
-  lastPointTransaction: null,
-  pointsLoaded: false,
-  orders: [],
-  ordersLoaded: false,
-  activePoll: null,
-  pollLoaded: false,
-};
+function dedupeOrders(entries: WidgetConfigEntry[]): WidgetConfigEntry[] {
+  // A backend egyedi (unique) order-eket vár — sortolt, sequenciális
+  // 0..N-1 sorrendet írunk ki, hogy ne legyen duplikáció.
+  return [...entries]
+    .sort((a, b) => a.order - b.order)
+    .map((entry, idx) => ({ ...entry, order: idx }));
+}
 
 export default function DashboardPage() {
   return (
@@ -94,220 +91,411 @@ export default function DashboardPage() {
 function DashboardContent() {
   const { user, profile } = useAuth();
   const toast = useToast();
-  const [data, setData] = useState<DashboardData>(initialData);
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [config, setConfig] = useState<CustomizeState>({
+    saved: buildDefaultWidgetConfigClient(),
+    draft: buildDefaultWidgetConfigClient(),
+    customizing: false,
+    resetConfirmOpen: false,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // ───────── load preferences ─────────
   useEffect(() => {
     const controller = new AbortController();
-
-    // Fire each request independently and resolve them on the state
-    // separately. This keeps a slow endpoint from blocking the rest of
-    // the dashboard, and lets us toast just the offending fetch.
-    const tasks = [
-      fetchNextMatch(controller.signal)
-        .then((match) => {
-          setData((prev) => ({ ...prev, match, matchLoaded: true }));
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setData((prev) => ({ ...prev, matchLoaded: true }));
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : "Nem sikerült betölteni a következő mérkőzést",
-          );
-        }),
-
-      fetchLatestArticles(controller.signal)
-        .then((articles) => {
-          setData((prev) => ({ ...prev, articles, articlesLoaded: true }));
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setData((prev) => ({ ...prev, articlesLoaded: true }));
-          toast.error(
-            err instanceof Error ? err.message : "Hírek betöltése sikertelen",
-          );
-        }),
-
-      fetchPoints(controller.signal)
-        .then((res) => {
-          setData((prev) => ({
-            ...prev,
-            pointsBalance: res.balance.balance,
-            pointsTotalEarned: res.balance.total_earned,
-            lastPointTransaction: res.transactions[0] ?? null,
-            pointsLoaded: true,
-          }));
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setData((prev) => ({ ...prev, pointsLoaded: true }));
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : "Pontegyenleg betöltése sikertelen",
-          );
-        }),
-
-      fetchOrders()
-        .then((res) => {
-          setData((prev) => ({
-            ...prev,
-            orders: res.orders,
-            ordersLoaded: true,
-          }));
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setData((prev) => ({ ...prev, ordersLoaded: true }));
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : "Rendelések betöltése sikertelen",
-          );
-        }),
-
-      fetchPolls({ status: "active" }, controller.signal)
-        .then((polls) => {
-          // Newest active poll only — matches the F12.4 spec ("legfrissebb").
-          setData((prev) => ({
-            ...prev,
-            activePoll: polls[0] ?? null,
-            pollLoaded: true,
-          }));
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setData((prev) => ({ ...prev, pollLoaded: true }));
-          // Polls failing should never break the dashboard — quiet error.
-          toast.error(
-            err instanceof Error
-              ? err.message
-              : "Aktív szavazás betöltése sikertelen",
-          );
-        }),
-    ];
-
-    void Promise.all(tasks);
-
+    fetchDashboardPreferences(controller.signal)
+      .then((res) => {
+        const normalized = dedupeOrders(res.widget_config);
+        setConfig((prev) => ({
+          ...prev,
+          saved: normalized,
+          draft: normalized,
+        }));
+        setConfigLoaded(true);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        // Visszaesés a default-ra ha a backend hibát ad — nem akarjuk üresen
+        // hagyni a dashboard-ot.
+        const fallback = buildDefaultWidgetConfigClient();
+        setConfig((prev) => ({
+          ...prev,
+          saved: fallback,
+          draft: fallback,
+        }));
+        setConfigLoaded(true);
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Dashboard beállítások betöltése sikertelen",
+        );
+      });
     return () => controller.abort();
-    // We intentionally only depend on `user.id` — re-running the fetches
-    // on every toast / profile reference would be wasteful and could
-    // double-fire on the first paint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // ───────── derived view models ─────────
+  /** Sortolt, csak látható widgetek a draftból (customize módban) vagy savedból. */
+  const activeConfig = config.customizing ? config.draft : config.saved;
+  const visibleEntries = useMemo(
+    () =>
+      [...activeConfig]
+        .filter((e) => e.visible && DASHBOARD_WIDGET_REGISTRY[e.widget_id])
+        .sort((a, b) => a.order - b.order),
+    [activeConfig],
+  );
+  const hiddenIds = useMemo(
+    () =>
+      [...activeConfig]
+        .filter((e) => !e.visible && DASHBOARD_WIDGET_REGISTRY[e.widget_id])
+        .map((e) => e.widget_id),
+    [activeConfig],
+  );
+
+  /** Tényleg módosított-e a draft a savedhez képest? */
+  const isDirty = useMemo(() => {
+    if (config.draft.length !== config.saved.length) return true;
+    const savedById = new Map(
+      config.saved.map((e) => [e.widget_id, e] as const),
+    );
+    for (const d of config.draft) {
+      const s = savedById.get(d.widget_id);
+      if (!s) return true;
+      if (s.visible !== d.visible || s.order !== d.order) return true;
+    }
+    return false;
+  }, [config.draft, config.saved]);
+
+  // ───────── customize mode handlers ─────────
+  const enterCustomize = useCallback(() => {
+    setConfig((prev) => ({
+      ...prev,
+      customizing: true,
+      // Friss draft a saved-ből — minden új belépés tiszta lap.
+      draft: prev.saved.map((e) => ({ ...e })),
+    }));
+  }, []);
+
+  const cancelCustomize = useCallback(() => {
+    setConfig((prev) => ({
+      ...prev,
+      customizing: false,
+      draft: prev.saved.map((e) => ({ ...e })),
+    }));
+  }, []);
+
+  const hideWidget = useCallback((id: DashboardWidgetId) => {
+    setConfig((prev) => ({
+      ...prev,
+      draft: prev.draft.map((e) =>
+        e.widget_id === id ? { ...e, visible: false } : e,
+      ),
+    }));
+  }, []);
+
+  const showWidget = useCallback((id: DashboardWidgetId) => {
+    setConfig((prev) => {
+      // A láthatóvá tett widget a látható lista végére kerüljön
+      // (legmagasabb order + 1).
+      const visibleOrders = prev.draft
+        .filter((e) => e.visible)
+        .map((e) => e.order);
+      const nextOrder =
+        visibleOrders.length > 0 ? Math.max(...visibleOrders) + 1 : 0;
+      const updated = prev.draft.map((e) =>
+        e.widget_id === id
+          ? { ...e, visible: true, order: nextOrder }
+          : e,
+      );
+      return { ...prev, draft: dedupeOrders(updated) };
+    });
+  }, []);
+
+  const moveWidget = useCallback(
+    (id: DashboardWidgetId, direction: -1 | 1) => {
+      setConfig((prev) => {
+        const visible = [...prev.draft]
+          .filter((e) => e.visible)
+          .sort((a, b) => a.order - b.order);
+        const idx = visible.findIndex((e) => e.widget_id === id);
+        const targetIdx = idx + direction;
+        if (idx < 0 || targetIdx < 0 || targetIdx >= visible.length) {
+          return prev;
+        }
+        const reordered = arrayMove(visible, idx, targetIdx);
+        // Új sorrend kiosztása a látható elemeknek; a rejtetteket utánuk fűzzük.
+        const hidden = prev.draft.filter((e) => !e.visible);
+        const merged = [
+          ...reordered.map((e, i) => ({ ...e, order: i })),
+          ...hidden.map((e, i) => ({ ...e, order: reordered.length + i })),
+        ];
+        return { ...prev, draft: merged };
+      });
+    },
+    [],
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setConfig((prev) => {
+      const visible = [...prev.draft]
+        .filter((e) => e.visible)
+        .sort((a, b) => a.order - b.order);
+      const oldIndex = visible.findIndex((e) => e.widget_id === active.id);
+      const newIndex = visible.findIndex((e) => e.widget_id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      const reordered = arrayMove(visible, oldIndex, newIndex);
+      const hidden = prev.draft.filter((e) => !e.visible);
+      const merged = [
+        ...reordered.map((e, i) => ({ ...e, order: i })),
+        ...hidden.map((e, i) => ({ ...e, order: reordered.length + i })),
+      ];
+      return { ...prev, draft: merged };
+    });
+  }, []);
+
+  // ───────── persistence ─────────
+  const saveCustomize = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      // A backend egyedi widget_id-t és egyedi order-t vár — dedupeOrders
+      // garantálja a 0..N-1 sequencet.
+      const payload = dedupeOrders(config.draft);
+      const res = await saveDashboardPreferences(payload);
+      const normalized = dedupeOrders(res.widget_config);
+      setConfig({
+        saved: normalized,
+        draft: normalized,
+        customizing: false,
+        resetConfirmOpen: false,
+      });
+      toast.success("Dashboard testreszabás mentve");
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Mentés sikertelen",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [config.draft, toast]);
+
+  const requestReset = useCallback(() => {
+    setConfig((prev) => ({ ...prev, resetConfirmOpen: true }));
+  }, []);
+
+  const cancelReset = useCallback(() => {
+    setConfig((prev) => ({ ...prev, resetConfirmOpen: false }));
+  }, []);
+
+  const confirmReset = useCallback(async () => {
+    setIsResetting(true);
+    try {
+      const res = await resetDashboardPreferences();
+      const normalized = dedupeOrders(res.widget_config);
+      setConfig({
+        saved: normalized,
+        draft: normalized,
+        customizing: false,
+        resetConfirmOpen: false,
+      });
+      toast.success("Visszaállítva az alapértelmezett elrendezésre");
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Visszaállítás sikertelen",
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  }, [toast]);
+
+  // ───────── dnd-kit sensors (F27.5 minta) ─────────
+  // Ugyanaz a recipe mint a dream-team-ben: külön mouse + touch sensor,
+  // touch-ra delay-alapú aktivációval, hogy a függőleges scroll ne
+  // ragadja el a drag-et.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+  );
+
+  // ───────── render ─────────
+  const sortableIds = visibleEntries.map((e) => e.widget_id);
+
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
-      {/* Hero */}
-      {profile === null && data.matchLoaded === false ? (
-        // We can't reliably tell if the profile is "missing" or "still
-        // loading" — but during the first paint we'd rather show the
-        // skeleton than a placeholder name.  Once any widget has
-        // resolved we fall through to the real hero.
-        <DashboardHeroSkeleton />
-      ) : (
-        <DashboardHero profile={profile} email={user?.email ?? null} />
-      )}
+      {/* Hero + toolbar */}
+      <div className="flex flex-col gap-4 sm:gap-6">
+        {!configLoaded && profile === null ? (
+          <DashboardHeroSkeleton />
+        ) : (
+          <DashboardHero profile={profile} email={user?.email ?? null} />
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <CustomizeBanner customizing={config.customizing} />
+          <CustomizeToolbar
+            customizing={config.customizing}
+            isDirty={isDirty}
+            isSaving={isSaving}
+            onEnter={enterCustomize}
+            onCancel={cancelCustomize}
+            onSave={() => void saveCustomize()}
+            onResetRequest={requestReset}
+          />
+        </div>
+      </div>
 
       {/* Widget grid */}
-      <div
-        className={cn(
-          "mt-6 grid gap-5 sm:gap-6 sm:mt-8",
-          "grid-cols-1 lg:grid-cols-12",
-        )}
-      >
-        {/* Row 1 — Match (8) + Points (4) */}
-        {data.matchLoaded ? (
-          <NextMatchWidget
-            match={data.match}
-            index={0}
-            className="lg:col-span-8"
-          />
-        ) : (
-          <WidgetSkeleton className="lg:col-span-8" rows={4} />
-        )}
+      {!configLoaded ? (
+        <div
+          className={cn(
+            "mt-6 grid gap-5 sm:gap-6 sm:mt-8",
+            "grid-cols-1 lg:grid-cols-12",
+          )}
+        >
+          <WidgetSkeleton className="lg:col-span-12" rows={4} />
+          <WidgetSkeleton className="lg:col-span-6" rows={3} />
+          <WidgetSkeleton className="lg:col-span-6" rows={3} />
+          <WidgetSkeleton className="lg:col-span-6" rows={3} />
+          <WidgetSkeleton className="lg:col-span-6" rows={3} />
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+            <ul
+              className={cn(
+                "mt-6 grid gap-5 sm:gap-6 sm:mt-8",
+                "grid-cols-1 lg:grid-cols-12",
+                config.customizing && "pt-4",
+              )}
+            >
+              {visibleEntries.map((entry, idx) => {
+                const def = DASHBOARD_WIDGET_REGISTRY[entry.widget_id];
+                const span =
+                  def.gridSpan === 2 ? "lg:col-span-12" : "lg:col-span-6";
+                return (
+                  <CustomizableWidget
+                    key={entry.widget_id}
+                    id={entry.widget_id}
+                    className={span}
+                    customizing={config.customizing}
+                    isMobile={isMobile}
+                    canMoveUp={idx > 0}
+                    canMoveDown={idx < visibleEntries.length - 1}
+                    onMoveUp={() => moveWidget(entry.widget_id, -1)}
+                    onMoveDown={() => moveWidget(entry.widget_id, 1)}
+                    onHide={() => hideWidget(entry.widget_id)}
+                  >
+                    {renderWidget(entry.widget_id, { index: idx })}
+                  </CustomizableWidget>
+                );
+              })}
+            </ul>
+          </SortableContext>
+        </DndContext>
+      )}
 
-        {data.pointsLoaded ? (
-          <PointsWidget
-            balance={data.pointsBalance}
-            totalEarned={data.pointsTotalEarned}
-            lastTransaction={data.lastPointTransaction}
-            index={1}
-            className="lg:col-span-4"
-          />
-        ) : (
-          <WidgetSkeleton className="lg:col-span-4" rows={3} />
-        )}
-
-        {/* Row 2 — News (8) + Orders (4) */}
-        {data.articlesLoaded ? (
-          <LatestNewsWidget
-            articles={data.articles}
-            index={2}
-            className="lg:col-span-8"
-          />
-        ) : (
-          <WidgetSkeleton className="lg:col-span-8" rows={4} />
-        )}
-
-        {data.ordersLoaded ? (
-          <OrdersWidget
-            orders={data.orders}
-            index={3}
-            className="lg:col-span-4"
-          />
-        ) : (
-          <WidgetSkeleton className="lg:col-span-4" rows={3} />
-        )}
-
-        {/* Row 3 — Active poll (full width) */}
-        {data.pollLoaded ? (
-          <ActivePollWidget
-            poll={data.activePoll}
-            index={4}
-            onVoteCast={() => {
-              // Re-fetch the poll + points so the widget collapses to its
-              // "voted" state and the points balance reflects any reward.
-              void Promise.all([
-                fetchPolls({ status: "active" }).then((polls) =>
-                  setData((prev) => ({
-                    ...prev,
-                    activePoll: polls[0] ?? null,
-                  })),
-                ),
-                fetchPoints().then((res) =>
-                  setData((prev) => ({
-                    ...prev,
-                    pointsBalance: res.balance.balance,
-                    pointsTotalEarned: res.balance.total_earned,
-                    lastPointTransaction: res.transactions[0] ?? null,
-                  })),
-                ),
-              ]).catch(() => {
-                /* swallow — toasts in the children already surface failure */
-              });
-            }}
+      {/* QuickLinks — fix elem, nem konfigurálható (mindig a dashboard alján). */}
+      {configLoaded && !config.customizing && visibleEntries.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 gap-5 sm:gap-6 sm:mt-8 lg:grid-cols-12">
+          <QuickLinks
+            index={visibleEntries.length}
             className="lg:col-span-12"
           />
-        ) : (
-          <WidgetSkeleton className="lg:col-span-12" rows={3} />
-        )}
+        </div>
+      )}
 
-        {/* Row 4 — La Liga standings (6) + top scorers (6).
-            Both widgets self-fetch and surface their own skeleton/error
-            states, so the dashboard page does not need to track them in
-            its `DashboardData` shape. */}
-        <StandingsWidget index={5} className="lg:col-span-6" />
-        <TopScorersWidget index={6} className="lg:col-span-6" />
+      {/* Empty state ha minden el van rejtve. */}
+      {configLoaded && visibleEntries.length === 0 && !config.customizing && (
+        <EmptyDashboard onEnterCustomize={enterCustomize} />
+      )}
 
-        {/* Final row — Quick links + optional recommendations.
-            RecommendedProductsWidget (F14.3) self-hides when fewer than 3
-            ranked products exist, so on a thin dataset the QuickLinks
-            naturally reflow back to full width. */}
-        <QuickLinks index={7} className="lg:col-span-8" />
-        <RecommendedProductsWidget index={8} className="lg:col-span-4" />
-      </div>
+      {/* Hidden widgets panel — csak customize módban. */}
+      {config.customizing && configLoaded && (
+        <HiddenWidgetsPanel hiddenIds={hiddenIds} onShow={showWidget} />
+      )}
+
+      {/* Reset confirm modal */}
+      <ResetConfirmModal
+        open={config.resetConfirmOpen}
+        isSubmitting={isResetting}
+        onCancel={cancelReset}
+        onConfirm={() => void confirmReset()}
+      />
+    </div>
+  );
+}
+
+/**
+ * Diszkrét banner ami csak customize módban tűnik fel. A felhasználó
+ * gyorsan vissza tud jönni a kontextusba ("most épp szerkesztek").
+ */
+function CustomizeBanner({ customizing }: { customizing: boolean }) {
+  if (!customizing) return <span aria-hidden />;
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25 }}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full",
+        "border border-[var(--accent-gold)]/40 bg-[var(--accent-gold)]/10",
+        "px-3 py-1.5 text-xs",
+        "text-[var(--accent-gold)]",
+      )}
+    >
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent-gold)]/60" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--accent-gold)]" />
+      </span>
+      <span className="font-display uppercase tracking-[0.24em]">
+        Testreszabás módban
+      </span>
+    </motion.div>
+  );
+}
+
+/** Üres állapot ha a felhasználó minden widget-et elrejtett. */
+function EmptyDashboard({
+  onEnterCustomize,
+}: {
+  onEnterCustomize: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "glass-card mt-8 flex flex-col items-center gap-3 px-6 py-12 text-center",
+      )}
+    >
+      <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
+        Üres dashboard
+      </p>
+      <h2 className="font-display text-2xl tracking-wide text-[var(--text-primary)]">
+        Minden widget el van rejtve
+      </h2>
+      <p className="max-w-md text-sm text-[var(--text-muted)]">
+        A testreszabás módban hozz vissza widgeteket a &bdquo;Rejtett
+        widgetek&rdquo; panelről, vagy állítsd vissza az alapértelmezett
+        elrendezést.
+      </p>
+      <button
+        type="button"
+        onClick={onEnterCustomize}
+        className="glass-button-primary mt-2"
+      >
+        Testreszabás
+      </button>
     </div>
   );
 }

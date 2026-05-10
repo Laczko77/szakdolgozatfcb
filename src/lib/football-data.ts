@@ -138,6 +138,66 @@ export interface NormalizedTopScorer {
   playedMatches: number
 }
 
+/**
+ * Mapped competition-wide match row as returned by `getCompetitionMatches()`.
+ *
+ * Unlike `NormalizedMatch` (FCB-only, presentation-oriented), this carries
+ * the team IDs so the caller can aggregate cumulative points per team and
+ * know `matchday` for round-by-round buckets.
+ */
+export interface NormalizedCompetitionMatch {
+  id: number
+  matchday: number | null
+  utcDate: string
+  status: NormalizedMatchStatus
+  homeTeam: { id: number; name: string }
+  awayTeam: { id: number; name: string }
+  score: { home: number | null; away: number | null }
+}
+
+/** A scoring event as seen on the match-details endpoint. */
+export interface MatchGoalEvent {
+  minute: number | null
+  scorer: { id: number | null; name: string | null }
+  type: string | null
+}
+
+/** A booking (yellow / red card) event. */
+export interface MatchBookingEvent {
+  minute: number | null
+  player: { id: number | null; name: string | null }
+  card: string | null
+}
+
+/** A substitution event. */
+export interface MatchSubstitutionEvent {
+  minute: number | null
+  playerOut: { id: number | null; name: string | null }
+  playerIn: { id: number | null; name: string | null }
+}
+
+/**
+ * Result of `getMatchDetails()`. All event arrays are guaranteed to be
+ * present (possibly empty) so callers can render without null checks.
+ *
+ * `partial` is true when at least one of the event categories is missing
+ * from the upstream response (a common case on the football-data.org free
+ * tier).
+ */
+export interface MatchDetails {
+  id: number
+  utcDate: string
+  status: NormalizedMatchStatus
+  homeTeam: { id: number; name: string }
+  awayTeam: { id: number; name: string }
+  score: { home: number | null; away: number | null }
+  goals: MatchGoalEvent[]
+  bookings: MatchBookingEvent[]
+  substitutions: MatchSubstitutionEvent[]
+  /** True iff goals/bookings/substitutions were missing or empty in upstream. */
+  partial: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Raw API response shapes — only the fields we consume.
 // ---------------------------------------------------------------------------
@@ -171,6 +231,54 @@ interface RawMatch {
   score: {
     fullTime: { home: number | null; away: number | null }
   }
+}
+
+interface RawCompetitionMatchesResponse {
+  matches: RawCompetitionMatch[]
+}
+
+interface RawCompetitionMatch {
+  id: number
+  matchday: number | null
+  utcDate: string
+  status: string
+  homeTeam: { id: number; name: string }
+  awayTeam: { id: number; name: string }
+  score: {
+    fullTime: { home: number | null; away: number | null }
+  }
+}
+
+interface RawMatchDetailsResponse {
+  id: number
+  utcDate: string
+  status: string
+  homeTeam: { id: number; name: string }
+  awayTeam: { id: number; name: string }
+  score: {
+    fullTime: { home: number | null; away: number | null }
+  }
+  goals?: RawMatchGoal[] | null
+  bookings?: RawMatchBooking[] | null
+  substitutions?: RawMatchSubstitution[] | null
+}
+
+interface RawMatchGoal {
+  minute?: number | null
+  type?: string | null
+  scorer?: { id?: number | null; name?: string | null } | null
+}
+
+interface RawMatchBooking {
+  minute?: number | null
+  card?: string | null
+  player?: { id?: number | null; name?: string | null } | null
+}
+
+interface RawMatchSubstitution {
+  minute?: number | null
+  playerOut?: { id?: number | null; name?: string | null } | null
+  playerIn?: { id?: number | null; name?: string | null } | null
 }
 
 interface RawScorersResponse {
@@ -417,6 +525,103 @@ export async function getTopScorers(
     assists: s.assists ?? 0,
     playedMatches: s.playedMatches ?? 0,
   }))
+}
+
+/**
+ * Fetch every match of a competition for a given season.
+ *
+ * Used by the /season aggregations: returns the entire competition fixture
+ * list (e.g. all 380 La Liga matches), not just FCB ones, so we can build
+ * round-by-round cumulative tables for every team.
+ *
+ * `matchday` is preserved as-is (may be null for tournament rounds where
+ * upstream does not provide one — ignore those entries when aggregating).
+ */
+export async function getCompetitionMatches(
+  competitionId: number,
+  season: number
+): Promise<NormalizedCompetitionMatch[]> {
+  const data = await apiFetch<RawCompetitionMatchesResponse>(
+    `/competitions/${competitionId}/matches?season=${season}`
+  )
+  if (!Array.isArray(data.matches)) return []
+
+  return data.matches.map((m) => ({
+    id: m.id,
+    matchday: typeof m.matchday === 'number' ? m.matchday : null,
+    utcDate: m.utcDate,
+    status: normalizeMatchStatus(m.status),
+    homeTeam: { id: m.homeTeam.id, name: m.homeTeam.name },
+    awayTeam: { id: m.awayTeam.id, name: m.awayTeam.name },
+    score: {
+      home: m.score?.fullTime?.home ?? null,
+      away: m.score?.fullTime?.away ?? null,
+    },
+  }))
+}
+
+/**
+ * Fetch a single match with its event timeline (goals / bookings / subs).
+ *
+ * On the football-data.org free tier these arrays are not guaranteed to be
+ * populated — many older or lower-tier matches expose the score only.
+ * We always return arrays (never undefined/null) and set `partial = true`
+ * when at least one category is missing or empty.
+ */
+export async function getMatchDetails(matchId: number): Promise<MatchDetails> {
+  const data = await apiFetch<RawMatchDetailsResponse>(`/matches/${matchId}`)
+
+  const goalsRaw = Array.isArray(data.goals) ? data.goals : []
+  const bookingsRaw = Array.isArray(data.bookings) ? data.bookings : []
+  const subsRaw = Array.isArray(data.substitutions) ? data.substitutions : []
+
+  const goals: MatchGoalEvent[] = goalsRaw.map((g) => ({
+    minute: typeof g.minute === 'number' ? g.minute : null,
+    scorer: { id: g.scorer?.id ?? null, name: g.scorer?.name ?? null },
+    type: g.type ?? null,
+  }))
+
+  const bookings: MatchBookingEvent[] = bookingsRaw.map((b) => ({
+    minute: typeof b.minute === 'number' ? b.minute : null,
+    player: { id: b.player?.id ?? null, name: b.player?.name ?? null },
+    card: b.card ?? null,
+  }))
+
+  const substitutions: MatchSubstitutionEvent[] = subsRaw.map((s) => ({
+    minute: typeof s.minute === 'number' ? s.minute : null,
+    playerOut: {
+      id: s.playerOut?.id ?? null,
+      name: s.playerOut?.name ?? null,
+    },
+    playerIn: {
+      id: s.playerIn?.id ?? null,
+      name: s.playerIn?.name ?? null,
+    },
+  }))
+
+  // "Partial" iff any of the three categories is empty AND the match is
+  // already finished. For pre-match / live data, missing arrays are
+  // expected and don't constitute a quality issue.
+  const status = normalizeMatchStatus(data.status)
+  const partial =
+    status === 'FT' &&
+    (goals.length === 0 || bookings.length === 0 || substitutions.length === 0)
+
+  return {
+    id: data.id,
+    utcDate: data.utcDate,
+    status,
+    homeTeam: { id: data.homeTeam.id, name: data.homeTeam.name },
+    awayTeam: { id: data.awayTeam.id, name: data.awayTeam.name },
+    score: {
+      home: data.score?.fullTime?.home ?? null,
+      away: data.score?.fullTime?.away ?? null,
+    },
+    goals,
+    bookings,
+    substitutions,
+    partial,
+  }
 }
 
 /**

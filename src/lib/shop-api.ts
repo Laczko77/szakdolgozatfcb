@@ -25,7 +25,20 @@ import type {
 
 export type CartLineItem = CartItem & {
   variant: ProductVariant & {
-    product: Pick<Product, "id" | "name" | "price" | "image_url" | "category">;
+    product: Pick<
+      Product,
+      | "id"
+      | "name"
+      | "price"
+      | "image_url"
+      | "category"
+      // Iter25 (F29) — sale-pricing fields. The cart API joins these in so
+      // the drawer / checkout can render strikethrough originals next to
+      // the snapshot price the customer actually pays.
+      | "sale_price"
+      | "sale_starts_at"
+      | "sale_ends_at"
+    >;
   };
 };
 
@@ -47,21 +60,74 @@ export interface WishlistResponse {
  *
  * `average_rating` is `null` when the product has no visible reviews —
  * the UI uses this to differentiate "no rating yet" from "rated 0/5".
+ *
+ * Iter24 (F28): every product also carries `view_count` (0 if never
+ * tracked) so the listing can show "X megtekintés" hints and the
+ * "Legnépszerűbb" sort can rank by it server-side.
  */
 export type ProductWithRating = Product & {
   average_rating: number | null;
   review_count: number;
+  view_count: number;
+  // Iter25 (F29) — server-computed sale fields. `effective_price` equals
+  // `price` when no sale is active so callers can render it unconditionally.
+  effective_price: number;
+  is_on_sale: boolean;
+  // Iter28 (F30) — gallery. The list endpoint includes only the cover
+  // image (one entry); /api/products/[id] returns the full ordered gallery.
+  images: ProductImagePublic[];
 };
+
+/**
+ * Public-facing shape for a single product image. Mirrors the server-side
+ * type in `src/lib/product-images.ts` so both halves of the wire contract
+ * stay aligned.
+ */
+export interface ProductImagePublic {
+  id: string;
+  image_url: string;
+  display_order: number;
+  is_cover: boolean;
+}
+
+/** Available sort keys mirrored from /api/products. */
+export const PRODUCT_SORT_KEYS = [
+  "newest",
+  "popular",
+  "price_asc",
+  "price_desc",
+] as const;
+export type ProductSortKey = (typeof PRODUCT_SORT_KEYS)[number];
 
 export interface ProductListResponse {
   products: ProductWithRating[];
   total: number;
   page: number;
   totalPages: number;
+  /**
+   * IDs of the three globally most-viewed products, ordered most → least.
+   * Independent of pagination/filters — the storefront uses these to badge
+   * top-3 cards regardless of which page or filter is active.
+   */
+  top_products: string[];
 }
 
+/**
+ * `product` carries the same `effective_price` / `is_on_sale` envelope the
+ * listing endpoint adds (Iter25 / F29) so the detail page can render the
+ * sale block without recomputing pricing on the client.
+ */
+export type ProductDetail = Product & {
+  effective_price: number;
+  is_on_sale: boolean;
+  // Iter28 (F30/F32) — full ordered gallery (display_order ASC). The legacy
+  // `image_url` field stays in sync with the cover via a DB trigger so older
+  // single-image consumers keep working without joining `product_images`.
+  images: ProductImagePublic[];
+};
+
 export interface ProductDetailResponse {
-  product: Product;
+  product: ProductDetail;
   variants: ProductVariant[];
   reviews: Review[];
   averageRating: number;
@@ -122,6 +188,8 @@ export interface ProductListQuery {
   maxPrice?: number;
   page?: number;
   limit?: number;
+  /** Optional sort. Omitting (or passing `"newest"`) keeps default ordering. */
+  sort?: ProductSortKey;
 }
 
 export async function fetchProducts(
@@ -136,6 +204,8 @@ export async function fetchProducts(
     params.set("maxPrice", String(query.maxPrice));
   if (query.page) params.set("page", String(query.page));
   if (query.limit) params.set("limit", String(query.limit));
+  // Only forward a non-default sort so legacy callers stay byte-identical.
+  if (query.sort && query.sort !== "newest") params.set("sort", query.sort);
 
   const qs = params.toString();
   const res = await fetch(`/api/products${qs ? `?${qs}` : ""}`, {

@@ -5,13 +5,24 @@ import {
   requireAdminApi,
   successResponse,
 } from '@/lib/api-utils'
-import { uploadFile } from '@/lib/storage'
+import { deleteFile, uploadFile } from '@/lib/storage'
 import { STORAGE_BUCKETS } from '@/lib/constants'
+import {
+  MAX_IMAGES_PER_PRODUCT,
+  toPublicImage,
+  type ProductImagePublic,
+} from '@/lib/product-images'
 import type {
   Product,
+  ProductImage,
   ProductVariant,
   TablesInsert,
 } from '@/types/database'
+import {
+  normalizeClearedSale,
+  readSaleFields,
+  validateSaleFields,
+} from './_sale-form'
 
 /**
  * /api/admin/products
@@ -22,8 +33,23 @@ import type {
  *   - description (string, optional)
  *   - category    (string, optional)
  *   - price       (numeric, required, >= 0)
- *   - image       (File, optional)
+ *   - image       (File, optional, legacy single-image upload)
+ *   - images      (File, repeated under the `images` key, optional)
+ *   - cover_index (integer, optional — index in `images[]` that should be
+ *                  the cover. Defaults to 0 when any images are uploaded.)
  *   - variants    (JSON string, optional) — array of { size?, color?, stock }
+ *   - sale_price  (numeric, optional) — must be > 0 and < price
+ *   - sale_starts_at (ISO datetime, optional)
+ *   - sale_ends_at   (ISO datetime, optional) — must be > sale_starts_at
+ *
+ * Sale-pricing rule: if `sale_price` is omitted, the product has no sale.
+ * Sending `null` or empty string explicitly also produces no sale (and
+ * forces the date fields to null too, regardless of what was sent).
+ *
+ * Image rule (Iter28): `images[]` and the legacy `image` field are merged.
+ * If both are sent, `image` is appended after `images[]`. The cover is
+ * determined by `cover_index` over the merged list, defaulting to 0.
+ * Maximum MAX_IMAGES_PER_PRODUCT files are accepted.
  */
 
 type VariantInput = {
@@ -48,7 +74,26 @@ export async function POST(request: NextRequest) {
   const category = readString(formData, 'category')
   const priceRaw = readString(formData, 'price')
   const variantsRaw = readString(formData, 'variants')
-  const image = readFile(formData, 'image')
+
+  // Iter28: collect every uploaded file from `images[]` plus the legacy
+  // `image` field. A single product can have at most MAX_IMAGES_PER_PRODUCT.
+  const galleryFiles = readFiles(formData, 'images')
+  const legacyImage = readFile(formData, 'image')
+  const allFiles: File[] = legacyImage
+    ? [...galleryFiles, legacyImage]
+    : galleryFiles
+
+  if (allFiles.length > MAX_IMAGES_PER_PRODUCT) {
+    return errorResponse(
+      `Egy termékhez maximum ${MAX_IMAGES_PER_PRODUCT} kép tartozhat`,
+      400
+    )
+  }
+
+  const coverIndex = readCoverIndex(formData, allFiles.length)
+  if (coverIndex instanceof Error) {
+    return errorResponse(coverIndex.message, 400)
+  }
 
   if (!name) return errorResponse('A "name" mező kötelező', 400)
   if (priceRaw === null) return errorResponse('A "price" mező kötelező', 400)
@@ -58,6 +103,12 @@ export async function POST(request: NextRequest) {
     return errorResponse('Érvénytelen ár', 400)
   }
 
+  const saleFields = normalizeClearedSale(readSaleFields(formData))
+  const saleError = validateSaleFields(saleFields, price)
+  if (saleError) {
+    return errorResponse(saleError, 400)
+  }
+
   let variants: VariantInput[] = []
   if (variantsRaw) {
     const parsed = parseVariants(variantsRaw)
@@ -65,17 +116,28 @@ export async function POST(request: NextRequest) {
     variants = parsed
   }
 
-  let imageUrl: string | null = null
-  if (image) {
-    try {
-      imageUrl = await uploadFile(STORAGE_BUCKETS.productImages, image)
-    } catch (err) {
-      return errorResponse(
-        err instanceof Error ? err.message : 'Képfeltöltés sikertelen',
-        500
-      )
+  // Upload every file up-front. We roll back the uploaded blobs if the
+  // subsequent DB inserts fail.
+  const uploadedUrls: string[] = []
+  try {
+    for (const file of allFiles) {
+      const url = await uploadFile(STORAGE_BUCKETS.productImages, file)
+      uploadedUrls.push(url)
     }
+  } catch (err) {
+    await Promise.all(uploadedUrls.map((u) => safeDeleteImage(u)))
+    return errorResponse(
+      err instanceof Error ? err.message : 'Képfeltöltés sikertelen',
+      500
+    )
   }
+
+  // Cover defaults to index 0 when any images were uploaded; if no images
+  // were provided, the product has no cover and `image_url` stays NULL.
+  const effectiveCoverIndex: number | null =
+    uploadedUrls.length === 0 ? null : (coverIndex ?? 0)
+  const coverUrl =
+    effectiveCoverIndex !== null ? uploadedUrls[effectiveCoverIndex] : null
 
   const supabase = await createClient()
 
@@ -84,7 +146,12 @@ export async function POST(request: NextRequest) {
     description,
     category,
     price,
-    image_url: imageUrl,
+    // The cover URL is mirrored into product_images below; the trigger keeps
+    // products.image_url in sync going forward, so we pre-fill it here too.
+    image_url: coverUrl,
+    sale_price: saleFields.sale_price ?? null,
+    sale_starts_at: saleFields.sale_starts_at ?? null,
+    sale_ends_at: saleFields.sale_ends_at ?? null,
   }
 
   const { data: product, error } = await supabase
@@ -94,10 +161,44 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !product) {
+    await Promise.all(uploadedUrls.map((u) => safeDeleteImage(u)))
     return errorResponse(
       `Termék létrehozása sikertelen: ${error?.message ?? 'ismeretlen hiba'}`,
       500
     )
+  }
+
+  // Iter28 — write the gallery rows. The first image (or `cover_index`)
+  // becomes the cover. The trigger on `product_images` will reaffirm the
+  // legacy `products.image_url` to match.
+  let images: ProductImagePublic[] = []
+  if (uploadedUrls.length > 0) {
+    const imageInserts: TablesInsert<'product_images'>[] = uploadedUrls.map(
+      (url, idx) => ({
+        product_id: (product as Product).id,
+        image_url: url,
+        display_order: idx,
+        is_cover: idx === effectiveCoverIndex,
+      })
+    )
+
+    const { data: imageRows, error: imageError } = await supabase
+      .from('product_images')
+      .insert(imageInserts as never)
+      .select('*')
+
+    if (imageError) {
+      await supabase.from('products').delete().eq('id', (product as Product).id)
+      await Promise.all(uploadedUrls.map((u) => safeDeleteImage(u)))
+      return errorResponse(
+        `Képek mentése sikertelen: ${imageError.message}`,
+        500
+      )
+    }
+
+    images = (imageRows as ProductImage[])
+      .sort((a, b) => a.display_order - b.display_order)
+      .map(toPublicImage)
   }
 
   let createdVariants: ProductVariant[] = []
@@ -119,7 +220,10 @@ export async function POST(request: NextRequest) {
     if (variantError) {
       // Best-effort: roll back the product so we don't end up with a product
       // that has no variants when the admin clearly intended otherwise.
+      // The product DELETE cascades to product_images; we still remove the
+      // Storage blobs because the cascade only touches DB rows.
       await supabase.from('products').delete().eq('id', (product as Product).id)
+      await Promise.all(uploadedUrls.map((u) => safeDeleteImage(u)))
       return errorResponse(
         `Variánsok létrehozása sikertelen: ${variantError.message}`,
         500
@@ -133,6 +237,7 @@ export async function POST(request: NextRequest) {
     {
       product: product as Product,
       variants: createdVariants,
+      images,
     },
     201
   )
@@ -195,4 +300,40 @@ function readFile(form: FormData, key: string): File | null {
   const value = form.get(key)
   if (value instanceof File && value.size > 0) return value
   return null
+}
+
+function readFiles(form: FormData, key: string): File[] {
+  const result: File[] = []
+  for (const value of form.getAll(key)) {
+    if (value instanceof File && value.size > 0) {
+      result.push(value)
+    }
+  }
+  return result
+}
+
+function readCoverIndex(form: FormData, fileCount: number): number | null | Error {
+  const raw = form.get('cover_index')
+  if (raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+    return null
+  }
+  if (typeof raw !== 'string') {
+    return new Error('Érvénytelen "cover_index" érték')
+  }
+  if (fileCount === 0) {
+    return new Error('"cover_index" csak képek mellett értelmezhető')
+  }
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed >= fileCount) {
+    return new Error('Érvénytelen "cover_index" érték')
+  }
+  return parsed
+}
+
+async function safeDeleteImage(url: string): Promise<void> {
+  try {
+    await deleteFile(STORAGE_BUCKETS.productImages, url)
+  } catch {
+    // Best-effort — orphans are recoverable later.
+  }
 }

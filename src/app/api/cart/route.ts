@@ -5,6 +5,7 @@ import {
   requireAuthApi,
   successResponse,
 } from '@/lib/api-utils'
+import { computeSalePricing } from '@/lib/sale-pricing'
 import type {
   CartItem,
   Product,
@@ -28,7 +29,17 @@ import type {
 
 type CartLineItem = CartItem & {
   variant: ProductVariant & {
-    product: Pick<Product, 'id' | 'name' | 'price' | 'image_url' | 'category'>
+    product: Pick<
+      Product,
+      | 'id'
+      | 'name'
+      | 'price'
+      | 'image_url'
+      | 'category'
+      | 'sale_price'
+      | 'sale_starts_at'
+      | 'sale_ends_at'
+    >
   }
 }
 
@@ -50,7 +61,7 @@ export async function GET() {
       *,
       variant:product_variants (
         *,
-        product:products (id, name, price, image_url, category)
+        product:products (id, name, price, image_url, category, sale_price, sale_starts_at, sale_ends_at)
       )
     `
     )
@@ -62,10 +73,16 @@ export async function GET() {
   }
 
   const items = (data ?? []) as unknown as CartLineItem[]
-  const total = items.reduce(
-    (sum, item) => sum + item.quantity * (item.variant?.product?.price ?? 0),
-    0
-  )
+
+  // Total uses the snapshot price stored when the item was added, so an
+  // expired sale doesn't surprise the customer at checkout. Falls back to
+  // the live product price for legacy rows where snapshot may be 0.
+  const total = items.reduce((sum, item) => {
+    const snapshot = item.unit_price_snapshot
+    const fallback = item.variant?.product?.price ?? 0
+    const price = snapshot > 0 ? snapshot : fallback
+    return sum + item.quantity * price
+  }, 0)
 
   return NextResponse.json({
     items,
@@ -112,9 +129,18 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
+  // Iter25: pull the variant + parent product fields needed to snapshot the
+  // currently effective price into cart_items.unit_price_snapshot. The snapshot
+  // protects the customer if the sale expires between add-to-cart and checkout.
   const { data: variantRaw, error: variantError } = await supabase
     .from('product_variants')
-    .select('id, stock')
+    .select(
+      `
+      id,
+      stock,
+      product:products (price, sale_price, sale_starts_at, sale_ends_at)
+    `
+    )
     .eq('id', variantId)
     .maybeSingle()
 
@@ -124,7 +150,20 @@ export async function POST(request: NextRequest) {
   if (!variantRaw) {
     return errorResponse('A variáns nem található', 404)
   }
-  const variant = variantRaw as { id: string; stock: number }
+  const variant = variantRaw as unknown as {
+    id: string
+    stock: number
+    product: {
+      price: number
+      sale_price: number | null
+      sale_starts_at: string | null
+      sale_ends_at: string | null
+    } | null
+  }
+  if (!variant.product) {
+    return errorResponse('A variáns terméke nem található', 404)
+  }
+  const snapshotPrice = computeSalePricing(variant.product).effective_price
 
   const { data: existing, error: existingError } = await supabase
     .from('cart_items')
@@ -147,9 +186,16 @@ export async function POST(request: NextRequest) {
   }
 
   if (existing) {
+    // Re-adding a variant refreshes the snapshot to the *current* effective
+    // price. Rationale: the customer just confirmed they want this item at
+    // today's price; carrying an older snapshot forward would be surprising
+    // (especially if the price went down).
     const { data: updated, error: updateError } = await supabase
       .from('cart_items')
-      .update({ quantity: nextQty } as never)
+      .update({
+        quantity: nextQty,
+        unit_price_snapshot: snapshotPrice,
+      } as never)
       .eq('id', (existing as CartItem).id)
       .select('*')
       .single()
@@ -166,6 +212,7 @@ export async function POST(request: NextRequest) {
     user_id: user.id,
     variant_id: variantId,
     quantity,
+    unit_price_snapshot: snapshotPrice,
   }
 
   const { data, error } = await supabase

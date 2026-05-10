@@ -73,6 +73,13 @@ export interface Product {
   image_url: string | null
   category: string | null
   created_at: string
+  // Iter25 — webshop sale pricing. NULL when the product has no sale.
+  // `sale_starts_at` / `sale_ends_at` may be NULL even when `sale_price`
+  // is set (meaning "always on"); the effective-price calculation lives
+  // in `src/lib/sale-pricing.ts` and the recommended_products view.
+  sale_price: number | null
+  sale_starts_at: string | null
+  sale_ends_at: string | null
 }
 
 export interface ProductVariant {
@@ -83,12 +90,25 @@ export interface ProductVariant {
   stock: number
 }
 
+export interface ProductImage {
+  id: string
+  product_id: string
+  image_url: string
+  display_order: number
+  is_cover: boolean
+  created_at: string
+}
+
 export interface CartItem {
   id: string
   user_id: string
   variant_id: string
   quantity: number
   created_at: string
+  // Iter25 — price snapshot captured at add-to-cart time. checkout_order
+  // copies this into order_items.unit_price so an expired sale between
+  // add-to-cart and checkout still honours the sale price the customer saw.
+  unit_price_snapshot: number
 }
 
 export interface ShippingAddress {
@@ -320,6 +340,21 @@ export interface DreamTeam {
   updated_at: string
 }
 
+// Iteration 26 — per-user dashboard widget preferences ----------------------
+//
+// `widget_config` is JSONB in Postgres. The shape is defined and validated in
+// `src/lib/constants/dashboard-widgets.ts` (`WidgetConfigEntry`); we re-type
+// it here as `Json` to match the database column and avoid a circular import
+// from a `lib/` constant into `types/`. Callers should cast through
+// `WidgetConfigEntry[]` after validation.
+export interface DashboardPreference {
+  id: string
+  user_id: string
+  widget_config: Json
+  created_at: string
+  updated_at: string
+}
+
 // ----------------------------------------------------------------------------
 // Supabase Database generic
 // ----------------------------------------------------------------------------
@@ -344,6 +379,7 @@ export interface Database {
       players:            { Row: Player;           Insert: PlayerInsert;           Update: Partial<Player> }
       products:           { Row: Product;          Insert: ProductInsert;          Update: Partial<Product> }
       product_variants:   { Row: ProductVariant;   Insert: ProductVariantInsert;   Update: Partial<ProductVariant> }
+      product_images:     { Row: ProductImage;     Insert: ProductImageInsert;     Update: Partial<ProductImage> }
       cart_items:         { Row: CartItem;         Insert: CartItemInsert;         Update: Partial<CartItem> }
       orders:             { Row: Order;            Insert: OrderInsert;            Update: Partial<Order> }
       order_items:        { Row: OrderItem;        Insert: OrderItemInsert;        Update: Partial<OrderItem> }
@@ -367,6 +403,7 @@ export interface Database {
       conversations:      { Row: Conversation;     Insert: ConversationInsert;     Update: Partial<Conversation> }
       messages:           { Row: Message;          Insert: MessageInsert;          Update: Partial<Message> }
       dream_teams:        { Row: DreamTeam;        Insert: DreamTeamInsert;        Update: Partial<DreamTeam> }
+      dashboard_preferences: { Row: DashboardPreference; Insert: DashboardPreferenceInsert; Update: Partial<DashboardPreference> }
     }
     Views: Record<string, never>
     Functions: {
@@ -426,6 +463,13 @@ export interface Database {
         }
         Returns: boolean
       }
+      set_product_cover_image: {
+        Args: {
+          p_product_id: string
+          p_image_id: string
+        }
+        Returns: null
+      }
     }
     Enums: Record<string, never>
   }
@@ -460,6 +504,16 @@ export type ProductInsert = Omit<Product, 'id' | 'created_at'> & {
 export type ProductVariantInsert = Omit<ProductVariant, 'id' | 'stock'> & {
   id?: string
   stock?: number
+}
+
+export type ProductImageInsert = Omit<
+  ProductImage,
+  'id' | 'created_at' | 'display_order' | 'is_cover'
+> & {
+  id?: string
+  created_at?: string
+  display_order?: number
+  is_cover?: boolean
 }
 
 export type CartItemInsert = Omit<CartItem, 'id' | 'created_at'> & {
@@ -580,6 +634,15 @@ export type DreamTeamInsert = Omit<
   id?: string
   name?: string
   players?: DreamTeamPlayerSlot[]
+  created_at?: string
+  updated_at?: string
+}
+
+export type DashboardPreferenceInsert = Omit<
+  DashboardPreference,
+  'id' | 'created_at' | 'updated_at'
+> & {
+  id?: string
   created_at?: string
   updated_at?: string
 }

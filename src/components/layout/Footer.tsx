@@ -17,6 +17,7 @@ import { usePathname } from "next/navigation";
  */
 
 const LEGAL_LINKS: ReadonlyArray<{ label: string; href: string }> = [
+  { label: "Szezon", href: "/season" },
   { label: "Impresszum", href: "#" },
   { label: "Adatvédelem", href: "#" },
   { label: "Kapcsolat", href: "#" },

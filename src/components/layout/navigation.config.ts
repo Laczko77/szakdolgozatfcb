@@ -27,6 +27,7 @@ export const desktopNavLinks: readonly NavLink[] = [
   { label: "Shop", href: "/shop" },
   { label: "Jegyek", href: "/jegyek" },
   { label: "Játékosok", href: "/jatekosok" },
+  { label: "Szezon", href: "/season" },
   { label: "Közösség", href: "/kozosseg" },
   { label: "Szavazások", href: "/szavazasok" },
 ] as const;

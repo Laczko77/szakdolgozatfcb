@@ -548,6 +548,17 @@
   }
 }
 
+/* Shimmer — diagonal highlight sweep used by the SaleCountdown card so a
+   limited-time deadline feels alive without flickering distractingly. */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+
 /* CTA shimmer — slow horizontal sweep behind the gold border. */
 .cta-pulse {
   animation: pulse-gold 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;

@@ -1,14 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { motion } from "framer-motion";
-import { fetchProducts, type ProductWithRating } from "@/lib/shop-api";
+import {
+  fetchProducts,
+  PRODUCT_SORT_KEYS,
+  type ProductSortKey,
+  type ProductWithRating,
+} from "@/lib/shop-api";
 import { useToast } from "@/providers/ToastProvider";
 import { CategoryFilter, type CategoryOption } from "@/components/shop/CategoryFilter";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { ProductGridSkeleton } from "@/components/shop/ProductCardSkeleton";
 import { PopularProducts } from "@/components/shop/PopularProducts";
+import { SortSelect } from "@/components/shop/SortSelect";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,19 +44,58 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
   collectible: "Gyűjtői",
 };
 
+function isSortKey(value: string | null): value is ProductSortKey {
+  return value !== null && (PRODUCT_SORT_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * Next.js requires `useSearchParams` to be inside a Suspense boundary for
+ * static / streaming compatibility — the inner component holds the actual
+ * page so the outer default export can wrap it.
+ */
 export default function ShopPage() {
+  return (
+    <Suspense fallback={<ShopPageFallback />}>
+      <ShopPageInner />
+    </Suspense>
+  );
+}
+
+function ShopPageFallback() {
+  return (
+    <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-10">
+      <div className="mb-10 space-y-3">
+        <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+        <div className="h-14 w-3/4 animate-pulse rounded-md bg-[var(--glass-bg-hover)]" />
+        <div className="h-3 w-1/2 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+      </div>
+      <ProductGridSkeleton />
+    </div>
+  );
+}
+
+function ShopPageInner() {
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<ProductWithRating[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
+  const [topProductIds, setTopProductIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
+
+  // URL-driven sort state (F28). The query string is the source of truth so
+  // the sort survives reloads + share-links; we only ever push when it
+  // actually changes via the dropdown.
+  const sortFromUrl = searchParams.get("sort");
+  const sort: ProductSortKey = isSortKey(sortFromUrl) ? sortFromUrl : "newest";
 
   const [knownCategories, setKnownCategories] = useState<Set<string>>(
     new Set(),
@@ -71,6 +117,7 @@ export default function ShopPage() {
           limit: PAGE_SIZE,
           category: category || undefined,
           search: debouncedSearch || undefined,
+          sort,
         });
         setProducts((prev) =>
           append ? [...prev, ...data.products] : data.products,
@@ -78,6 +125,10 @@ export default function ShopPage() {
         setPage(data.page);
         setTotalPages(data.totalPages);
         setTotal(data.total);
+        // top_products is global (independent of pagination/filter), so we
+        // accept whatever the API last reported — it stays valid even after
+        // a "Load more" appends to the current page.
+        setTopProductIds(data.top_products ?? []);
 
         // Fold any new categories we encounter into the known set —
         // these populate the filter pills.
@@ -99,7 +150,7 @@ export default function ShopPage() {
         else setLoading(false);
       }
     },
-    [category, debouncedSearch, toast],
+    [category, debouncedSearch, sort, toast],
   );
 
   // Reload from page 1 when filters change.
@@ -108,6 +159,19 @@ export default function ShopPage() {
       await loadPage(1, false);
     })();
   }, [loadPage]);
+
+  const handleSortChange = useCallback(
+    (next: ProductSortKey) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "newest") params.delete("sort");
+      else params.set("sort", next);
+      const qs = params.toString();
+      // replace, not push — sort changes are filter-like and shouldn't
+      // pollute the back-stack with intermediate states.
+      router.replace(qs ? `/shop?${qs}` : "/shop", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   const categoryOptions: CategoryOption[] = useMemo(() => {
     const opts: CategoryOption[] = [{ value: "", label: "Mind" }];
@@ -148,50 +212,52 @@ export default function ShopPage() {
       <PopularProducts />
 
       {/* Filters */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className={cn(
-            "relative w-full max-w-md",
-            "rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-md",
-            "transition-colors",
-            "focus-within:border-[var(--accent-gold)]",
-          )}
-        >
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Keresés termékek között…"
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div
             className={cn(
-              "w-full rounded-full bg-transparent py-2.5 pl-10 pr-10 text-sm",
-              "text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
-              "focus:outline-none",
+              "relative w-full sm:max-w-md",
+              "rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-md",
+              "transition-colors",
+              "focus-within:border-[var(--accent-gold)]",
             )}
-            aria-label="Termékek keresése"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              aria-label="Keresés törlése"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-            >
-              <X size={14} />
-            </button>
-          )}
+          >
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Keresés termékek között…"
+              className={cn(
+                "w-full rounded-full bg-transparent py-2.5 pl-10 pr-10 text-sm",
+                "text-[var(--text-primary)] placeholder:text-[var(--text-muted)]",
+                "focus:outline-none",
+              )}
+              aria-label="Termékek keresése"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Keresés törlése"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <SortSelect value={sort} onChange={handleSortChange} />
         </div>
 
-        <div className="flex-1 sm:max-w-[60%]">
-          <CategoryFilter
-            options={categoryOptions}
-            active={category}
-            onChange={setCategory}
-          />
-        </div>
+        <CategoryFilter
+          options={categoryOptions}
+          active={category}
+          onChange={setCategory}
+        />
       </div>
 
       {/* Result count */}
@@ -218,7 +284,7 @@ export default function ShopPage() {
         />
       ) : (
         <>
-          <ProductGrid products={products} />
+          <ProductGrid products={products} topProductIds={topProductIds} />
 
           {showLoadMore && (
             <div className="mt-10 flex justify-center">

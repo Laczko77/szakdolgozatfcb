@@ -28,6 +28,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SalePriceBlock } from "@/components/shop/SalePriceBlock";
 
 type Step = 1 | 2;
 
@@ -157,6 +158,21 @@ function CheckoutContent() {
   //   - matched     → "Kedvezmény alkalmazva" + line in summary
   //   - not_matched → "Ismeretlen kuponkód" warning (after debounce)
   // -------------------------------------------------------------------------
+
+  // F29 — sum of catalogue prices the customer would have paid without
+  // active sales. `cartTotal` already uses the snapshot price (sale-aware),
+  // so subtotal − cartTotal === total amount saved by sales (excludes the
+  // coupon, which is summarised separately below).
+  const catalogueSubtotal = useMemo(
+    () =>
+      cartItems.reduce(
+        (sum, item) =>
+          sum + Number(item.variant?.product?.price ?? 0) * item.quantity,
+        0,
+      ),
+    [cartItems],
+  );
+  const saleSavings = Math.max(0, catalogueSubtotal - cartTotal);
 
   const couponPreview = useMemo(() => {
     const code = form.coupon.trim().toUpperCase();
@@ -378,7 +394,12 @@ function CheckoutContent() {
               <ul className="mt-5 flex flex-col divide-y divide-[var(--glass-border)]">
                 {cartItems.map((item) => {
                   const product = item.variant?.product;
-                  const price = product?.price ?? 0;
+                  const catalogPrice = Number(product?.price ?? 0);
+                  const snapshot = Number(item.unit_price_snapshot ?? 0);
+                  const effectiveUnit =
+                    snapshot > 0 ? snapshot : catalogPrice;
+                  const isDiscounted =
+                    snapshot > 0 && snapshot < catalogPrice;
                   return (
                     <li
                       key={item.id}
@@ -406,9 +427,14 @@ function CheckoutContent() {
                           · {item.quantity} db
                         </p>
                       </div>
-                      <span className="font-display text-sm tracking-wide text-[var(--accent-gold)]">
-                        {formatPrice(price * item.quantity)}
-                      </span>
+                      <SalePriceBlock
+                        price={catalogPrice * item.quantity}
+                        effectivePrice={effectiveUnit * item.quantity}
+                        isOnSale={isDiscounted}
+                        size="sm"
+                        layout="stacked"
+                        className="items-end text-right"
+                      />
                     </li>
                   );
                 })}
@@ -470,10 +496,39 @@ function CheckoutContent() {
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between text-[var(--text-secondary)]">
                 <dt>Tételek ({cartCount})</dt>
-                <dd className="text-[var(--text-primary)]">
-                  {formatPrice(cartTotal)}
+                <dd className="flex items-baseline gap-2 text-[var(--text-primary)]">
+                  {saleSavings > 0 && (
+                    <s className="text-xs text-[var(--text-muted)] decoration-[var(--text-muted)]/70 decoration-[1.5px]">
+                      {formatPrice(catalogueSubtotal)}
+                    </s>
+                  )}
+                  <span>{formatPrice(cartTotal)}</span>
                 </dd>
               </div>
+
+              {/* F29 — sale savings line. Only shown when at least one
+                  cart item carries a snapshot below its catalogue price. */}
+              <AnimatePresence>
+                {saleSavings > 0 && (
+                  <motion.div
+                    key="sale-savings-line"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex justify-between"
+                  >
+                    <dt className="flex items-center gap-1.5 text-[var(--accent-red)]">
+                      <Sparkles size={12} aria-hidden />
+                      Megspórolt összeg
+                    </dt>
+                    <dd className="font-display tabular-nums text-[var(--accent-red)]">
+                      −{formatPrice(saleSavings)}
+                    </dd>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="flex justify-between text-[var(--text-secondary)]">
                 <dt>Szállítás</dt>
                 <dd className="text-[var(--text-primary)]">Ingyenes</dd>

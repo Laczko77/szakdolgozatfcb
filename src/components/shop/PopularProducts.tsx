@@ -130,7 +130,29 @@ function toProduct(p: RecommendedProduct): ProductWithRating {
     image_url: p.image_url,
     category: p.category,
     created_at: p.created_at,
+    // Sale fields aren't part of the recommendation envelope — default
+    // them to null so the projection still satisfies the canonical
+    // Product shape expected by ProductGrid.
+    sale_price: null,
+    sale_starts_at: null,
+    sale_ends_at: null,
     average_rating: p.avg_rating,
     review_count: p.review_count,
+    view_count: p.view_count,
+    // Iter25 sale + Iter28 gallery defaults — recommendation envelope
+    // doesn't carry these, so we project them to the safe defaults that
+    // match a product without an active sale and only its cover image.
+    effective_price: p.price,
+    is_on_sale: false,
+    images: p.image_url
+      ? [
+          {
+            id: `cover:${p.product_id}`,
+            image_url: p.image_url,
+            display_order: 0,
+            is_cover: true,
+          },
+        ]
+      : [],
   };
 }

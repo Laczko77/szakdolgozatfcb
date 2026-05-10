@@ -8,6 +8,11 @@ import {
 import { deleteFile, uploadFile } from '@/lib/storage'
 import { STORAGE_BUCKETS } from '@/lib/constants'
 import type { Product, TablesUpdate } from '@/types/database'
+import {
+  normalizeClearedSale,
+  readSaleFields,
+  validateSaleFields,
+} from '../_sale-form'
 
 /**
  * /api/admin/products/[id]
@@ -56,6 +61,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     nextPrice = parsed
   }
 
+  const saleFields = normalizeClearedSale(readSaleFields(formData))
+
   const supabase = await createClient()
 
   const { data: existingRaw, error: fetchError } = await supabase
@@ -84,12 +91,41 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // Sale-pricing validation needs the *resulting* price after this PUT — i.e.
+  // the new price if provided, otherwise the existing one. Without this the
+  // admin could lower `price` below an existing `sale_price` (or vice versa).
+  const effectivePrice = nextPrice ?? existing.price
+  const effectiveSalePrice =
+    saleFields.sale_price === undefined
+      ? existing.sale_price
+      : saleFields.sale_price
+  const saleError = validateSaleFields(
+    {
+      sale_price: effectiveSalePrice,
+      sale_starts_at:
+        saleFields.sale_starts_at === undefined
+          ? existing.sale_starts_at
+          : saleFields.sale_starts_at,
+      sale_ends_at:
+        saleFields.sale_ends_at === undefined
+          ? existing.sale_ends_at
+          : saleFields.sale_ends_at,
+    },
+    effectivePrice
+  )
+  if (saleError) {
+    return errorResponse(saleError, 400)
+  }
+
   const update: TablesUpdate<'products'> = {}
   if (name !== null) update.name = name
   if (description !== undefined) update.description = description
   if (category !== undefined) update.category = category
   if (nextPrice !== undefined) update.price = nextPrice
   if (nextImageUrl !== undefined) update.image_url = nextImageUrl
+  if (saleFields.sale_price !== undefined) update.sale_price = saleFields.sale_price
+  if (saleFields.sale_starts_at !== undefined) update.sale_starts_at = saleFields.sale_starts_at
+  if (saleFields.sale_ends_at !== undefined) update.sale_ends_at = saleFields.sale_ends_at
 
   if (Object.keys(update).length === 0) {
     return errorResponse('Legalább egy mezőt meg kell adni', 400)

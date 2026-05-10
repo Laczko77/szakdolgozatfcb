@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, Pencil, Tag, Trash2, X } from "lucide-react";
 import type { Product, ProductVariant } from "@/types/database";
 import { formatPrice } from "@/lib/format";
+import { isSaleActive } from "@/lib/sale-pricing";
 import { AdminBadge } from "@/components/admin/AdminBadge";
 import { AdminButton } from "@/components/admin/AdminButton";
 import { AdminInput } from "@/components/admin/AdminInput";
@@ -39,11 +40,12 @@ export function ProductsTable({
     <AdminTable>
       <AdminTHead>
         <tr>
-          <AdminTH className="w-[36%]">Termék</AdminTH>
-          <AdminTH className="w-[14%]">Kategória</AdminTH>
-          <AdminTH className="w-[12%]">Ár</AdminTH>
-          <AdminTH className="w-[26%]">Készlet (variánsok)</AdminTH>
-          <AdminTH className="w-[12%] text-right">Műveletek</AdminTH>
+          <AdminTH className="w-[32%]">Termék</AdminTH>
+          <AdminTH className="w-[12%]">Kategória</AdminTH>
+          <AdminTH className="w-[14%]">Ár</AdminTH>
+          <AdminTH className="w-[10%]">Akció</AdminTH>
+          <AdminTH className="w-[22%]">Készlet (variánsok)</AdminTH>
+          <AdminTH className="w-[10%] text-right">Műveletek</AdminTH>
         </tr>
       </AdminTHead>
       <AdminTBody>
@@ -81,9 +83,11 @@ export function ProductsTable({
             </AdminTD>
 
             <AdminTD>
-              <span className="font-mono text-sm tabular-nums text-[var(--text-primary)]">
-                {formatPrice(row.product.price)}
-              </span>
+              <PriceCell product={row.product} />
+            </AdminTD>
+
+            <AdminTD>
+              <SaleCell product={row.product} />
             </AdminTD>
 
             <AdminTD>
@@ -118,6 +122,77 @@ export function ProductsTable({
         ))}
       </AdminTBody>
     </AdminTable>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PriceCell — when a sale is active the catalogue price is shown in a
+// muted strikethrough next to the red sale price so the admin sees both
+// values at a glance without opening the editor.
+// ---------------------------------------------------------------------------
+function PriceCell({ product }: { product: Product }) {
+  const onSale = isSaleActive(product);
+  if (!onSale || product.sale_price === null) {
+    return (
+      <span className="font-mono text-sm tabular-nums text-[var(--text-primary)]">
+        {formatPrice(Number(product.price))}
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col leading-tight">
+      <span className="font-mono text-sm font-semibold tabular-nums text-[var(--accent-red)]">
+        {formatPrice(Number(product.sale_price))}
+      </span>
+      <s className="font-mono text-[11px] tabular-nums text-[var(--text-muted)] decoration-[var(--text-muted)]/70">
+        {formatPrice(Number(product.price))}
+      </s>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SaleCell — three states:
+//   - active:    red "Akciós" badge + window summary
+//   - scheduled: amber "Ütemezve" badge (sale_starts_at in the future)
+//   - none:      em-dash placeholder so the column reads quickly
+// ---------------------------------------------------------------------------
+function SaleCell({ product }: { product: Product }) {
+  // Capture "now" once per mount via state so render stays pure
+  // (react-hooks/purity rule). The cell doesn't need real-time updates —
+  // the admin reload button refreshes the page on demand.
+  const [now] = useState(() => Date.now());
+
+  const sp = product.sale_price;
+  if (sp === null || sp === undefined) {
+    return <span className="text-xs text-[var(--text-muted)]">—</span>;
+  }
+  const startMs = product.sale_starts_at
+    ? new Date(product.sale_starts_at).getTime()
+    : null;
+  const endMs = product.sale_ends_at
+    ? new Date(product.sale_ends_at).getTime()
+    : null;
+
+  // Expired — sale_ends_at already passed.
+  if (endMs !== null && Number.isFinite(endMs) && now >= endMs) {
+    return <AdminBadge tone="neutral">Lejárt</AdminBadge>;
+  }
+  // Scheduled — sale_starts_at still in the future.
+  if (startMs !== null && Number.isFinite(startMs) && now < startMs) {
+    return (
+      <AdminBadge tone="warning">
+        <Tag className="h-3 w-3" aria-hidden />
+        Ütemezve
+      </AdminBadge>
+    );
+  }
+  // Active — currently inside (or past-start, no end) the sale window.
+  return (
+    <AdminBadge tone="danger">
+      <Tag className="h-3 w-3" aria-hidden />
+      Akciós
+    </AdminBadge>
   );
 }
 

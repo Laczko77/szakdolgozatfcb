@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,10 +10,10 @@ import {
   fetchProduct,
   type ProductDetailResponse,
 } from "@/lib/shop-api";
+import { ProductGallery } from "@/components/shop/ProductGallery";
 import { useAuth } from "@/providers/AuthProvider";
 import { useCart } from "@/providers/CartProvider";
 import { useToast } from "@/providers/ToastProvider";
-import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { VariantPicker } from "@/components/shop/VariantPicker";
 import { QuantityStepper } from "@/components/shop/QuantityStepper";
@@ -22,6 +21,9 @@ import { RatingStars } from "@/components/shop/RatingStars";
 import { WishlistHeart } from "@/components/shop/WishlistHeart";
 import { ReviewList } from "@/components/shop/ReviewList";
 import { ReviewModal } from "@/components/shop/ReviewModal";
+import { SaleBadge, computePercentOff } from "@/components/shop/SaleBadge";
+import { SalePriceBlock } from "@/components/shop/SalePriceBlock";
+import { SaleCountdown } from "@/components/shop/SaleCountdown";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -212,36 +214,20 @@ export default function ProductDetailPage({ params }: PageProps) {
 
       {/* Two-column layout */}
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        {/* Image side */}
+        {/* Image side — F32 ProductGallery: thumbnails + lightbox + swipe.
+            Falls back gracefully to a single-image layout when the product
+            is a legacy entry (empty `images` array, only `image_url`). */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="relative"
         >
-          <div
-            className={cn(
-              "glass-card relative aspect-[4/5] overflow-hidden",
-              "bg-[var(--bg-secondary)]",
-            )}
-          >
-            {product.image_url ? (
-              <Image
-                src={product.image_url}
-                alt={product.name}
-                fill
-                priority
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-                <span className="font-display text-6xl tracking-wider opacity-40">
-                  FCB
-                </span>
-              </div>
-            )}
-          </div>
+          <ProductGallery
+            images={product.images}
+            fallbackUrl={product.image_url}
+            alt={product.name}
+          />
         </motion.div>
 
         {/* Info side */}
@@ -251,11 +237,26 @@ export default function ProductDetailPage({ params }: PageProps) {
           transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
           className="flex flex-col"
         >
-          {product.category && (
-            <span className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
-              {product.category}
-            </span>
-          )}
+          {/* Header row: category pill + sale badge sit side-by-side so the
+              shopper sees both signals at once. The sale badge wins focus
+              when present (red), but we keep the category visible because
+              navigation back to peers ("more jerseys") needs the label. */}
+          <div className="flex flex-wrap items-center gap-3">
+            {product.category && (
+              <span className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+                {product.category}
+              </span>
+            )}
+            {product.is_on_sale && (
+              <SaleBadge
+                size="lg"
+                percentOff={computePercentOff(
+                  Number(product.price),
+                  product.sale_price,
+                )}
+              />
+            )}
+          </div>
           <h1 className="mt-2 font-display text-4xl leading-tight tracking-wider text-[var(--text-primary)] sm:text-5xl">
             {product.name}
           </h1>
@@ -267,9 +268,55 @@ export default function ProductDetailPage({ params }: PageProps) {
             </span>
           </div>
 
-          <p className="mt-6 font-display text-4xl tracking-wide text-[var(--accent-gold)]">
-            {formatPrice(product.price)}
-          </p>
+          {/* Price block — when on sale, shows the effective price in red
+              alongside the original strikethrough, plus an explicit
+              "Megspórolsz" line so the saving reads as a number, not just
+              a comparison. */}
+          <div className="mt-6">
+            <SalePriceBlock
+              price={Number(product.price)}
+              effectivePrice={Number(product.effective_price)}
+              isOnSale={product.is_on_sale}
+              size="xl"
+              layout="inline"
+            />
+            {product.is_on_sale &&
+              (() => {
+                const original = Number(product.price);
+                const effective = Number(product.effective_price);
+                const saved = Math.max(0, original - effective);
+                const pct = computePercentOff(original, product.sale_price);
+                if (saved <= 0) return null;
+                return (
+                  <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[var(--accent-red)]">
+                    <span aria-hidden>💸</span>
+                    Megspórolsz:{" "}
+                    <span className="font-display font-semibold tracking-wide">
+                      −{saved.toLocaleString("hu-HU")} Ft
+                    </span>
+                    {pct !== null && (
+                      <span className="text-[var(--text-secondary)]">
+                        (−{pct}%)
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
+          </div>
+
+          {/* Live countdown — only rendered when there's a sale with a
+              concrete end timestamp. On expiry it triggers `refresh()` so
+              the API serves the post-sale price and this block unmounts. */}
+          {product.is_on_sale && product.sale_ends_at && (
+            <div className="mt-5">
+              <SaleCountdown
+                endsAt={product.sale_ends_at}
+                onExpire={() => {
+                  void refresh();
+                }}
+              />
+            </div>
+          )}
 
           {product.description && (
             <p className="mt-5 text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
