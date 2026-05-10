@@ -67,6 +67,7 @@ function DetailContent({ conversationId }: { conversationId: string }) {
 
   useEffect(() => {
     const c = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload(c.signal);
     return () => c.abort();
   }, [reload]);

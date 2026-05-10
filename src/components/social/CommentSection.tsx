@@ -81,6 +81,7 @@ export function CommentSection({
   // dependency-driven setState on prop change is a legitimate pattern
   // the rule does not flag. Removed the indirection.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCount(initialCount);
   }, [initialCount]);
 

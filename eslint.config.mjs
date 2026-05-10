@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent worktree snapshots — not part of the main codebase:
+    ".claude/worktrees/**",
+    // CommonJS scripts and docs tooling — not Next.js app code:
+    "scripts/**",
+    "docs/**",
+    "coverage/**",
   ]),
 ]);
 

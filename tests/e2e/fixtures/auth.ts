@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 /**
  * Shared auth fixture for FC Barcelona Szurkolói Portál E2E tests.
  *

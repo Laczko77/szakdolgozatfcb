@@ -111,8 +111,8 @@ describe('isRouteActive', () => {
 // ---------------------------------------------------------------------------
 
 describe('desktopNavLinks', () => {
-  it('contains exactly 6 links', () => {
-    expect(desktopNavLinks).toHaveLength(6);
+  it('contains exactly 7 links', () => {
+    expect(desktopNavLinks).toHaveLength(7);
   });
 
   it('every link has a non-empty string label', () => {
@@ -152,6 +152,7 @@ describe('desktopNavLinks', () => {
       '/shop',
       '/jegyek',
       '/jatekosok',
+      '/season',
       '/kozosseg',
       '/szavazasok',
     ]);

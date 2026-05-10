@@ -74,6 +74,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   // script set on <html>. This means state and DOM never disagree.
   useEffect(() => {
     const current = readInitialTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setThemeState(current);
   }, []);
 

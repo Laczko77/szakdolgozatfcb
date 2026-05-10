@@ -14,9 +14,9 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 vi.mock('framer-motion', () => ({
   motion: {
+    // eslint-disable-next-line react/display-name
     div: React.forwardRef(
       (props: React.HTMLAttributes<HTMLDivElement> & { [k: string]: unknown }, ref: React.Ref<HTMLDivElement>) => {
-        // Strip framer-motion-specific props to avoid React DOM warnings
         const {
           initial: _initial,
           animate: _animate,

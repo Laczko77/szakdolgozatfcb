@@ -253,6 +253,7 @@ function Counter({ value, trigger, className }: CounterProps) {
     if (!trigger) return;
     if (reduced) {
       motionValue.jump(value);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplay(String(value));
       return;
     }

@@ -334,6 +334,7 @@ function SectorsDialog({ match, onClose }: SectorsDialogProps) {
 
   // Reset transient banners when the dialog re-opens against a different match.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(null);
     setSeedMessage(null);
   }, [match?.id]);
