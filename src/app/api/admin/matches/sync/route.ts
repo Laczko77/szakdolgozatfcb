@@ -70,6 +70,11 @@ import type { TablesInsert } from '@/types/database'
  *     the next sync run or lazy-loaded by the public route on first visit.
  */
 
+// Tell Vercel to allow up to 60 s for this function. Without this the platform
+// applies the plan default (10–15 s) which is not enough for Phase 1 (~20 s of
+// sequential DB upserts) + Phase 2 Sofascore pre-warm.
+export const maxDuration = 60
+
 const MIN_SEASON = 2000
 const MAX_SEASON = 2100
 const LOG_PREFIX = '[matches/sync]'
@@ -191,19 +196,20 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // ---- Phase 1: upsert matches + seed sectors (sequential) ---------------
-  // This phase is sequential by design: it touches the DB only and the
-  // wall-clock cost is small (one upsert + one idempotent seed per match).
-  // Parallelising it would complicate error attribution without a
-  // meaningful latency win.
+  // ---- Phase 1: upsert matches + seed sectors (parallel, bounded) -----------
+  // Each match requires 2 sequential DB calls (upsert → UUID → sector batch).
+  // Running them sequentially took ~20 s for a 48-match season, which — without
+  // maxDuration — caused Vercel to time-out the function before a response
+  // was ever sent. Running at concurrency 5 cuts Phase 1 to ~4 s while
+  // staying well below Supabase's connection-pool limit.
   const supabase = createServiceRoleClient()
   const errors: string[] = []
   let synced = 0
   let sectorsSeeded = 0
   const finishedToPrewarm: NormalizedMatch[] = []
 
-  for (const match of matches) {
-    try {
+  const phase1Tasks = matches.map(
+    (match) => async (): Promise<{ match: NormalizedMatch; sectorsInserted: number }> => {
       const insert: TablesInsert<'matches'> = {
         api_football_id: match.id,
         home_team: match.homeTeam,
@@ -228,33 +234,38 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (upsertError || !upserted) {
-        errors.push(
-          `Meccs #${match.id} (${match.homeTeam} vs ${match.awayTeam}): ${
-            upsertError?.message ?? 'ismeretlen hiba'
-          }`
-        )
-        continue
+        throw new Error(upsertError?.message ?? 'ismeretlen hiba')
       }
-
-      synced += 1
 
       // Idempotent fixed-sector seed. ignoreDuplicates means subsequent syncs
       // do NOT overwrite admin-edited prices / capacities.
       const matchRow = upserted as { id: string }
       const seedResult = await seedFixedSectorsForMatch(supabase, matchRow.id)
       if (seedResult.error) {
-        errors.push(`Meccs #${match.id} szektor seed: ${seedResult.error}`)
-      } else {
-        sectorsSeeded += seedResult.inserted
+        throw new Error(`szektor seed: ${seedResult.error}`)
       }
 
+      return { match, sectorsInserted: seedResult.inserted }
+    }
+  )
+
+  const phase1Settled = await withConcurrency(phase1Tasks, 5)
+
+  for (let pi = 0; pi < phase1Settled.length; pi++) {
+    const outcome = phase1Settled[pi]
+    const match = matches[pi]
+    if (outcome.status === 'fulfilled') {
+      synced += 1
+      sectorsSeeded += outcome.value.sectorsInserted
       if (match.status === 'FT' || match.status === 'AWD') {
         finishedToPrewarm.push(match)
       }
-    } catch (err) {
+    } else {
       errors.push(
-        `Meccs #${match.id}: ${
-          err instanceof Error ? err.message : 'ismeretlen hiba'
+        `Meccs #${match.id} (${match.homeTeam} vs ${match.awayTeam}): ${
+          outcome.reason instanceof Error
+            ? outcome.reason.message
+            : 'ismeretlen hiba'
         }`
       )
     }
