@@ -1,3 +1,5 @@
+export const preferredRegion = 'fra1'
+
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import {
