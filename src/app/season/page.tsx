@@ -2,12 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  AnimatePresence,
-  motion,
-  useMotionValueEvent,
-  useScroll,
-} from "framer-motion";
+import { motion } from "framer-motion";
 import { SeasonSelect, type SeasonOption } from "@/components/season/SeasonSelect";
 import { PointsEvolutionChart } from "@/components/season/PointsEvolutionChart";
 import { FormChips } from "@/components/season/FormChips";
@@ -92,8 +87,10 @@ function SeasonPageInner() {
   );
 
   // ---------------------------------------------------------------------
-  // Derive W/D/L + goals for the hero stat tiles. The endpoint is
-  // server-cached so polling it here is essentially free.
+  // Derive W/D/L + goals across the WHOLE season for the hero stat tiles.
+  // We pass `limit: 50` so the totals reflect the entire 38-round La Liga
+  // campaign (capped at 60 server-side) instead of just the last 10
+  // matches. The cached row is shared with /jegyek and the dashboard.
   // ---------------------------------------------------------------------
   const [totals, setTotals] = useState<DerivedSeasonTotals>(ZERO_TOTALS);
   const [totalsLoading, setTotalsLoading] = useState(true);
@@ -106,7 +103,7 @@ function SeasonPageInner() {
     // the call past the initial render commit.
     queueMicrotask(() => setTotalsLoading(true));
 
-    fetchTeamForm({ season }, controller.signal)
+    fetchTeamForm({ season, limit: 50 }, controller.signal)
       .then((response) => {
         const derived = deriveTotals(response.matches);
         setTotals(derived);
@@ -123,56 +120,13 @@ function SeasonPageInner() {
     };
   }, [season]);
 
-  // ---------------------------------------------------------------------
-  // Sticky mini-header — appears after 200px of scroll.
-  // ---------------------------------------------------------------------
-  const { scrollY } = useScroll();
-  const [showSticky, setShowSticky] = useState(false);
-  useMotionValueEvent(scrollY, "change", (latest: number) => {
-    const next = latest > 200;
-    setShowSticky((prev) => (prev === next ? prev : next));
-  });
+  // The page used to render its own sticky pill mini-header, but it
+  // overlapped with the global Navbar (also sticky `top-4 z-50`) so users
+  // saw a "double navbar" on scroll. The hero card already exposes the
+  // season switcher prominently, so we simply removed the redundant pill.
 
   return (
     <>
-      {/* ─────────────── STICKY MINI-HEADER ─────────────── */}
-      <AnimatePresence>
-        {showSticky && (
-          <motion.div
-            key="season-sticky"
-            initial={{ y: -40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -40, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="fixed inset-x-0 top-3 z-50 flex justify-center px-3 sm:top-5"
-          >
-            <div className="glass-nav flex items-center gap-3 rounded-full px-4 py-2 sm:gap-5 sm:px-5">
-              <span className="font-display text-[11px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
-                FCB · {seasonLabel}
-              </span>
-              <span
-                aria-hidden
-                className="hidden h-4 w-px bg-[var(--glass-border)] sm:block"
-              />
-              <div className="hidden items-center gap-1.5 sm:flex">
-                <ResultPip tone="win" count={totals.wins} />
-                <ResultPip tone="draw" count={totals.draws} />
-                <ResultPip tone="loss" count={totals.losses} />
-              </div>
-              <span
-                aria-hidden
-                className="hidden h-4 w-px bg-[var(--glass-border)] sm:block"
-              />
-              <SeasonSelect
-                value={season}
-                options={SEASON_OPTIONS}
-                onChange={handleSeasonChange}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 sm:pt-10 lg:px-8">
         {/* ─────────────── HERO CARD ─────────────── */}
         <SeasonHero
@@ -377,38 +331,6 @@ function SnapshotTile({
 
 function SectionSpacing({ children }: { children: React.ReactNode }) {
   return <div className="mt-8 sm:mt-12 lg:mt-14">{children}</div>;
-}
-
-// ---------------------------------------------------------------------------
-// Result pip — used in sticky mini-header
-// ---------------------------------------------------------------------------
-
-interface ResultPipProps {
-  tone: "win" | "draw" | "loss";
-  count: number;
-}
-
-function ResultPip({ tone, count }: ResultPipProps) {
-  const palette =
-    tone === "win"
-      ? "bg-[var(--accent-gold)]/15 text-[var(--accent-gold)] border-[var(--accent-gold)]/30"
-      : tone === "draw"
-        ? "bg-[var(--glass-bg-hover)] text-[var(--text-secondary)] border-[var(--glass-border)]"
-        : "bg-[#ff8aa6]/10 text-[#ff8aa6] border-[#ff8aa6]/25";
-  const label = tone === "win" ? "GY" : tone === "draw" ? "D" : "V";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5",
-        "font-display text-[10px] uppercase tracking-[0.2em] tabular-nums",
-        palette,
-      )}
-      aria-label={`${tone}: ${count}`}
-    >
-      <span>{label}</span>
-      <span>{count}</span>
-    </span>
-  );
 }
 
 // ---------------------------------------------------------------------------

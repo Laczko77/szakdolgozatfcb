@@ -182,26 +182,26 @@ function Column({ title, tone, entries, limit }: ColumnProps) {
       <header className="mb-4 flex items-center gap-2">
         <span
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full border",
+            "inline-flex h-8 w-8 items-center justify-center rounded-full border",
             accent,
           )}
         >
-          <Icon size={13} aria-hidden />
+          <Icon size={15} aria-hidden />
         </span>
-        <p className="font-display text-[11px] uppercase tracking-[0.32em] text-[var(--text-secondary)]">
+        <p className="font-display text-xs uppercase tracking-[0.32em] text-[var(--text-secondary)]">
           {title}
         </p>
-        <span className="ml-auto font-display text-base tabular-nums text-[var(--text-primary)]">
+        <span className="ml-auto font-display text-2xl leading-none tabular-nums text-[var(--text-primary)] sm:text-3xl">
           {entries.length}
         </span>
       </header>
 
       {visible.length === 0 ? (
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-sm text-[var(--text-muted)]">
           Nincs nyilvántartott mozgás.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {visible.map((entry, i) => (
             <TransferRow key={`${entry.playerName}-${i}`} entry={entry} />
           ))}
@@ -209,7 +209,7 @@ function Column({ title, tone, entries, limit }: ColumnProps) {
       )}
 
       {remaining > 0 && (
-        <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
+        <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
           +{remaining} további
         </p>
       )}
@@ -224,21 +224,21 @@ function TransferRow({ entry }: { entry: TransferEntry }) {
     <li
       className={cn(
         "rounded-[var(--radius-sm)] border border-transparent",
-        "bg-[var(--bg-primary)]/30 px-3 py-2.5",
+        "bg-[var(--bg-primary)]/30 px-3 py-3",
         "transition-colors duration-200 hover:border-[var(--glass-border-hover)]",
       )}
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="truncate text-base font-medium text-[var(--text-primary)]">
           {entry.playerName}
         </span>
         {entry.fee != null && (
-          <span className="shrink-0 font-display text-xs tabular-nums text-[var(--accent-gold)]">
+          <span className="shrink-0 font-display text-base tabular-nums text-[var(--accent-gold)] sm:text-lg">
             {formatFee(entry.fee, entry.feeCurrency)}
           </span>
         )}
       </div>
-      <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-[var(--text-muted)]">
+      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
         <span className="truncate">
           {counterparty ?? (entry.transferType ?? "—")}
         </span>

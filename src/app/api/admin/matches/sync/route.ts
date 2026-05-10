@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const cacheKeyFor = (matchId: number) => `match:${matchId}`
+const cacheKeyFor = (matchId: number) => `match|${matchId}`
 
 /**
  * Run async tasks in parallel with a bounded concurrency.

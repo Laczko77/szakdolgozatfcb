@@ -105,183 +105,269 @@ export function MatchEventsPanel({ matchId, fcbId }: MatchEventsPanelProps) {
   const homeTeamName = data.match.homeTeam.name;
   const awayTeamName = data.match.awayTeam.name;
 
-  if (data_quality === "unavailable" || totalEvents === 0) {
-    // Even when football-data events are unavailable, Sofascore extras
-    // may still be present — render whichever panels we have, then fall
-    // through to the friendly notice if we have nothing else either.
-    const hasAnyExtras =
-      data.team_stats ||
-      (lineups && (lineups.home.length > 0 || lineups.away.length > 0)) ||
-      shotmap.length > 0 ||
-      graph.length > 0 ||
-      (bestPlayers && (bestPlayers.home || bestPlayers.away)) ||
-      incidents.length > 0;
+  // -------------------------------------------------------------------
+  // Unified section model
+  //
+  // The panel renders the SAME six sections in the SAME order for every
+  // finished match. When a particular data source is empty the section
+  // shows a "Nincs elérhető … statisztika" placeholder instead of being
+  // omitted — this is what the user explicitly asked for, and it
+  // eliminates the inconsistent "Atlético has commentary, Celta only has
+  // ratings, others have nothing" experience.
+  // -------------------------------------------------------------------
 
-    if (!hasAnyExtras) {
-      return (
-        <div className="space-y-4">
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-[var(--radius-md)]",
-              "border border-dashed border-[var(--glass-border)]",
-              "bg-[var(--glass-bg)] px-4 py-3 text-sm text-[var(--text-secondary)]",
-            )}
-          >
-            <AlertTriangle
-              size={16}
-              aria-hidden
-              className="shrink-0 text-[var(--accent-gold)]"
-            />
-            <span>
-              Részletes események nem elérhetők ehhez a meccshez. Csak a
-              végeredményt tudjuk megjeleníteni.
-            </span>
-          </div>
-        </div>
-      );
-    }
-    // fall through to the rich-render branch — extras carry the panel.
-  }
+  const hasTeamStats = data.team_stats != null;
+  const hasLineups =
+    lineups != null && (lineups.home.length > 0 || lineups.away.length > 0);
+  const hasMomentum = graph.length > 0;
+  const hasShotmap = shotmap.length > 0;
+  const hasBestPlayers =
+    bestPlayers != null && (bestPlayers.home != null || bestPlayers.away != null);
+  const hasFootballDataEvents = totalEvents > 0;
+  const hasIncidents = incidents.length > 0;
+  const hasAnyTimeline = hasFootballDataEvents || hasIncidents;
 
   return (
     <div className="space-y-4">
       {/* 1. Best players (FT only — pre-match the rating doesn't exist) */}
-      {isFinal && (
-        <BestPlayersBar
-          bestPlayers={bestPlayers}
-          homeTeam={homeTeamName}
-          awayTeam={awayTeamName}
-          index={0}
-        />
-      )}
+      <Section title="Meccs emberei">
+        {isFinal && hasBestPlayers ? (
+          <BestPlayersBar
+            bestPlayers={bestPlayers}
+            homeTeam={homeTeamName}
+            awayTeam={awayTeamName}
+            index={0}
+          />
+        ) : (
+          <Placeholder>
+            Nincs elérhető játékos-értékelés ehhez a meccshez.
+          </Placeholder>
+        )}
+      </Section>
 
-      {/* 2. Team stats (existing) */}
-      {data.team_stats && (
-        <TeamStatsSection
-          stats={data.team_stats}
-          homeTeam={homeTeamName}
-          awayTeam={awayTeamName}
-        />
-      )}
+      {/* 2. Team stats */}
+      <Section title="Csapat statisztikák">
+        {hasTeamStats ? (
+          <TeamStatsSection
+            stats={data.team_stats!}
+            homeTeam={homeTeamName}
+            awayTeam={awayTeamName}
+          />
+        ) : (
+          <Placeholder>
+            Nincs elérhető csapatszintű statisztika ehhez a meccshez.
+          </Placeholder>
+        )}
+      </Section>
 
       {/* 3. Lineups */}
-      <LineupsPanel
-        lineups={lineups}
-        homeTeam={homeTeamName}
-        awayTeam={awayTeamName}
-        index={1}
-      />
+      <Section title="Kezdő tizenegy">
+        {hasLineups ? (
+          <LineupsPanel
+            lineups={lineups}
+            homeTeam={homeTeamName}
+            awayTeam={awayTeamName}
+            index={1}
+          />
+        ) : (
+          <Placeholder>
+            Nincs elérhető összeállítás ehhez a meccshez.
+          </Placeholder>
+        )}
+      </Section>
 
       {/* 4. Momentum */}
-      <MomentumChart
-        graph={graph}
-        homeTeam={homeTeamName}
-        awayTeam={awayTeamName}
-        index={2}
-      />
+      <Section title="Momentum">
+        {hasMomentum ? (
+          <MomentumChart
+            graph={graph}
+            homeTeam={homeTeamName}
+            awayTeam={awayTeamName}
+            index={2}
+          />
+        ) : (
+          <Placeholder>Nincs elérhető momentum-adat ehhez a meccshez.</Placeholder>
+        )}
+      </Section>
 
       {/* 5. Shotmap */}
-      <ShotmapPanel
-        shotmap={shotmap}
-        homeTeam={homeTeamName}
-        awayTeam={awayTeamName}
-        index={3}
-      />
+      <Section title="Lövéstérkép">
+        {hasShotmap ? (
+          <ShotmapPanel
+            shotmap={shotmap}
+            homeTeam={homeTeamName}
+            awayTeam={awayTeamName}
+            index={3}
+          />
+        ) : (
+          <Placeholder>Nincs elérhető lövéstérkép ehhez a meccshez.</Placeholder>
+        )}
+      </Section>
+
+      {/* 6. Eseménysor — unifies football-data goals/bookings/subs + Sofascore
+          incidents into a single deterministic block. We always render the
+          incident timeline first when it carries a goal (canonical), then the
+          football-data tables; otherwise the football-data tables lead and
+          incidents follow as a supplementary stream. Both paths share the
+          same section heading so the rendering order across matches stays
+          stable. */}
+      <Section title="Eseménysor">
+        {!hasAnyTimeline ? (
+          <Placeholder>
+            Nincs elérhető részletes eseménysor ehhez a meccshez.
+          </Placeholder>
+        ) : (
+          <div className="space-y-4">
+            {useIncidentsAsPrimary && hasIncidents && (
+              <IncidentsTimeline
+                incidents={incidents}
+                homeTeam={homeTeamName}
+                awayTeam={awayTeamName}
+              />
+            )}
+
+            {events.goals.length > 0 && (
+              <EventGroup
+                title="Gólok"
+                icon={<Goal size={14} aria-hidden />}
+                accent="text-[var(--accent-gold)]"
+              >
+                {events.goals.map((g, i) => (
+                  <EventRow
+                    key={`goal-${i}`}
+                    minute={g.minute}
+                    isFcb={g.team.id === fcbId}
+                    icon="goal"
+                  >
+                    <span className="font-medium text-[var(--text-primary)]">
+                      {g.scorer.name}
+                    </span>
+                    <span className="text-[var(--text-muted)]">{g.team.name}</span>
+                  </EventRow>
+                ))}
+              </EventGroup>
+            )}
+
+            {events.bookings.length > 0 && (
+              <EventGroup
+                title="Lapok"
+                icon={<Square size={14} aria-hidden />}
+                accent="text-amber-300"
+              >
+                {events.bookings.map((b, i) => (
+                  <EventRow
+                    key={`book-${i}`}
+                    minute={b.minute}
+                    isFcb={b.team.id === fcbId}
+                    icon={
+                      b.card === "RED" || b.card === "YELLOW_RED"
+                        ? "red"
+                        : "yellow"
+                    }
+                  >
+                    <span className="font-medium text-[var(--text-primary)]">
+                      {b.player.name}
+                    </span>
+                    <span className="text-[var(--text-muted)]">{b.team.name}</span>
+                  </EventRow>
+                ))}
+              </EventGroup>
+            )}
+
+            {events.substitutions.length > 0 && (
+              <EventGroup
+                title="Cserék"
+                icon={<ArrowRightLeft size={14} aria-hidden />}
+                accent="text-[var(--text-secondary)]"
+              >
+                {events.substitutions.map((s, i) => (
+                  <EventRow
+                    key={`sub-${i}`}
+                    minute={s.minute}
+                    isFcb={s.team.id === fcbId}
+                    icon="sub"
+                  >
+                    <span className="text-emerald-300">↑ {s.playerIn.name}</span>
+                    <span className="text-rose-300">↓ {s.playerOut.name}</span>
+                    <span className="text-[var(--text-muted)]">{s.team.name}</span>
+                  </EventRow>
+                ))}
+              </EventGroup>
+            )}
+
+            {!useIncidentsAsPrimary && hasIncidents && (
+              <IncidentsTimeline
+                incidents={incidents}
+                homeTeam={homeTeamName}
+                awayTeam={awayTeamName}
+              />
+            )}
+          </div>
+        )}
+      </Section>
 
       {data_quality === "partial" && (
-        <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
-          Részleges adat — egy vagy több eseménytípus hiányzik.
+        <p
+          className={cn(
+            "flex items-center gap-2 text-xs uppercase tracking-[0.2em]",
+            "text-[var(--text-muted)]",
+          )}
+        >
+          <AlertTriangle
+            size={12}
+            aria-hidden
+            className="shrink-0 text-[var(--accent-gold)]"
+          />
+          Részleges adat — egy vagy több forrás hiányzik.
         </p>
       )}
+    </div>
+  );
+}
 
-      {/* 6. Incidents (Sofascore) — placed BEFORE football-data events when
-          the stream contains a goal so it reads as the canonical timeline. */}
-      {useIncidentsAsPrimary && incidents.length > 0 && (
-        <IncidentsTimeline
-          incidents={incidents}
-          homeTeam={homeTeamName}
-          awayTeam={awayTeamName}
-        />
-      )}
+// ---------------------------------------------------------------------------
+// Section + Placeholder — give every match the same outline regardless of
+// which data sources Sofascore / football-data delivered.
+// ---------------------------------------------------------------------------
 
-      {/* 7. football-data.org events (goals / bookings / substitutions). We
-          keep these visible alongside the incident timeline because each
-          source occasionally drops a row the other captures. */}
-      {events.goals.length > 0 && (
-        <EventGroup
-          title="Gólok"
-          icon={<Goal size={14} aria-hidden />}
-          accent="text-[var(--accent-gold)]"
-        >
-          {events.goals.map((g, i) => (
-            <EventRow
-              key={`goal-${i}`}
-              minute={g.minute}
-              isFcb={g.team.id === fcbId}
-              icon="goal"
-            >
-              <span className="font-medium text-[var(--text-primary)]">
-                {g.scorer.name}
-              </span>
-              <span className="text-[var(--text-muted)]">{g.team.name}</span>
-            </EventRow>
-          ))}
-        </EventGroup>
-      )}
+/**
+ * Wrapper around every event-panel section. Even when a section's data is
+ * missing we still render the heading and a placeholder card so a returning
+ * user sees the same skeleton match-to-match — what differs is whether the
+ * cell is filled in or shows "Nincs elérhető … statisztika".
+ */
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <p className="mb-2 font-display text-xs uppercase tracking-[0.32em] text-[var(--accent-gold)]">
+        {title}
+      </p>
+      {children}
+    </section>
+  );
+}
 
-      {events.bookings.length > 0 && (
-        <EventGroup
-          title="Lapok"
-          icon={<Square size={14} aria-hidden />}
-          accent="text-amber-300"
-        >
-          {events.bookings.map((b, i) => (
-            <EventRow
-              key={`book-${i}`}
-              minute={b.minute}
-              isFcb={b.team.id === fcbId}
-              icon={b.card === "RED" || b.card === "YELLOW_RED" ? "red" : "yellow"}
-            >
-              <span className="font-medium text-[var(--text-primary)]">
-                {b.player.name}
-              </span>
-              <span className="text-[var(--text-muted)]">{b.team.name}</span>
-            </EventRow>
-          ))}
-        </EventGroup>
+function Placeholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-[var(--radius-md)]",
+        "border border-dashed border-[var(--glass-border)]",
+        "bg-[var(--glass-bg)] px-4 py-3 text-sm text-[var(--text-secondary)]",
       )}
-
-      {events.substitutions.length > 0 && (
-        <EventGroup
-          title="Cserék"
-          icon={<ArrowRightLeft size={14} aria-hidden />}
-          accent="text-[var(--text-secondary)]"
-        >
-          {events.substitutions.map((s, i) => (
-            <EventRow
-              key={`sub-${i}`}
-              minute={s.minute}
-              isFcb={s.team.id === fcbId}
-              icon="sub"
-            >
-              <span className="text-emerald-300">↑ {s.playerIn.name}</span>
-              <span className="text-rose-300">↓ {s.playerOut.name}</span>
-              <span className="text-[var(--text-muted)]">{s.team.name}</span>
-            </EventRow>
-          ))}
-        </EventGroup>
-      )}
-
-      {/* If we did NOT promote incidents above, render them below as a
-          supplementary "Sofascore eseménysor" so VAR/period markers still
-          land somewhere on the panel. */}
-      {!useIncidentsAsPrimary && incidents.length > 0 && (
-        <IncidentsTimeline
-          incidents={incidents}
-          homeTeam={homeTeamName}
-          awayTeam={awayTeamName}
-        />
-      )}
+    >
+      <AlertTriangle
+        size={14}
+        aria-hidden
+        className="shrink-0 text-[var(--text-muted)]"
+      />
+      <span>{children}</span>
     </div>
   );
 }
@@ -313,7 +399,7 @@ function IncidentsTimeline({
       <p
         className={cn(
           "mb-2 inline-flex items-center gap-2",
-          "font-display text-[11px] uppercase tracking-[0.25em]",
+          "font-display text-xs uppercase tracking-[0.25em]",
           "text-[var(--accent-gold)]",
         )}
       >
@@ -506,16 +592,16 @@ function IncidentRow({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
-        "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm",
+        "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-base",
         "border border-transparent",
         "bg-[var(--glass-bg)]",
       )}
     >
       <span
         className={cn(
-          "flex h-7 w-9 shrink-0 items-center justify-center rounded-full",
+          "flex h-8 w-11 shrink-0 items-center justify-center rounded-full",
           "border border-[var(--glass-border)] bg-[var(--bg-primary)]",
-          "font-display text-[11px] tabular-nums text-[var(--text-secondary)]",
+          "font-display text-sm tabular-nums text-[var(--text-secondary)]",
         )}
       >
         {minuteLabel}
@@ -565,7 +651,7 @@ function EventGroup({
       <p
         className={cn(
           "mb-2 inline-flex items-center gap-2",
-          "font-display text-[11px] uppercase tracking-[0.25em]",
+          "font-display text-xs uppercase tracking-[0.25em]",
           accent,
         )}
       >
@@ -733,20 +819,24 @@ function TeamStatsSection({
       )}
     >
       {/* Team labels */}
-      <header className="mb-4 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">
-        <span className="min-w-0 truncate">{homeTeam}</span>
-        <span className="font-display tracking-[0.32em] text-[var(--text-muted)]">
-          Csapat statisztikák
+      <header className="mb-4 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.28em] text-[var(--text-secondary)]">
+        <span className="min-w-0 truncate text-sm font-medium normal-case tracking-normal text-[var(--text-primary)]">
+          {homeTeam}
         </span>
-        <span className="min-w-0 truncate text-right">{awayTeam}</span>
+        <span className="font-display tracking-[0.32em] text-[var(--text-muted)]">
+          Összesítő
+        </span>
+        <span className="min-w-0 truncate text-right text-sm font-medium normal-case tracking-normal text-[var(--text-primary)]">
+          {awayTeam}
+        </span>
       </header>
 
       {/* Possession bar */}
       {showPossessionBar && (
         <div className="mb-5">
-          <div className="mb-1.5 flex items-center justify-between font-display text-xs tabular-nums text-[var(--text-primary)]">
+          <div className="mb-2 flex items-center justify-between font-display text-xl tabular-nums text-[var(--text-primary)] sm:text-2xl">
             <span className="text-[var(--accent-blue)]">{formatPercent(homePoss)}</span>
-            <span className="text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">
+            <span className="text-[11px] uppercase tracking-[0.28em] text-[var(--text-muted)]">
               Labdabirtoklás
             </span>
             <span>{formatPercent(awayPoss)}</span>
@@ -777,11 +867,11 @@ function TeamStatsSection({
         {rows.map((row) => (
           <li
             key={row.label}
-            className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-2.5"
+            className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-3"
           >
             <span
               className={cn(
-                "text-right font-display text-base tabular-nums",
+                "text-right font-display text-xl tabular-nums sm:text-2xl",
                 row.home != null
                   ? "text-[var(--text-primary)]"
                   : "text-[var(--text-muted)]",
@@ -789,12 +879,12 @@ function TeamStatsSection({
             >
               {formatStat(row.home, row.suffix)}
             </span>
-            <span className="font-display text-[10px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">
+            <span className="font-display text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)] sm:text-xs">
               {row.label}
             </span>
             <span
               className={cn(
-                "text-left font-display text-base tabular-nums",
+                "text-left font-display text-xl tabular-nums sm:text-2xl",
                 row.away != null
                   ? "text-[var(--text-primary)]"
                   : "text-[var(--text-muted)]",

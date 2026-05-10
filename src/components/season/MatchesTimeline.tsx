@@ -28,15 +28,14 @@ interface MatchesTimelineProps {
 }
 
 /**
- * "Meccsek" — chronological list of FC Barcelona's last La Liga matches.
+ * "Meccsek" — chronological list of FC Barcelona's La Liga matches across
+ * the whole selected season.
  *
- * Data source rationale:
- *  The four endpoints exposed by Backend Iter 27 do NOT include a
- *  whole-season fixture list — `team-form` returns the *last 10*
- *  finished matches for a team, and `match/[id]` is a single-match
- *  detail pass-through. This component therefore renders the most
- *  recent ten Barça La Liga results; the section eyebrow makes that
- *  scope explicit.
+ * Data source:
+ *  `/api/season/team-form?limit=50` — the backend serves the entire
+ *  finished-fixture list for the season (capped at 60 server-side, well
+ *  above La Liga's 38 rounds). The dashboard's "next match" widget keeps
+ *  using the default `limit=10` slice of the same cache row.
  *
  * Behaviour:
  *  - Each row is a compact horizontal strip (date, crests, score,
@@ -49,6 +48,7 @@ interface MatchesTimelineProps {
  *  - FCB rows are highlighted regardless of result (this is a Barça
  *    portal — every row is FCB), with a gold left-edge accent.
  */
+const SEASON_FETCH_LIMIT = 50;
 export function MatchesTimeline({
   season,
   index = 0,
@@ -98,7 +98,7 @@ export function MatchesTimeline({
       setData(null);
     });
     const controller = new AbortController();
-    fetchTeamForm({ season }, controller.signal)
+    fetchTeamForm({ season, limit: SEASON_FETCH_LIMIT }, controller.signal)
       .then((res) => {
         setData(res);
         setLoaded(true);
@@ -122,8 +122,12 @@ export function MatchesTimeline({
     <div ref={sentinelRef}>
       <ChartShell
         eyebrow="Meccsek"
-        title="Az FCB legutóbbi La Liga meccsei"
-        description="A legfrissebb tíz bajnoki — kattints egy sorra a részletes események megjelenítéséhez."
+        title="A teljes La Liga szezon meccsei"
+        description={
+          matches.length > 0
+            ? `${matches.length} lejátszott bajnoki — kattints egy sorra a részletes események megjelenítéséhez.`
+            : "Az aktuális szezon összes lejátszott meccse — kattints egy sorra a részletes események megjelenítéséhez."
+        }
         meta={<CacheLabel cachedAt={data?.cached_at} stale={data?.stale} />}
         index={index}
         className={className}

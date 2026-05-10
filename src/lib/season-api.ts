@@ -305,21 +305,35 @@ export async function fetchStandingsEvolution(
   );
 }
 
-/** Last 10 finished La Liga matches for a team (default = FCB). */
+/**
+ * Finished La Liga matches for a team (default = FCB).
+ *
+ * `limit` controls how many of the most recent fixtures are returned:
+ *  - omitted / <= 0  → backend default (10)
+ *  - 1 … 60          → exact slice
+ *  - > 60            → backend clamps to 60 (whole-season ceiling)
+ *
+ * The /season page passes `limit: 50` so the timeline shows the whole
+ * season; the dashboard widget keeps the default 10.
+ */
 export async function fetchTeamForm(
-  options: FetchSeasonOptions & { teamId?: number } = {},
+  options: FetchSeasonOptions & { teamId?: number; limit?: number } = {},
   signal?: AbortSignal,
 ): Promise<TeamFormResponse> {
   const {
     competition = LA_LIGA_COMPETITION_ID,
     season,
     teamId = FCB_TEAM_ID,
+    limit,
   } = options;
   const params = new URLSearchParams({
     competition: String(competition),
     team_id: String(teamId),
   });
   if (season) params.set("season", String(season));
+  if (limit && Number.isInteger(limit) && limit > 0) {
+    params.set("limit", String(limit));
+  }
   return getJson<TeamFormResponse>(
     `/api/season/team-form?${params.toString()}`,
     signal,

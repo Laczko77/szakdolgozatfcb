@@ -35,7 +35,20 @@ import {
 
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 const FORM_WINDOW = 10
+/**
+ * Hard upper bound on `?limit=` so a misbehaving client can't ask the route
+ * to slice the entire competition feed (~380 fixtures) into the response.
+ * 60 comfortably covers a full La Liga season (38) plus headroom.
+ */
+const FORM_LIMIT_MAX = 60
 const LOG_PREFIX = '[api/season/team-form]'
+
+function parseLimit(raw: string | null): number {
+  if (!raw) return FORM_WINDOW
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isInteger(parsed) || parsed <= 0) return FORM_WINDOW
+  return Math.min(parsed, FORM_LIMIT_MAX)
+}
 
 interface FormMatch {
   match_id: number
@@ -61,6 +74,10 @@ export async function GET(request: NextRequest) {
   }
   const season = parseSeason(searchParams.get('season'))
   const teamId = parseTeamId(searchParams.get('team_id'), FCB_TEAM_ID)
+  const limit = parseLimit(searchParams.get('limit'))
+  // The cache row stores up to FORM_LIMIT_MAX rows so callers asking for a
+  // smaller window can be served from the same cache entry — we slice the
+  // payload at response time instead of branching on `limit` per cache key.
   const cacheKey = buildCacheKey(['form', competitionId, season, teamId])
 
   const supabase = createServiceRoleClient()
@@ -79,7 +96,7 @@ export async function GET(request: NextRequest) {
   if (cacheRow && isFresh(cacheRow.cached_at, CACHE_TTL_MS)) {
     return NextResponse.json({
       team_id: cacheRow.data.team_id,
-      matches: cacheRow.data.matches,
+      matches: cacheRow.data.matches.slice(0, limit),
       cached_at: cacheRow.cached_at,
       season,
       competition_id: competitionId,
@@ -100,7 +117,7 @@ export async function GET(request: NextRequest) {
       )
       return NextResponse.json({
         team_id: cacheRow.data.team_id,
-        matches: cacheRow.data.matches,
+        matches: cacheRow.data.matches.slice(0, limit),
         cached_at: cacheRow.cached_at,
         season,
         competition_id: competitionId,
@@ -110,11 +127,15 @@ export async function GET(request: NextRequest) {
     return mapUpstreamError(err)
   }
 
-  const formMatches = pickLastFinished(matches, teamId, FORM_WINDOW)
+  // Always cache the *maximum* window — request-time slicing keeps a single
+  // cache row useful for both the 10-row dashboard widget and the
+  // whole-season /season timeline.
+  const cachedMatches = pickLastFinished(matches, teamId, FORM_LIMIT_MAX)
+  const formMatches = cachedMatches.slice(0, limit)
 
   // ---- 3. Persist cache ---------------------------------------------------
   const nowIso = new Date().toISOString()
-  const payload: CachedForm = { team_id: teamId, matches: formMatches }
+  const payload: CachedForm = { team_id: teamId, matches: cachedMatches }
 
   const { error: upsertError } = await supabase
     .from('season_form_cache' as never)

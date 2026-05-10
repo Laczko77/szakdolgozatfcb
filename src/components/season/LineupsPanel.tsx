@@ -365,7 +365,7 @@ function RatingBadge({
     <span
       className={cn(
         "shrink-0 rounded-[var(--radius-sm)] border font-display tabular-nums",
-        compact ? "px-1.5 py-0.5 text-[10px]" : "px-1.5 py-0.5 text-xs",
+        compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-sm",
         tier === "gold" &&
           "border-[var(--accent-gold)]/50 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
         tier === "silver" &&
