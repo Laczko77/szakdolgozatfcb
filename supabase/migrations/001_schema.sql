@@ -128,6 +128,32 @@ CREATE TABLE IF NOT EXISTS public.products (
 CREATE INDEX IF NOT EXISTS products_category_idx   ON public.products(category);
 CREATE INDEX IF NOT EXISTS products_created_at_idx ON public.products(created_at DESC);
 
+-- Sale pricing columns (Iter25)
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS sale_price      NUMERIC(10,2),
+  ADD COLUMN IF NOT EXISTS sale_starts_at  TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS sale_ends_at    TIMESTAMPTZ;
+
+ALTER TABLE public.products
+  DROP CONSTRAINT IF EXISTS products_sale_price_below_price_chk;
+ALTER TABLE public.products
+  ADD  CONSTRAINT products_sale_price_below_price_chk
+       CHECK (sale_price IS NULL OR sale_price < price);
+
+ALTER TABLE public.products
+  DROP CONSTRAINT IF EXISTS products_sale_window_chk;
+ALTER TABLE public.products
+  ADD  CONSTRAINT products_sale_window_chk
+       CHECK (
+         sale_starts_at IS NULL
+         OR sale_ends_at IS NULL
+         OR sale_starts_at < sale_ends_at
+       );
+
+CREATE INDEX IF NOT EXISTS products_sale_active_idx
+  ON public.products (sale_ends_at)
+  WHERE sale_price IS NOT NULL;
+
 -- ============================================================================
 -- 5. product_variants
 -- ============================================================================
@@ -154,6 +180,27 @@ CREATE TABLE IF NOT EXISTS public.cart_items (
   UNIQUE (user_id, variant_id)
 );
 CREATE INDEX IF NOT EXISTS cart_items_user_idx ON public.cart_items(user_id);
+
+-- Cart price snapshot (Iter25) — snapshotted at add-to-cart time so an
+-- expired sale between add-to-cart and checkout still honours the sale price.
+ALTER TABLE public.cart_items
+  ADD COLUMN IF NOT EXISTS unit_price_snapshot NUMERIC(10,2);
+
+UPDATE public.cart_items ci
+   SET unit_price_snapshot = pr.price
+  FROM public.product_variants pv
+  JOIN public.products pr ON pr.id = pv.product_id
+ WHERE ci.variant_id = pv.id
+   AND ci.unit_price_snapshot IS NULL;
+
+ALTER TABLE public.cart_items
+  ALTER COLUMN unit_price_snapshot SET NOT NULL;
+
+ALTER TABLE public.cart_items
+  DROP CONSTRAINT IF EXISTS cart_items_unit_price_snapshot_chk;
+ALTER TABLE public.cart_items
+  ADD  CONSTRAINT cart_items_unit_price_snapshot_chk
+       CHECK (unit_price_snapshot >= 0);
 
 -- ============================================================================
 -- 7. coupons (létrehozás előbbre hozva, mert redeemed_coupons hivatkozik rá)
@@ -475,6 +522,10 @@ CREATE INDEX IF NOT EXISTS page_views_user_idx       ON public.page_views(user_i
 CREATE INDEX IF NOT EXISTS page_views_product_idx    ON public.page_views(product_id);
 CREATE INDEX IF NOT EXISTS page_views_cookie_idx     ON public.page_views(cookie_id);
 CREATE INDEX IF NOT EXISTS page_views_created_at_idx ON public.page_views(created_at DESC);
+-- Composite partial index for product-scoped aggregation queries (Iter24)
+CREATE INDEX IF NOT EXISTS page_views_product_created_idx
+  ON public.page_views (product_id, created_at DESC)
+  WHERE product_id IS NOT NULL;
 
 -- ============================================================================
 -- 24. cookie_consents
@@ -584,6 +635,84 @@ CREATE TRIGGER dream_teams_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ============================================================================
+-- 31. product_images  (Iter28 — multi-image gallery)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.product_images (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id    UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  image_url     TEXT NOT NULL,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_cover      BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS product_images_product_order_idx
+  ON public.product_images (product_id, display_order);
+
+-- Max one cover per product enforced by partial unique index + BEFORE trigger.
+CREATE UNIQUE INDEX IF NOT EXISTS product_images_one_cover_per_product_uidx
+  ON public.product_images (product_id)
+  WHERE is_cover = TRUE;
+
+-- Data migration: seed cover rows from existing products.image_url.
+-- Idempotent — only inserts when no cover row exists for that product yet.
+INSERT INTO public.product_images (product_id, image_url, display_order, is_cover)
+SELECT p.id, p.image_url, 0, TRUE
+  FROM public.products p
+ WHERE p.image_url IS NOT NULL
+   AND NOT EXISTS (
+     SELECT 1 FROM public.product_images pi
+      WHERE pi.product_id = p.id AND pi.is_cover = TRUE
+   );
+
+-- ============================================================================
+-- 32. dashboard_preferences  (Iter26 — per-user widget config)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.dashboard_preferences (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
+  widget_config JSONB NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- updated_at trigger — reuses the global set_updated_at() defined above.
+DROP TRIGGER IF EXISTS dashboard_preferences_set_updated_at
+  ON public.dashboard_preferences;
+CREATE TRIGGER dashboard_preferences_set_updated_at
+  BEFORE UPDATE ON public.dashboard_preferences
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ============================================================================
+-- 33. season_evolution_cache  (Iter27 — /season page backend caches)
+-- 34. season_form_cache
+-- 35. match_details_cache
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.season_evolution_cache (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key  TEXT NOT NULL UNIQUE,
+  data       JSONB NOT NULL,
+  cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.season_form_cache (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key  TEXT NOT NULL UNIQUE,
+  data       JSONB NOT NULL,
+  cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.match_details_cache (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key  TEXT NOT NULL UNIQUE,
+  data       JSONB NOT NULL,
+  cached_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================================
 -- Enable RLS on every table.
 -- ============================================================================
 
@@ -598,7 +727,9 @@ BEGIN
     'reactions','polls','votes','user_points','point_transactions',
     'coupons','redeemed_coupons','page_views','cookie_consents',
     'standings_cache','scorers_cache',
-    'follows','conversations','messages','dream_teams'
+    'follows','conversations','messages','dream_teams',
+    'product_images','dashboard_preferences',
+    'season_evolution_cache','season_form_cache','match_details_cache'
   ]
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);

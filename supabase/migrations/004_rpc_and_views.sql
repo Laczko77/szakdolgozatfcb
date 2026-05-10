@@ -589,11 +589,9 @@ BEGIN
 
   FOR v_line IN
     SELECT ci.variant_id,
-           ci.quantity AS qty,
-           pr.price    AS unit_price
+           ci.quantity            AS qty,
+           ci.unit_price_snapshot AS unit_price
       FROM public.cart_items ci
-      JOIN public.product_variants pv ON pv.id = ci.variant_id
-      JOIN public.products pr         ON pr.id = pv.product_id
      WHERE ci.user_id = p_user_id
   LOOP
     INSERT INTO public.order_items (order_id, variant_id, quantity, unit_price)
@@ -731,6 +729,7 @@ GRANT SELECT ON public.product_view_counts TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- recommended_products — publikus ajánlás: view_count * (avg_rating/5) score.
+-- Iter25: sale fields + effective_price + is_on_sale added.
 -- ----------------------------------------------------------------------------
 
 DROP VIEW IF EXISTS public.recommended_products;
@@ -756,6 +755,20 @@ SELECT p.id                                  AS product_id,
        p.description,
        p.image_url,
        p.price,
+       p.sale_price,
+       p.sale_starts_at,
+       p.sale_ends_at,
+       CASE
+         WHEN p.sale_price IS NOT NULL
+          AND (p.sale_starts_at IS NULL OR NOW() >= p.sale_starts_at)
+          AND (p.sale_ends_at   IS NULL OR NOW() <  p.sale_ends_at)
+         THEN p.sale_price
+         ELSE p.price
+       END                                   AS effective_price,
+       (p.sale_price IS NOT NULL
+         AND (p.sale_starts_at IS NULL OR NOW() >= p.sale_starts_at)
+         AND (p.sale_ends_at   IS NULL OR NOW() <  p.sale_ends_at))
+                                             AS is_on_sale,
        p.category,
        p.created_at,
        COALESCE(v.view_count, 0)             AS view_count,
@@ -769,3 +782,68 @@ SELECT p.id                                  AS product_id,
   LEFT JOIN review_agg r ON r.product_id = p.id;
 
 GRANT SELECT ON public.recommended_products TO anon, authenticated;
+
+-- ============================================================================
+-- get_product_view_counts()  (Iter24)
+--
+-- SECURITY DEFINER aggregate so anon callers can read per-product view counts
+-- without accessing the admin-only page_views table directly.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_product_view_counts()
+RETURNS TABLE (
+  product_id UUID,
+  view_count INTEGER
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT product_id,
+         COUNT(*)::INTEGER AS view_count
+    FROM public.page_views
+   WHERE product_id IS NOT NULL
+   GROUP BY product_id;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_product_view_counts() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_product_view_counts() TO anon, authenticated;
+
+COMMENT ON FUNCTION public.get_product_view_counts() IS
+  'Iter24: public aggregate of page_views grouped by product_id. SECURITY DEFINER so anon callers can read the aggregate without seeing raw page_views rows.';
+
+-- ============================================================================
+-- set_product_cover_image(p_product_id, p_image_id)  (Iter28)
+--
+-- Atomic "make this image the cover". The BEFORE trigger handles concurrent
+-- cover swaps; this RPC is a convenience wrapper with ownership validation.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.set_product_cover_image(
+  p_product_id UUID,
+  p_image_id   UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM 1
+    FROM public.product_images
+   WHERE id = p_image_id AND product_id = p_product_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'A megadott kép nem tartozik a termékhez'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  UPDATE public.product_images
+     SET is_cover = TRUE
+   WHERE id = p_image_id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.set_product_cover_image(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.set_product_cover_image(uuid, uuid) TO service_role;

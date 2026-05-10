@@ -672,3 +672,78 @@ CREATE POLICY "post_images_delete_own_prefix"
     bucket_id = 'post-images'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================================
+-- product_images  (Iter28 — public read, admin write)
+-- ============================================================================
+
+DROP POLICY IF EXISTS "product_images_select_public" ON public.product_images;
+CREATE POLICY "product_images_select_public"
+  ON public.product_images FOR SELECT TO anon, authenticated USING (TRUE);
+
+DROP POLICY IF EXISTS "product_images_insert_admin" ON public.product_images;
+CREATE POLICY "product_images_insert_admin"
+  ON public.product_images FOR INSERT TO authenticated
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "product_images_update_admin" ON public.product_images;
+CREATE POLICY "product_images_update_admin"
+  ON public.product_images FOR UPDATE TO authenticated
+  USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "product_images_delete_admin" ON public.product_images;
+CREATE POLICY "product_images_delete_admin"
+  ON public.product_images FOR DELETE TO authenticated
+  USING (public.is_admin());
+
+-- ============================================================================
+-- dashboard_preferences  (Iter26 — own read/write, admin read)
+-- ============================================================================
+
+DROP POLICY IF EXISTS "dashboard_preferences_select_own_or_admin"
+  ON public.dashboard_preferences;
+CREATE POLICY "dashboard_preferences_select_own_or_admin"
+  ON public.dashboard_preferences
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid() OR public.is_admin());
+
+DROP POLICY IF EXISTS "dashboard_preferences_insert_own"
+  ON public.dashboard_preferences;
+CREATE POLICY "dashboard_preferences_insert_own"
+  ON public.dashboard_preferences
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "dashboard_preferences_update_own"
+  ON public.dashboard_preferences;
+CREATE POLICY "dashboard_preferences_update_own"
+  ON public.dashboard_preferences
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "dashboard_preferences_delete_own_or_admin"
+  ON public.dashboard_preferences;
+CREATE POLICY "dashboard_preferences_delete_own_or_admin"
+  ON public.dashboard_preferences
+  FOR DELETE TO authenticated
+  USING (user_id = auth.uid() OR public.is_admin());
+
+-- ============================================================================
+-- season caches  (Iter27 — public SELECT, writes via service-role only)
+-- ============================================================================
+
+DROP POLICY IF EXISTS "season_evolution_cache_select_public"
+  ON public.season_evolution_cache;
+CREATE POLICY "season_evolution_cache_select_public"
+  ON public.season_evolution_cache FOR SELECT TO anon, authenticated USING (TRUE);
+
+DROP POLICY IF EXISTS "season_form_cache_select_public"
+  ON public.season_form_cache;
+CREATE POLICY "season_form_cache_select_public"
+  ON public.season_form_cache FOR SELECT TO anon, authenticated USING (TRUE);
+
+DROP POLICY IF EXISTS "match_details_cache_select_public"
+  ON public.match_details_cache;
+CREATE POLICY "match_details_cache_select_public"
+  ON public.match_details_cache FOR SELECT TO anon, authenticated USING (TRUE);
