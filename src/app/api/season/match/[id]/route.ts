@@ -10,8 +10,8 @@ import {
 import {
   ApiFootballConfigError,
   ApiFootballRequestError,
-  findFixtureId,
-  getFixtureTeamStats,
+  findSofascoreEventId,
+  getSofascoreMatchStats,
   type FixtureTeamStats,
 } from '@/lib/api-football'
 import { buildCacheKey, isFresh, mapUpstreamError } from '../../_shared'
@@ -168,9 +168,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   // ---- 3a. Team statistics (only meaningful for finished matches) -------
-  // Source: api-football.com — football-data.org's free tier does not expose
-  // possession / shots / corners. Lejátszott meccsek statisztikái nem
-  // változnak, ezért egyszer letöltjük és permanensen tároljuk.
+  // Source: Sofascore (via RapidAPI) — football-data.org's free tier does
+  // not expose possession / shots / corners. Lejátszott meccsek
+  // statisztikái nem változnak, ezért egyszer letöltjük és permanensen
+  // tároljuk.
   if (details.status === 'FT' || details.status === 'AWD') {
     payload.team_stats = await resolveTeamStats(supabase, matchId, details.utcDate)
   }
@@ -217,9 +218,12 @@ function ttlForStatus(status: MatchDetails['status']): number {
  */
 /**
  * Look up persisted team statistics for `matchId`; if absent, fetch from
- * api-football.com and store them. Returns `null` (and logs a warning) on
- * any non-fatal failure — the match payload should still render without
- * stats.
+ * Sofascore and store them. Returns `null` (and logs a warning) on any
+ * non-fatal failure — the match payload should still render without stats.
+ *
+ * The legacy `apifootball_fixture_id` column now holds the Sofascore event
+ * ID — the column was kept under its original name to avoid a destructive
+ * migration; semantically it is "the upstream stats-provider event id".
  */
 async function resolveTeamStats(
   supabase: ReturnType<typeof createServiceRoleClient>,
@@ -251,18 +255,18 @@ async function resolveTeamStats(
 
   // 2. Upstream fetch + persist
   try {
-    const fixtureId = await findFixtureId(utcDate)
-    if (!fixtureId) {
+    const eventId = await findSofascoreEventId(utcDate)
+    if (!eventId) {
       console.log(
-        `${LOG_PREFIX} no api-football fixture for match=${matchId} on ${utcDate.slice(0, 10)}`
+        `${LOG_PREFIX} no Sofascore event for match=${matchId} on ${utcDate.slice(0, 10)}`
       )
       return null
     }
 
-    const stats = await getFixtureTeamStats(fixtureId)
+    const stats = await getSofascoreMatchStats(eventId)
     if (!stats) {
       console.warn(
-        `${LOG_PREFIX} api-football returned no stats for fixture=${fixtureId} (match=${matchId})`
+        `${LOG_PREFIX} Sofascore returned no stats for event=${eventId} (match=${matchId})`
       )
       return null
     }
@@ -272,7 +276,7 @@ async function resolveTeamStats(
       .upsert(
         {
           football_data_match_id: matchId,
-          apifootball_fixture_id: fixtureId,
+          apifootball_fixture_id: eventId,
           home_possession: stats.home.possession,
           away_possession: stats.away.possession,
           home_shots: stats.home.shots,

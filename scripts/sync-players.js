@@ -1,29 +1,40 @@
 #!/usr/bin/env node
 // Direct player sync script for GitHub Actions.
-// Fetches squad from football-data.org and stats from api-football.com,
-// then upserts directly into Supabase — bypasses Vercel IP blocking.
+// Fetches squad from football-data.org and per-player season totals from
+// Sofascore (RapidAPI), then upserts directly into Supabase — bypasses
+// Vercel IP blocking.
 
 'use strict'
 
 const { createClient } = require('@supabase/supabase-js')
 
 const FOOTBALL_DATA_BASE = 'https://api.football-data.org/v4'
-const API_FOOTBALL_BASE = 'https://v3.api-football.com'
+const SOFASCORE_BASE = 'https://sofascore.p.rapidapi.com'
+const SOFASCORE_HOST = 'sofascore.p.rapidapi.com'
+
 const FCB_TEAM_ID_FD = 81
-const FCB_TEAM_ID_AF = 529
-const LA_LIGA = 140
-const CHAMPIONS_LEAGUE = 2
-const MAX_PAGES = 10
+const FCB_TEAM_ID_SOFA = 2817
+const LA_LIGA_TOURNAMENT_ID = 8
+const CHAMPIONS_LEAGUE_TOURNAMENT_ID = 7
+
+// Sofascore season-id mapping per FIFA-style start-year.
+// To add a new season: GET /teams/get-statistics-seasons?teamId=2817 and
+// append the LaLiga + UEFA Champions League IDs here.
+const SOFASCORE_SEASON_IDS = {
+  2023: { laLiga: 52376, championsLeague: 52162 },
+  2024: { laLiga: 61643, championsLeague: 61644 },
+  2025: { laLiga: 77559, championsLeague: 76953 },
+}
 
 const {
   FOOTBALL_DATA_API_KEY,
-  API_FOOTBALL_KEY,
+  SOFASCORE_RAPIDAPI_KEY,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
 } = process.env
 
 if (!FOOTBALL_DATA_API_KEY) { console.error('Missing FOOTBALL_DATA_API_KEY'); process.exit(1) }
-if (!API_FOOTBALL_KEY)      { console.error('Missing API_FOOTBALL_KEY');      process.exit(1) }
+if (!SOFASCORE_RAPIDAPI_KEY) { console.error('Missing SOFASCORE_RAPIDAPI_KEY'); process.exit(1) }
 if (!SUPABASE_URL)          { console.error('Missing SUPABASE_URL');          process.exit(1) }
 if (!SUPABASE_SERVICE_ROLE_KEY) { console.error('Missing SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
 
@@ -57,6 +68,14 @@ function safeNum(n) {
   return typeof n === 'number' && isFinite(n) ? n : 0
 }
 
+function sofascoreHeaders() {
+  return {
+    'x-rapidapi-host': SOFASCORE_HOST,
+    'x-rapidapi-key': SOFASCORE_RAPIDAPI_KEY,
+    Accept: 'application/json',
+  }
+}
+
 async function getSquad() {
   const res = await fetch(`${FOOTBALL_DATA_BASE}/teams/${FCB_TEAM_ID_FD}`, {
     headers: { 'X-Auth-Token': FOOTBALL_DATA_API_KEY },
@@ -72,60 +91,81 @@ async function getSquad() {
   }))
 }
 
+async function fetchSofascoreSquad() {
+  const res = await fetch(
+    `${SOFASCORE_BASE}/teams/get-squad?teamId=${FCB_TEAM_ID_SOFA}`,
+    { headers: sofascoreHeaders() }
+  )
+  if (!res.ok) throw new Error(`Sofascore /teams/get-squad HTTP ${res.status}`)
+  const data = await res.json()
+  const out = []
+  for (const entry of (data.players ?? [])) {
+    const id = entry.player?.id
+    const name = (entry.player?.name ?? '').trim()
+    if (typeof id === 'number' && isFinite(id) && name) out.push({ id, name })
+  }
+  return out
+}
+
+// Returns the numeric `statistics` block, or `null` when the upstream returns
+// its 404 envelope (player has no stats for that tournament/season).
+async function fetchSofascorePlayerStats(playerId, tournamentId, seasonId) {
+  const url =
+    `${SOFASCORE_BASE}/players/get-statistics` +
+    `?playerId=${playerId}&tournamentId=${tournamentId}` +
+    `&seasonId=${seasonId}&type=overall`
+
+  const res = await fetch(url, { headers: sofascoreHeaders() })
+  if (!res.ok) {
+    throw new Error(`Sofascore /players/get-statistics HTTP ${res.status}`)
+  }
+  const data = await res.json()
+  if (data && data.error && typeof data.error === 'object') return null
+  if (!data || typeof data.statistics !== 'object' || data.statistics === null) {
+    return null
+  }
+  return data.statistics
+}
+
 async function getPlayerStats(season) {
-  const result = new Map()
-  let page = 1
-  let totalPages = 1
-
-  while (page <= totalPages && page <= MAX_PAGES) {
-    const res = await fetch(
-      `${API_FOOTBALL_BASE}/players?team=${FCB_TEAM_ID_AF}&season=${season}&page=${page}`,
-      { headers: { 'x-apisports-key': API_FOOTBALL_KEY, Accept: 'application/json' } }
+  const seasonIds = SOFASCORE_SEASON_IDS[season]
+  if (!seasonIds) {
+    throw new Error(
+      `Sofascore season-id mapping missing for season ${season}. ` +
+        `Update SOFASCORE_SEASON_IDS in scripts/sync-players.js.`
     )
-    if (!res.ok) throw new Error(`api-football.com HTTP ${res.status}`)
-    const data = await res.json()
+  }
 
-    if (data.errors && Object.keys(data.errors).length > 0) {
-      throw new Error(`api-football.com error: ${JSON.stringify(data.errors)}`)
+  const squad = await fetchSofascoreSquad()
+  const result = new Map()
+
+  const tournaments = [
+    { id: LA_LIGA_TOURNAMENT_ID, seasonId: seasonIds.laLiga },
+    { id: CHAMPIONS_LEAGUE_TOURNAMENT_ID, seasonId: seasonIds.championsLeague },
+  ]
+
+  for (const member of squad) {
+    const key = normalizeName(member.name)
+    if (!key) continue
+
+    const bucket = result.get(key) ?? {
+      goals: 0, assists: 0, appearances: 0,
+      games_started: 0, minutes: 0, yellow_cards: 0, red_cards: 0,
     }
 
-    for (const entry of (data.response ?? [])) {
-      const info = entry.player ?? {}
-      const first = (info.firstname ?? '').trim()
-      const last  = (info.lastname  ?? '').trim()
-      const fullName = [first, last].filter(Boolean).join(' ') || (info.name ?? '').trim()
-      if (!fullName) continue
-      const key = normalizeName(fullName)
-      if (!key) continue
-
-      const bucket = result.get(key) ?? {
-        goals: 0, assists: 0, appearances: 0,
-        games_started: 0, minutes: 0, yellow_cards: 0, red_cards: 0,
-      }
-
-      for (const line of (entry.statistics ?? [])) {
-        const leagueId  = line.league?.id   ?? null
-        const lineSeason = line.league?.season ?? null
-        const teamId    = line.team?.id     ?? null
-        if (lineSeason !== null && lineSeason !== season) continue
-        if (teamId     !== null && teamId    !== FCB_TEAM_ID_AF) continue
-        if (leagueId !== LA_LIGA && leagueId !== CHAMPIONS_LEAGUE) continue
-
-        bucket.goals        += safeNum(line.goals?.total)
-        bucket.assists      += safeNum(line.goals?.assists)
-        bucket.appearances  += safeNum(line.games?.appearences) // sic — upstream typo
-        bucket.games_started += safeNum(line.games?.lineups)
-        bucket.minutes      += safeNum(line.games?.minutes)
-        bucket.yellow_cards += safeNum(line.cards?.yellow)
-        bucket.red_cards    += safeNum(line.cards?.red)
-      }
-      result.set(key, bucket)
+    for (const t of tournaments) {
+      const stats = await fetchSofascorePlayerStats(member.id, t.id, t.seasonId)
+      if (!stats) continue
+      bucket.goals         += safeNum(stats.goals)
+      bucket.assists       += safeNum(stats.assists)
+      bucket.appearances   += safeNum(stats.appearances)
+      bucket.games_started += safeNum(stats.matchesStarted)
+      bucket.minutes       += safeNum(stats.minutesPlayed)
+      bucket.yellow_cards  += safeNum(stats.yellowCards)
+      bucket.red_cards     += safeNum(stats.redCards)
     }
 
-    if (typeof data.paging?.total === 'number' && data.paging.total > 0) {
-      totalPages = data.paging.total
-    }
-    page++
+    result.set(key, bucket)
   }
 
   return result

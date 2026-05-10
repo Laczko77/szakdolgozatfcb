@@ -118,7 +118,7 @@ export interface MatchDetailsSubstitution {
 }
 
 /**
- * Per-team box score returned by api-football.com for finished matches.
+ * Per-team box score returned by Sofascore for finished matches.
  * Every numeric field is independently nullable — the upstream provider
  * may report some metrics and omit others, so each row in the UI has to
  * tolerate `null` ("—") without breaking the layout.
@@ -156,7 +156,7 @@ export interface MatchDetailsResponse {
   /**
    * Aggregate team statistics for finished matches. `null` when:
    *  - the match isn't FT yet, or
-   *  - api-football.com didn't return a stats payload.
+   *  - Sofascore didn't return a stats payload.
    */
   team_stats: MatchTeamStats | null;
   data_quality: "full" | "partial" | "unavailable";

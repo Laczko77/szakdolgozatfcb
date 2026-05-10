@@ -1,5 +1,3 @@
-export const preferredRegion = 'fra1'
-
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import {
@@ -27,14 +25,14 @@ import type { Json, TablesInsert } from '@/types/database'
  *
  * Admin-triggered job: pulls the current FC Barcelona squad from
  * football-data.org and the per-player La Liga + Champions League
- * statistics from api-football.com, then upserts every player into
- * `public.players`.
+ * statistics from Sofascore (via RapidAPI), then upserts every player
+ * into `public.players`.
  *
  * Why hybrid: football-data.org's `/scorers` endpoint only returns the
  * top-100 ranked players per competition, so defenders, keepers and low
- * scorers fell through with all-zero stats. api-football.com's
- * `/players?team=529` covers the full first-team squad including
- * appearances, lineups, minutes and cards.
+ * scorers fall through with all-zero stats. Sofascore's
+ * `/players/get-statistics` endpoint covers every squad member including
+ * appearances, starts, minutes and cards.
  *
  * Squad ↔ stats join: there is no shared player id between the two
  * providers, so the join is on a normalized full name
@@ -112,27 +110,27 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ---- Fetch stats (api-football.com) ------------------------------------
+  // ---- Fetch stats (Sofascore) -------------------------------------------
   let statsByPlayerName: Map<string, PlayerStatsPayload>
   try {
     statsByPlayerName = await getPlayerStats(season)
   } catch (err) {
     if (err instanceof ApiFootballConfigError) {
       return errorResponse(
-        'Az api-football.com API kulcs nincs beállítva (API_FOOTBALL_KEY)',
+        'A Sofascore RapidAPI kulcs nincs beállítva (SOFASCORE_RAPIDAPI_KEY)',
         503
       )
     }
     if (err instanceof ApiFootballRequestError) {
       return errorResponse(
-        `api-football.com nem elérhető: ${err.message}`,
+        `Sofascore nem elérhető: ${err.message}`,
         502
       )
     }
     return errorResponse(
       err instanceof Error
-        ? `api-football.com hiba: ${err.message}`
-        : 'api-football.com hiba',
+        ? `Sofascore hiba: ${err.message}`
+        : 'Sofascore hiba',
       502
     )
   }
@@ -143,10 +141,10 @@ export async function POST(request: NextRequest) {
   }
 
   // ---- Match stats to squad by normalized full name ----------------------
-  // football-data.org and api-football.com use disjoint player-id spaces, so
-  // we join on a normalized full name (lowercase, NFD-stripped diacritics,
+  // football-data.org and Sofascore use disjoint player-id spaces, so we
+  // join on a normalized full name (lowercase, NFD-stripped diacritics,
   // hyphens/apostrophes collapsed to spaces). See `normalizePlayerName` for
-  // details. Squad members with no entry on the api-football side get all
+  // details. Squad members with no entry on the Sofascore side get all
   // zeros — logged below.
   const matchedKeys = new Set<string>()
   let playersWithStatsCount = 0
@@ -159,8 +157,8 @@ export async function POST(request: NextRequest) {
   }
   const playersWithoutStatsCount = squad.length - playersWithStatsCount
 
-  // Stats rows present on api-football.com that did not match any squad
-  // member (e.g. mid-season departures, B-team players). Informational only.
+  // Stats rows present on Sofascore that did not match any squad member
+  // (e.g. mid-season departures, B-team players). Informational only.
   const squadKeys = new Set(squad.map((m) => normalizePlayerName(m.name)))
   const orphanStatKeys: string[] = []
   for (const key of statsByPlayerName.keys()) {
@@ -168,15 +166,15 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    `${LOG_PREFIX} stats fetched: apiFootballEntries=${statsByPlayerName.size}; ` +
+    `${LOG_PREFIX} stats fetched: sofascoreEntries=${statsByPlayerName.size}; ` +
       `squadMembers=${squad.length} ` +
       `matched=${matchedKeys.size} ` +
       `noStats=${playersWithoutStatsCount} ` +
-      `(reason: no La Liga/CL row on api-football.com for the requested season)`
+      `(reason: no La Liga/CL row on Sofascore for the requested season)`
   )
   if (orphanStatKeys.length > 0) {
     console.log(
-      `${LOG_PREFIX} ${orphanStatKeys.length} api-football stats rows did not ` +
+      `${LOG_PREFIX} ${orphanStatKeys.length} Sofascore stats rows did not ` +
         `match any FCB squad name (likely departures or B-team; expected and ignored)`
     )
   }
@@ -184,7 +182,7 @@ export async function POST(request: NextRequest) {
   for (const member of squad) {
     if (!matchedKeys.has(normalizePlayerName(member.name))) {
       console.info(
-        `${LOG_PREFIX} no api-football stats for ${member.name} (#${member.id}) — ` +
+        `${LOG_PREFIX} no Sofascore stats for ${member.name} (#${member.id}) — ` +
           `recording zero stats`
       )
     }
@@ -280,7 +278,7 @@ export async function POST(request: NextRequest) {
       `elapsedMs=${elapsedMs}`
   )
   console.log(
-    `${LOG_PREFIX} stats source: api-football.com (La Liga 140 + CL 2); ` +
+    `${LOG_PREFIX} stats source: Sofascore (La Liga 8 + CL 7); ` +
       `squad source: football-data.org`
   )
 
@@ -338,7 +336,7 @@ function sanitizeStats(
 }
 
 /**
- * Look up a squad member's stats in the api-football map by normalized full
+ * Look up a squad member's stats in the Sofascore map by normalized full
  * name. Returns the empty stats sentinel when no entry exists — callers must
  * still pass the result through `sanitizeStats()` before persisting.
  */
