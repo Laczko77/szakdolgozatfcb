@@ -190,10 +190,33 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ---- Töröld a régi (nem-Sofascore) sorokat --------------------------------
+  // Az upsert onConflict:'api_football_id' csak a Sofascore-ID duplikátumokat
+  // akadályozza. A korábbi football-data.org ID-val tárolt sorok változatlanul
+  // a táblában maradnak, és a /api/players kettős listázást okoz (egy játékos
+  // kétszer jelenik meg — egyszer az új, egyszer a régi sorral). Ez a DELETE
+  // az összes sort eltávolítja amelynek api_football_id-ja nincs az aktuális
+  // Sofascore keretben.
+  const currentSofascoreIds = squad.map((p) => p.id)
+  const { error: deleteError, count: deletedCount } = await supabase
+    .from('players')
+    .delete({ count: 'exact' })
+    .not('api_football_id', 'in', `(${currentSofascoreIds.join(',')})`)
+
+  if (deleteError) {
+    console.warn(
+      `${LOG_PREFIX} stale row cleanup failed: ${deleteError.message}`
+    )
+  } else if ((deletedCount ?? 0) > 0) {
+    console.log(
+      `${LOG_PREFIX} removed ${deletedCount} stale player row(s) with non-Sofascore IDs`
+    )
+  }
+
   const elapsedMs = Date.now() - startedAt
   console.log(
     `${LOG_PREFIX} season=${season} squadSize=${squad.length} synced=${synced} ` +
-      `withStats=${playersWithStatsCount} errors=${errors.length} ` +
+      `withStats=${playersWithStatsCount} staleDeleted=${deletedCount ?? 0} errors=${errors.length} ` +
       `elapsedMs=${elapsedMs}`
   )
   console.log(
@@ -201,7 +224,7 @@ export async function POST(request: NextRequest) {
       `joined by Sofascore player ID`
   )
 
-  return successResponse({ synced, errors, season })
+  return successResponse({ synced, staleDeleted: deletedCount ?? 0, errors, season })
 }
 
 // ---------------------------------------------------------------------------

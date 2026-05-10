@@ -215,7 +215,20 @@ async function main() {
     }
   }
 
-  console.log(`[sync-players] done: synced=${synced}, errors=${errors.length}`)
+  // Régi (nem-Sofascore) sorok törlése — megelőzi a kettős listázást
+  const sofascoreIds = squad.map(p => p.id)
+  const { error: deleteError, count: deletedCount } = await supabase
+    .from('players')
+    .delete({ count: 'exact' })
+    .not('api_football_id', 'in', `(${sofascoreIds.join(',')})`)
+
+  if (deleteError) {
+    console.warn(`[sync-players] stale cleanup failed: ${deleteError.message}`)
+  } else if (deletedCount > 0) {
+    console.log(`[sync-players] removed ${deletedCount} stale player row(s)`)
+  }
+
+  console.log(`[sync-players] done: synced=${synced}, staleDeleted=${deletedCount ?? 0}, errors=${errors.length}`)
   process.exit(errors.length > 0 ? 1 : 0)
 }
 
