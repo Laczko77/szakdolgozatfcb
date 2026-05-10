@@ -22,7 +22,8 @@ jobs:
       - name: Run player sync
         run: node scripts/sync-players.js
         env:
+          # Sofascore is now the sole source for both squad and stats —
+          # the football-data.org key is no longer required by this script.
           SOFASCORE_RAPIDAPI_KEY: ${{ secrets.SOFASCORE_RAPIDAPI_KEY }}
-          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

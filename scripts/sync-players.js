@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 // Direct player sync script for GitHub Actions.
-// Fetches squad from football-data.org and per-player season totals from
-// Sofascore (RapidAPI), then upserts directly into Supabase — bypasses
-// Vercel IP blocking.
+// Pulls squad + per-player season totals from Sofascore (RapidAPI) and
+// upserts directly into Supabase — bypasses Vercel IP blocking.
+//
+// Squad and stats now share a single source (Sofascore). Joining is by
+// Sofascore player ID, eliminating the previous fragile name-based join.
 
 'use strict'
 
 const { createClient } = require('@supabase/supabase-js')
 
-const FOOTBALL_DATA_BASE = 'https://api.football-data.org/v4'
 const SOFASCORE_BASE = 'https://sofascore.p.rapidapi.com'
 const SOFASCORE_HOST = 'sofascore.p.rapidapi.com'
 
-const FCB_TEAM_ID_FD = 81
 const FCB_TEAM_ID_SOFA = 2817
 const LA_LIGA_TOURNAMENT_ID = 8
 const CHAMPIONS_LEAGUE_TOURNAMENT_ID = 7
@@ -27,13 +27,11 @@ const SOFASCORE_SEASON_IDS = {
 }
 
 const {
-  FOOTBALL_DATA_API_KEY,
   SOFASCORE_RAPIDAPI_KEY,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
 } = process.env
 
-if (!FOOTBALL_DATA_API_KEY) { console.error('Missing FOOTBALL_DATA_API_KEY'); process.exit(1) }
 if (!SOFASCORE_RAPIDAPI_KEY) { console.error('Missing SOFASCORE_RAPIDAPI_KEY'); process.exit(1) }
 if (!SUPABASE_URL)          { console.error('Missing SUPABASE_URL');          process.exit(1) }
 if (!SUPABASE_SERVICE_ROLE_KEY) { console.error('Missing SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
@@ -44,28 +42,28 @@ function currentSeasonYear() {
   return month >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1
 }
 
-function normalizeName(name) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[-']/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+function safeNum(n) {
+  return typeof n === 'number' && isFinite(n) ? n : 0
 }
 
-function normalizePosition(pos) {
-  if (!pos) return null
-  const p = pos.toLowerCase()
-  if (p.includes('goalkeeper') || p === 'keeper') return 'Goalkeeper'
-  if (p.includes('defence') || p.includes('defender') || p.includes('back')) return 'Defender'
-  if (p.includes('midfield')) return 'Midfielder'
-  if (p.includes('offence') || p.includes('forward') || p.includes('attacker') || p.includes('winger') || p.includes('striker')) return 'Attacker'
+function parseJersey(raw) {
+  if (typeof raw === 'number' && isFinite(raw)) return raw
+  if (typeof raw === 'string') {
+    const parsed = Number.parseInt(raw, 10)
+    return Number.isFinite(parsed) ? parsed : null
+  }
   return null
 }
 
-function safeNum(n) {
-  return typeof n === 'number' && isFinite(n) ? n : 0
+function mapSofascorePosition(raw) {
+  if (!raw) return null
+  switch (String(raw).trim().toUpperCase()) {
+    case 'G': return 'Goalkeeper'
+    case 'D': return 'Defender'
+    case 'M': return 'Midfielder'
+    case 'F': return 'Attacker'
+    default:  return null
+  }
 }
 
 function sofascoreHeaders() {
@@ -74,21 +72,6 @@ function sofascoreHeaders() {
     'x-rapidapi-key': SOFASCORE_RAPIDAPI_KEY,
     Accept: 'application/json',
   }
-}
-
-async function getSquad() {
-  const res = await fetch(`${FOOTBALL_DATA_BASE}/teams/${FCB_TEAM_ID_FD}`, {
-    headers: { 'X-Auth-Token': FOOTBALL_DATA_API_KEY },
-  })
-  if (!res.ok) throw new Error(`football-data.org HTTP ${res.status}`)
-  const data = await res.json()
-  if (!Array.isArray(data.squad)) return []
-  return data.squad.map(m => ({
-    id: m.id,
-    name: m.name,
-    position: normalizePosition(m.position),
-    shirtNumber: m.shirtNumber ?? null,
-  }))
 }
 
 async function fetchSofascoreSquad() {
@@ -102,7 +85,15 @@ async function fetchSofascoreSquad() {
   for (const entry of (data.players ?? [])) {
     const id = entry.player?.id
     const name = (entry.player?.name ?? '').trim()
-    if (typeof id === 'number' && isFinite(id) && name) out.push({ id, name })
+    if (typeof id !== 'number' || !isFinite(id) || !name) continue
+    out.push({
+      id,
+      name,
+      position: mapSofascorePosition(entry.player?.position ?? null),
+      jerseyNumber:
+        parseJersey(entry.player?.jerseyNumber) ??
+        parseJersey(entry.player?.shirtNumber),
+    })
   }
   return out
 }
@@ -127,7 +118,7 @@ async function fetchSofascorePlayerStats(playerId, tournamentId, seasonId) {
   return data.statistics
 }
 
-async function getPlayerStats(season) {
+async function getPlayerStats(season, squad) {
   const seasonIds = SOFASCORE_SEASON_IDS[season]
   if (!seasonIds) {
     throw new Error(
@@ -136,19 +127,14 @@ async function getPlayerStats(season) {
     )
   }
 
-  const squad = await fetchSofascoreSquad()
   const result = new Map()
-
   const tournaments = [
     { id: LA_LIGA_TOURNAMENT_ID, seasonId: seasonIds.laLiga },
     { id: CHAMPIONS_LEAGUE_TOURNAMENT_ID, seasonId: seasonIds.championsLeague },
   ]
 
   for (const member of squad) {
-    const key = normalizeName(member.name)
-    if (!key) continue
-
-    const bucket = result.get(key) ?? {
+    const bucket = result.get(member.id) ?? {
       goals: 0, assists: 0, appearances: 0,
       games_started: 0, minutes: 0, yellow_cards: 0, red_cards: 0,
     }
@@ -165,7 +151,7 @@ async function getPlayerStats(season) {
       bucket.red_cards     += safeNum(stats.redCards)
     }
 
-    result.set(key, bucket)
+    result.set(member.id, bucket)
   }
 
   return result
@@ -175,11 +161,11 @@ async function main() {
   const season = currentSeasonYear()
   console.log(`[sync-players] season=${season}`)
 
-  const squad = await getSquad()
-  console.log(`[sync-players] squad fetched: ${squad.length} players`)
+  const squad = await fetchSofascoreSquad()
+  console.log(`[sync-players] squad fetched (Sofascore): ${squad.length} players`)
 
-  const statsByName = await getPlayerStats(season)
-  console.log(`[sync-players] stats fetched: ${statsByName.size} entries`)
+  const statsById = await getPlayerStats(season, squad)
+  console.log(`[sync-players] stats fetched: ${statsById.size} entries`)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -194,8 +180,7 @@ async function main() {
   const errors = []
 
   for (const member of squad) {
-    const key = normalizeName(member.name)
-    const raw = statsByName.get(key) ?? {}
+    const raw = statsById.get(member.id) ?? {}
     const stats = {
       goals:        safeNum(raw.goals),
       assists:      safeNum(raw.assists),
@@ -211,7 +196,7 @@ async function main() {
       api_football_id: member.id,
       name:     member.name,
       position: member.position,
-      number:   member.shirtNumber,
+      number:   member.jerseyNumber,
       stats,
       season,
       updated_at: new Date().toISOString(),

@@ -124,6 +124,10 @@ interface SofascoreSquadPlayer {
   id?: number
   name?: string | null
   shortName?: string | null
+  /** Sofascore single-letter role: G | D | M | F */
+  position?: string | null
+  jerseyNumber?: string | number | null
+  shirtNumber?: string | number | null
 }
 
 interface SofascoreSquadEntry {
@@ -132,6 +136,22 @@ interface SofascoreSquadEntry {
 
 interface SofascoreSquadResponse {
   players?: SofascoreSquadEntry[] | null
+}
+
+/**
+ * Public squad row sourced from Sofascore. The Sofascore player ID is the
+ * single canonical join key the consumer routes use — there is no name-based
+ * matching anywhere in the new flow.
+ *
+ * `position` is normalised from Sofascore's single-letter code
+ * (`G | D | M | F`) to our canonical labels; `null` when the upstream did
+ * not classify the player.
+ */
+export interface SofascoreSquadEntryNormalised {
+  id: number
+  name: string
+  position: 'Goalkeeper' | 'Defender' | 'Midfielder' | 'Attacker' | null
+  jerseyNumber: number | null
 }
 
 /** Numeric season totals returned by `players/get-statistics`. */
@@ -258,7 +278,7 @@ function requireSofascoreKey(): string {
  */
 async function fetchSofascoreSquad(
   apiKey: string
-): Promise<Array<{ id: number; name: string }>> {
+): Promise<SofascoreSquadEntryNormalised[]> {
   const url = `${SOFASCORE_BASE_URL}/teams/get-squad?teamId=${FCB_TEAM_ID_SOFASCORE}`
 
   let response: Response
@@ -296,16 +316,57 @@ async function fetchSofascoreSquad(
     )
   }
 
-  const out: Array<{ id: number; name: string }> = []
+  const out: SofascoreSquadEntryNormalised[] = []
   const entries = Array.isArray(body.players) ? body.players : []
   for (const entry of entries) {
     const id = entry.player?.id
     const name = (entry.player?.name ?? '').trim()
-    if (typeof id === 'number' && Number.isFinite(id) && name.length > 0) {
-      out.push({ id, name })
-    }
+    if (typeof id !== 'number' || !Number.isFinite(id) || name.length === 0) continue
+
+    out.push({
+      id,
+      name,
+      position: mapSofascorePosition(entry.player?.position ?? null),
+      jerseyNumber:
+        parseJersey(entry.player?.jerseyNumber) ??
+        parseJersey(entry.player?.shirtNumber),
+    })
   }
   return out
+}
+
+/** Map Sofascore's single-letter role code to our canonical position label. */
+function mapSofascorePosition(
+  raw: string | null
+): SofascoreSquadEntryNormalised['position'] {
+  if (!raw) return null
+  switch (raw.trim().toUpperCase()) {
+    case 'G':
+      return 'Goalkeeper'
+    case 'D':
+      return 'Defender'
+    case 'M':
+      return 'Midfielder'
+    case 'F':
+      return 'Attacker'
+    default:
+      return null
+  }
+}
+
+/**
+ * Public, ID-keyed view of the FCB squad from Sofascore.
+ *
+ * Used by the player sync route as the *single* source of truth for roster
+ * membership — the per-player statistics endpoint is then joined by Sofascore
+ * player ID, eliminating the previous fragile name-based join.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreSquad(): Promise<SofascoreSquadEntryNormalised[]> {
+  const apiKey = requireSofascoreKey()
+  return fetchSofascoreSquad(apiKey)
 }
 
 /**
@@ -384,17 +445,19 @@ function accumulateSofascoreStats(
 /**
  * Fetch all FC Barcelona player statistics for `season` from Sofascore,
  * aggregate La Liga + Champions League totals, and return a map keyed by
- * the normalized full name.
+ * **Sofascore player ID**.
  *
  * Strategy (Sofascore has no team-wide "all players' stats" endpoint):
- *   1. Pull the FCB squad via `/teams/get-squad?teamId=2817` (one call).
+ *   1. Pull the FCB squad via `/teams/get-squad?teamId=2817` (one call) —
+ *      unless the caller has already fetched the squad and passed it in via
+ *      `squad`, in which case we reuse it to avoid the duplicate request.
  *   2. For every squad member, call `/players/get-statistics` twice — once
  *      per tournament — and sum the per-season totals.
  *
  * Players whose Sofascore row is missing for the requested season (the API
- * answers with a 404 envelope) contribute zero — the empty bucket is still
- * inserted so the caller can distinguish "matched the squad, no stats" from
- * "did not match the squad at all".
+ * answers with a 404 envelope) still get an entry with all-zero stats, so
+ * the caller can render zeroes deterministically without separate
+ * book-keeping.
  *
  * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
  * @throws {ApiFootballRequestError} on network / HTTP errors at the squad
@@ -402,8 +465,9 @@ function accumulateSofascoreStats(
  *         contribution from the failing tournament.
  */
 export async function getPlayerStats(
-  season: number
-): Promise<Map<string, PlayerStatsPayload>> {
+  season: number,
+  squad?: SofascoreSquadEntryNormalised[]
+): Promise<Map<number, PlayerStatsPayload>> {
   const apiKey = requireSofascoreKey()
 
   const seasonIds = SOFASCORE_SEASON_IDS[season]
@@ -415,18 +479,16 @@ export async function getPlayerStats(
     )
   }
 
-  const squad = await fetchSofascoreSquad(apiKey)
-  const result = new Map<string, PlayerStatsPayload>()
+  const roster = squad ?? (await fetchSofascoreSquad(apiKey))
+  const result = new Map<number, PlayerStatsPayload>()
 
   const tournaments: Array<{ id: number; seasonId: number }> = [
     { id: LA_LIGA_TOURNAMENT_ID, seasonId: seasonIds.laLiga },
     { id: CHAMPIONS_LEAGUE_TOURNAMENT_ID, seasonId: seasonIds.championsLeague },
   ]
 
-  for (const member of squad) {
-    const key = normalizePlayerName(member.name)
-    if (key.length === 0) continue
-    const bucket = result.get(key) ?? emptyStats()
+  for (const member of roster) {
+    const bucket = result.get(member.id) ?? emptyStats()
 
     for (const t of tournaments) {
       const stats = await fetchSofascorePlayerStats(
@@ -438,7 +500,7 @@ export async function getPlayerStats(
       if (stats) accumulateSofascoreStats(bucket, stats)
     }
 
-    result.set(key, bucket)
+    result.set(member.id, bucket)
   }
 
   return result
