@@ -7,6 +7,13 @@ import {
   getMatchDetails,
   type MatchDetails,
 } from '@/lib/football-data'
+import {
+  ApiFootballConfigError,
+  ApiFootballRequestError,
+  findFixtureId,
+  getFixtureTeamStats,
+  type FixtureTeamStats,
+} from '@/lib/api-football'
 import { buildCacheKey, isFresh, mapUpstreamError } from '../../_shared'
 
 /**
@@ -54,7 +61,24 @@ interface MatchEventsPayload {
     bookings: MatchDetails['bookings']
     substitutions: MatchDetails['substitutions']
   }
+  team_stats: FixtureTeamStats | null
   data_quality: DataQuality
+}
+
+interface MatchTeamStatsRow {
+  apifootball_fixture_id: number | null
+  home_possession: number | null
+  away_possession: number | null
+  home_shots: number | null
+  away_shots: number | null
+  home_shots_on_target: number | null
+  away_shots_on_target: number | null
+  home_corners: number | null
+  away_corners: number | null
+  home_fouls: number | null
+  away_fouls: number | null
+  home_pass_accuracy: number | null
+  away_pass_accuracy: number | null
 }
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -139,7 +163,16 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       bookings: details.bookings,
       substitutions: details.substitutions,
     },
+    team_stats: null,
     data_quality: deriveDataQuality(details),
+  }
+
+  // ---- 3a. Team statistics (only meaningful for finished matches) -------
+  // Source: api-football.com — football-data.org's free tier does not expose
+  // possession / shots / corners. Lejátszott meccsek statisztikái nem
+  // változnak, ezért egyszer letöltjük és permanensen tároljuk.
+  if (details.status === 'FT' || details.status === 'AWD') {
+    payload.team_stats = await resolveTeamStats(supabase, matchId, details.utcDate)
   }
 
   const nowIso = new Date().toISOString()
@@ -182,6 +215,128 @@ function ttlForStatus(status: MatchDetails['status']): number {
  *                  expected and the data quality marker should not flag
  *                  them as a deficiency.
  */
+/**
+ * Look up persisted team statistics for `matchId`; if absent, fetch from
+ * api-football.com and store them. Returns `null` (and logs a warning) on
+ * any non-fatal failure — the match payload should still render without
+ * stats.
+ */
+async function resolveTeamStats(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  matchId: number,
+  utcDate: string
+): Promise<FixtureTeamStats | null> {
+  // 1. DB lookup
+  const { data: existingStats, error: lookupError } = await supabase
+    .from('match_team_stats' as never)
+    .select(
+      'apifootball_fixture_id, home_possession, away_possession, ' +
+        'home_shots, away_shots, home_shots_on_target, away_shots_on_target, ' +
+        'home_corners, away_corners, home_fouls, away_fouls, ' +
+        'home_pass_accuracy, away_pass_accuracy'
+    )
+    .eq('football_data_match_id', matchId)
+    .maybeSingle<MatchTeamStatsRow>()
+
+  if (lookupError) {
+    console.warn(
+      `${LOG_PREFIX} match_team_stats lookup failed for match=${matchId}:`,
+      lookupError.message
+    )
+  }
+
+  if (existingStats) {
+    return rowToFixtureStats(existingStats)
+  }
+
+  // 2. Upstream fetch + persist
+  try {
+    const fixtureId = await findFixtureId(utcDate)
+    if (!fixtureId) {
+      console.log(
+        `${LOG_PREFIX} no api-football fixture for match=${matchId} on ${utcDate.slice(0, 10)}`
+      )
+      return null
+    }
+
+    const stats = await getFixtureTeamStats(fixtureId)
+    if (!stats) {
+      console.warn(
+        `${LOG_PREFIX} api-football returned no stats for fixture=${fixtureId} (match=${matchId})`
+      )
+      return null
+    }
+
+    const { error: upsertError } = await supabase
+      .from('match_team_stats' as never)
+      .upsert(
+        {
+          football_data_match_id: matchId,
+          apifootball_fixture_id: fixtureId,
+          home_possession: stats.home.possession,
+          away_possession: stats.away.possession,
+          home_shots: stats.home.shots,
+          away_shots: stats.away.shots,
+          home_shots_on_target: stats.home.shots_on_target,
+          away_shots_on_target: stats.away.shots_on_target,
+          home_corners: stats.home.corners,
+          away_corners: stats.away.corners,
+          home_fouls: stats.home.fouls,
+          away_fouls: stats.away.fouls,
+          home_pass_accuracy: stats.home.pass_accuracy,
+          away_pass_accuracy: stats.away.pass_accuracy,
+        } as never,
+        { onConflict: 'football_data_match_id' }
+      )
+
+    if (upsertError) {
+      console.warn(
+        `${LOG_PREFIX} match_team_stats upsert failed for match=${matchId}:`,
+        upsertError.message
+      )
+    }
+
+    return stats
+  } catch (err) {
+    if (
+      err instanceof ApiFootballConfigError ||
+      err instanceof ApiFootballRequestError
+    ) {
+      console.warn(
+        `${LOG_PREFIX} team stats fetch failed for match=${matchId}:`,
+        err.message
+      )
+      return null
+    }
+    console.warn(
+      `${LOG_PREFIX} unexpected team stats error for match=${matchId}:`,
+      err instanceof Error ? err.message : err
+    )
+    return null
+  }
+}
+
+function rowToFixtureStats(row: MatchTeamStatsRow): FixtureTeamStats {
+  return {
+    home: {
+      possession: row.home_possession,
+      shots: row.home_shots,
+      shots_on_target: row.home_shots_on_target,
+      corners: row.home_corners,
+      fouls: row.home_fouls,
+      pass_accuracy: row.home_pass_accuracy,
+    },
+    away: {
+      possession: row.away_possession,
+      shots: row.away_shots,
+      shots_on_target: row.away_shots_on_target,
+      corners: row.away_corners,
+      fouls: row.away_fouls,
+      pass_accuracy: row.away_pass_accuracy,
+    },
+  }
+}
+
 function deriveDataQuality(details: MatchDetails): DataQuality {
   if (details.status !== 'FT' && details.status !== 'AWD') {
     return 'unavailable'

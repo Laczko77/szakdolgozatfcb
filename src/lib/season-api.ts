@@ -117,6 +117,28 @@ export interface MatchDetailsSubstitution {
   playerIn: { id: number; name: string };
 }
 
+/**
+ * Per-team box score returned by api-football.com for finished matches.
+ * Every numeric field is independently nullable — the upstream provider
+ * may report some metrics and omit others, so each row in the UI has to
+ * tolerate `null` ("—") without breaking the layout.
+ */
+export interface TeamStatSnapshot {
+  /** 0-100 percent. */
+  possession: number | null;
+  shots: number | null;
+  shots_on_target: number | null;
+  corners: number | null;
+  fouls: number | null;
+  /** 0-100 percent. */
+  pass_accuracy: number | null;
+}
+
+export interface MatchTeamStats {
+  home: TeamStatSnapshot;
+  away: TeamStatSnapshot;
+}
+
 export interface MatchDetailsResponse {
   match: {
     id: number;
@@ -131,6 +153,12 @@ export interface MatchDetailsResponse {
     bookings: MatchDetailsBooking[];
     substitutions: MatchDetailsSubstitution[];
   };
+  /**
+   * Aggregate team statistics for finished matches. `null` when:
+   *  - the match isn't FT yet, or
+   *  - api-football.com didn't return a stats payload.
+   */
+  team_stats: MatchTeamStats | null;
   data_quality: "full" | "partial" | "unavailable";
   cached_at: string;
   stale?: boolean;

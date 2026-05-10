@@ -304,3 +304,199 @@ export async function getPlayerStats(
 
   return result
 }
+
+// ---------------------------------------------------------------------------
+// Fixture lookup + team statistics (used by /api/season/match/[id])
+// ---------------------------------------------------------------------------
+
+/**
+ * Public payload describing the per-side team statistics of a single fixture.
+ *
+ * `home` / `away` mirror the fixture's actual home/away sides as returned by
+ * api-football.com — NOT FCB's perspective. The caller is responsible for
+ * mapping these onto the FCB side using `match.homeTeam.id`.
+ */
+export interface FixtureTeamStats {
+  home: TeamStatSnapshot
+  away: TeamStatSnapshot
+}
+
+export interface TeamStatSnapshot {
+  possession: number | null // 0-100 percent
+  shots: number | null
+  shots_on_target: number | null
+  corners: number | null
+  fouls: number | null
+  pass_accuracy: number | null // 0-100 percent
+}
+
+/**
+ * Resolve the api-football.com fixture ID for the FCB match played on the
+ * given UTC date.
+ *
+ * football-data.org match IDs and api-football.com fixture IDs are not
+ * shared, so we cross-reference by date: api-football's `/fixtures` endpoint
+ * supports filtering by `team` + `date` (`YYYY-MM-DD`). FCB plays at most
+ * one match per day, so the first response entry — if any — is unambiguous.
+ *
+ * @returns the fixture id, or `null` when api-football has no entry for that
+ *          date (legitimate miss — caller should treat as "stats unavailable")
+ * @throws {ApiFootballConfigError} when `API_FOOTBALL_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP / application errors
+ */
+export async function findFixtureId(utcDate: string): Promise<number | null> {
+  const apiKey = process.env.API_FOOTBALL_KEY
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new ApiFootballConfigError()
+  }
+
+  // YYYY-MM-DD formátum kell az API-nak
+  const dateStr = utcDate.slice(0, 10)
+  const url = `${API_FOOTBALL_BASE_URL}/fixtures?team=${FCB_TEAM_ID}&date=${dateStr}`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    throw new ApiFootballRequestError(
+      err instanceof Error ? `network error: ${err.message}` : 'network error',
+      null
+    )
+  }
+
+  if (!response.ok) {
+    throw new ApiFootballRequestError(
+      `api-football.com HTTP ${response.status} for /fixtures`,
+      response.status
+    )
+  }
+
+  const body = (await response.json()) as {
+    response?: Array<{ fixture?: { id?: number } }>
+    errors?: unknown
+  }
+
+  if (
+    body.errors &&
+    typeof body.errors === 'object' &&
+    Object.keys(body.errors as Record<string, unknown>).length > 0
+  ) {
+    throw new ApiFootballRequestError(
+      `api-football.com error: ${JSON.stringify(body.errors)}`,
+      response.status
+    )
+  }
+
+  const first = body.response?.[0]
+  return first?.fixture?.id ?? null
+}
+
+/**
+ * Fetch the team-level statistics (possession, shots, corners, fouls, pass
+ * accuracy) for both sides of a given api-football.com fixture.
+ *
+ * The endpoint returns one entry per team in `home, away` order. We do NOT
+ * reorder by FCB perspective — `home`/`away` in the result match the actual
+ * fixture sides. This way the route can cleanly persist into the symmetric
+ * `home_*` / `away_*` columns of `match_team_stats`.
+ *
+ * @returns the parsed snapshots, or `null` when api-football reports an
+ *          application-level error (quota / bad key) or returns fewer than
+ *          two team entries — both are non-fatal and the caller logs a
+ *          warning.
+ * @throws {ApiFootballConfigError} when `API_FOOTBALL_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getFixtureTeamStats(
+  fixtureId: number
+): Promise<FixtureTeamStats | null> {
+  const apiKey = process.env.API_FOOTBALL_KEY
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new ApiFootballConfigError()
+  }
+
+  const url = `${API_FOOTBALL_BASE_URL}/fixtures/statistics?fixture=${fixtureId}`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: { 'x-apisports-key': apiKey, Accept: 'application/json' },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    throw new ApiFootballRequestError(
+      err instanceof Error ? `network error: ${err.message}` : 'network error',
+      null
+    )
+  }
+
+  if (!response.ok) {
+    throw new ApiFootballRequestError(
+      `api-football.com HTTP ${response.status} for /fixtures/statistics`,
+      response.status
+    )
+  }
+
+  const body = (await response.json()) as {
+    response?: Array<{
+      team?: { id?: number }
+      statistics?: Array<{ type?: string; value?: unknown }>
+    }>
+    errors?: unknown
+  }
+
+  if (
+    body.errors &&
+    typeof body.errors === 'object' &&
+    Object.keys(body.errors as Record<string, unknown>).length > 0
+  ) {
+    return null // quota/key error — return null, caller logs warning
+  }
+
+  const entries = body.response ?? []
+  if (entries.length < 2) return null
+
+  return {
+    home: parseStatEntry(entries[0]?.statistics ?? []),
+    away: parseStatEntry(entries[1]?.statistics ?? []),
+  }
+}
+
+function parseStatEntry(
+  stats: Array<{ type?: string; value?: unknown }>
+): TeamStatSnapshot {
+  const get = (type: string): unknown =>
+    stats.find((s) => s.type === type)?.value ?? null
+
+  return {
+    possession: parsePercent(get('Ball Possession')),
+    shots: parseIntegerStat(get('Total Shots')),
+    shots_on_target: parseIntegerStat(get('Shots on Goal')),
+    corners: parseIntegerStat(get('Corner Kicks')),
+    fouls: parseIntegerStat(get('Fouls')),
+    pass_accuracy: parsePercent(get('Passes %')),
+  }
+}
+
+function parsePercent(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const n = parseFloat(value.replace('%', ''))
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function parseIntegerStat(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value)
+  }
+  if (typeof value === 'string') {
+    const n = parseInt(value, 10)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}

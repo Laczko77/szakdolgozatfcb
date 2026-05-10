@@ -23,6 +23,8 @@ import { SectorListAlt } from "@/components/tickets/SectorListAlt";
 import { TicketSelectionPanel } from "@/components/tickets/TicketSelectionPanel";
 import { PurchaseSuccess } from "@/components/tickets/PurchaseSuccess";
 import { TeamCrest } from "@/components/tickets/TeamCrest";
+import { MatchEventsPanel } from "@/components/season/MatchEventsPanel";
+import { FCB_TEAM_ID } from "@/lib/season-api";
 import { cn } from "@/lib/utils";
 
 /**
@@ -314,7 +316,7 @@ export default function MatchDetailPage() {
             className="mt-10"
           >
             {isPast ? (
-              <PastMatchNotice />
+              <PastMatchSummary match={match} />
             ) : (
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr] lg:gap-8">
                 {/* Stadium + sector list */}
@@ -411,24 +413,103 @@ function NotFoundState() {
   );
 }
 
-function PastMatchNotice() {
+/**
+ * Renders for past matches in place of the buying flow.
+ *
+ * Layered out as two glass cards:
+ *   1. Result card — large gold scoreline with the two team names. Falls
+ *      back to "Végeredmény nem elérhető" if the persisted `match.score`
+ *      isn't a parseable "H-A" string.
+ *   2. Events + team-stats card — embeds the season `MatchEventsPanel`,
+ *      which itself fetches `/api/season/match/[id]` and handles the
+ *      loading / error / empty / partial branches. We only mount it when
+ *      the row carries an `api_football_id`; otherwise the underlying
+ *      endpoint has nothing to look up and the panel would render its
+ *      "unavailable" notice without context.
+ */
+function PastMatchSummary({ match }: { match: MatchDetail["match"] }) {
+  const { homeGoals, awayGoals, hasScore } = parseScore(match.score);
+
   return (
-    <div className="glass-card flex flex-col items-center gap-3 p-10 text-center sm:p-14">
-      <p className="font-display text-[11px] uppercase tracking-[0.5em] text-[var(--text-muted)]">
-        Lejátszott
-      </p>
-      <h2 className="font-display text-2xl tracking-wide text-[var(--text-primary)] sm:text-3xl">
-        Erre a meccsre már nem vásárolható jegy
-      </h2>
-      <p className="max-w-md text-sm leading-relaxed text-[var(--text-secondary)]">
-        A találkozó már lezajlott. Az archív oldalon visszanézheted a
-        kapcsolódó híreket és a végeredményt.
-      </p>
-      <Link href="/jegyek" className="glass-button-secondary mt-2">
-        Vissza a meccsekhez
-      </Link>
+    <div className="space-y-6">
+      {/* Result card */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="glass-card p-6 sm:p-8"
+      >
+        <p className="mb-4 font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
+          Végeredmény
+        </p>
+        {hasScore ? (
+          <div className="flex items-center justify-between gap-4">
+            <span className="min-w-0 flex-1 truncate font-display text-2xl text-[var(--text-primary)] sm:text-3xl">
+              {match.home_team}
+            </span>
+            <span className="shrink-0 font-display text-4xl tabular-nums text-[var(--accent-gold)] sm:text-5xl">
+              {homeGoals} – {awayGoals}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right font-display text-2xl text-[var(--text-primary)] sm:text-3xl">
+              {match.away_team}
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--text-muted)]">
+            Végeredmény nem elérhető.
+          </p>
+        )}
+      </motion.div>
+
+      {/* Events + team stats — only when we have a football-data.org id */}
+      {match.api_football_id != null ? (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.45,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            delay: 0.1,
+          }}
+          className="glass-card p-5 sm:p-6"
+        >
+          <p className="mb-4 font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
+            Meccs statisztikák
+          </p>
+          <MatchEventsPanel
+            matchId={match.api_football_id}
+            fcbId={FCB_TEAM_ID}
+          />
+        </motion.div>
+      ) : (
+        <p className="text-sm text-[var(--text-muted)]">
+          Részletes statisztikák nem elérhetők ehhez a meccshez.
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * Parse `match.score` ("3-1" / "3 - 1" / null) into numeric halves.
+ * Anything malformed collapses into `hasScore: false` so the card can
+ * gracefully degrade rather than rendering "NaN – NaN".
+ */
+function parseScore(raw: string | null): {
+  homeGoals: number;
+  awayGoals: number;
+  hasScore: boolean;
+} {
+  if (!raw) return { homeGoals: 0, awayGoals: 0, hasScore: false };
+  const parts = raw.split("-").map((s) => Number(s.trim()));
+  if (parts.length !== 2) {
+    return { homeGoals: 0, awayGoals: 0, hasScore: false };
+  }
+  const [homeGoals, awayGoals] = parts;
+  if (Number.isNaN(homeGoals) || Number.isNaN(awayGoals)) {
+    return { homeGoals: 0, awayGoals: 0, hasScore: false };
+  }
+  return { homeGoals, awayGoals, hasScore: true };
 }
 
 // ---------------------------------------------------------------------------
