@@ -57,6 +57,7 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.product_images_enforce_single_cover()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   IF NEW.is_cover = TRUE THEN
@@ -80,6 +81,7 @@ CREATE TRIGGER product_images_enforce_single_cover_tg
 CREATE OR REPLACE FUNCTION public.product_images_promote_cover()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 DECLARE
   v_product_id UUID;
@@ -138,6 +140,7 @@ CREATE TRIGGER product_images_promote_cover_tg
 CREATE OR REPLACE FUNCTION public.product_images_sync_legacy_url()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   IF (TG_OP = 'INSERT') THEN
