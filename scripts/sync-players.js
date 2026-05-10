@@ -79,7 +79,10 @@ async function fetchSofascoreSquad() {
     `${SOFASCORE_BASE}/teams/get-squad?teamId=${FCB_TEAM_ID_SOFA}`,
     { headers: sofascoreHeaders() }
   )
-  if (!res.ok) throw new Error(`Sofascore /teams/get-squad HTTP ${res.status}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '(unreadable)')
+    throw new Error(`Sofascore /teams/get-squad HTTP ${res.status} — ${body}`)
+  }
   const data = await res.json()
   const out = []
   for (const entry of (data.players ?? [])) {
