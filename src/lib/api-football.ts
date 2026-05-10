@@ -532,10 +532,10 @@ export async function getPlayerStats(
   }
 
   // Build a flat list of (player × tournament) tasks and fan them out with a
-  // bounded worker pool. Sequential execution previously hit Vercel's 60s
-  // function timeout once a single request stalled (~15s tail latency). With
-  // 52 tasks at concurrency 8 the wall-clock drops to ~7 batches — well below
-  // the limit even with occasional slow responses.
+  // bounded worker pool. Sequential execution previously hit Vercel's 60 s
+  // function timeout once a single request stalled (~15 s tail latency).
+  // Concurrency is intentionally kept low (see STATS_CONCURRENCY) to avoid
+  // saturating the RapidAPI rate limit — see the comment there for details.
   const tasks: Array<
     () => Promise<{
       playerId: number
@@ -549,11 +549,20 @@ export async function getPlayerStats(
         t.seasonId,
         apiKey
       )
+      // Brief pause to stay within Sofascore RapidAPI rate limits when
+      // multiple workers run concurrently (see STATS_CONCURRENCY above).
+      await new Promise<void>((resolve) => setTimeout(resolve, 200))
       return { playerId: member.id, stats }
     })
   )
 
-  const STATS_CONCURRENCY = 8
+  // Sofascore RapidAPI free/basic tier enforces a low per-second rate limit.
+  // Running 8 workers in parallel saturates the quota almost immediately
+  // (first ~8 tasks succeed, the rest get 429 → silent zero stats). Two
+  // workers with a 200 ms post-request pause keeps throughput at ≈3 req/s —
+  // well below the limit — while still completing the full 52-task sweep in
+  // ~13 s (safely under Vercel's 60 s function cap).
+  const STATS_CONCURRENCY = 2
   const settled = await withConcurrency(tasks, STATS_CONCURRENCY)
 
   for (const outcome of settled) {

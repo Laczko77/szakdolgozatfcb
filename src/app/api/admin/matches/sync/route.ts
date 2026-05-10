@@ -57,15 +57,17 @@ import type { TablesInsert } from '@/types/database'
  * include venue, so `venue` is always written as null on sync.
  *
  * Pre-warm performance contract (Vercel 60s function limit):
- *   - Per-match Sofascore calls fan out via `Promise.all` (6 endpoints
- *     after `findSofascoreEventId` resolves). `getMatchDetails` runs in
- *     parallel with that chain.
- *   - Match-level pre-warm runs at concurrency `MATCH_PREWARM_CONCURRENCY`
- *     so we never have more than 3 matches × ~6 Sofascore calls = 18
- *     concurrent upstream requests in flight.
- *   - At most `MAX_PREWARM_PER_RUN` matches are warmed per invocation;
- *     leftovers are reported as `sofascoreSkipped` and picked up by the
- *     next sync run (or lazy-loaded by the public route on first visit).
+ *   - `getMatchDetails` (football-data.org) and `findSofascoreEventId`
+ *     (Sofascore) run in parallel — they share no inputs (~1.5 s combined).
+ *   - The 6 per-event Sofascore calls are issued sequentially with 150 ms
+ *     inter-request pauses to stay within RapidAPI rate limits (~3 req/s).
+ *     Six calls × ~500 ms avg + five pauses ≈ 3.75 s per match.
+ *   - Matches are processed one at a time (MATCH_PREWARM_CONCURRENCY=1) —
+ *     concurrent match processing would multiply the burst (3 × 6 = 18 req)
+ *     and reliably trigger 429s, leaving caches with missing Sofascore data.
+ *   - At most `MAX_PREWARM_PER_RUN` (6) matches per invocation → worst case
+ *     6 × 5.5 s ≈ 33 s, well under the 60 s cap. Leftovers are picked up by
+ *     the next sync run or lazy-loaded by the public route on first visit.
  */
 
 const MIN_SEASON = 2000
@@ -74,19 +76,25 @@ const LOG_PREFIX = '[matches/sync]'
 
 /**
  * Cap on how many uncached finished matches we pre-warm in a single sync
- * invocation. Picked to keep a worst-case run (no cache hits, slow upstream)
- * comfortably under Vercel's 60s function timeout: at concurrency 3 with
- * ~2-4s per match-batch, 15 matches resolve in ~5 batches ≈ 10-20s.
+ * invocation.
+ *
+ * Budget: matches are processed one at a time (MATCH_PREWARM_CONCURRENCY=1).
+ * Each match costs ~1.5 s for the parallel football-data + Sofascore event-id
+ * lookup, then ~3 s for the 6 sequential Sofascore endpoint calls (each with a
+ * 150 ms inter-request pause). Worst case ≈ 6 × 5 s = 30 s — well under
+ * Vercel's 60 s function cap. Raise only when average latency confirms it.
  */
-const MAX_PREWARM_PER_RUN = 15
+const MAX_PREWARM_PER_RUN = 6
 
 /**
- * Number of matches whose Sofascore extras are pre-warmed in parallel.
- * Inside each match the 6 Sofascore endpoints are fanned out further, so
- * the effective in-flight RapidAPI request ceiling is ~18 — within the
- * comfort zone for the free plan's per-second budget.
+ * Number of matches pre-warmed concurrently.
+ *
+ * Kept at 1 (serial) because each match already fans out to 6 Sofascore
+ * endpoint calls. Running multiple matches in parallel multiplies that burst
+ * (3 × 6 = 18 simultaneous requests) and reliably triggers RapidAPI 429s,
+ * leaving match caches with null/empty Sofascore payloads.
  */
-const MATCH_PREWARM_CONCURRENCY = 3
+const MATCH_PREWARM_CONCURRENCY = 1
 
 type DataQuality = 'full' | 'partial' | 'unavailable'
 
@@ -441,21 +449,22 @@ async function prewarmMatchCache(
 
   if (eventId !== null) {
     const id = eventId
-    const [
-      teamStatsRes,
-      lineupsRes,
-      incidentsRes,
-      shotmapRes,
-      graphRes,
-      bestPlayersRes,
-    ] = await Promise.allSettled([
-      getSofascoreMatchStats(id),
-      getSofascoreLineups(id),
-      getSofascoreIncidents(id),
-      getSofascoreShotmap(id),
-      getSofascoreGraph(id),
-      getSofascoreBestPlayers(id),
-    ])
+    // Sequential Sofascore calls with a small inter-request pause.
+    // Firing all 6 simultaneously via Promise.allSettled triggers RapidAPI
+    // 429s (burst of 6 req against a ~5 req/s free-tier ceiling). Sequential
+    // execution at ~150 ms gaps keeps throughput at ≈3 req/s — well under the
+    // limit — while adding only ~0.75 s of overhead per match.
+    const teamStatsRes = await settle(getSofascoreMatchStats(id))
+    await sofaPause()
+    const lineupsRes = await settle(getSofascoreLineups(id))
+    await sofaPause()
+    const incidentsRes = await settle(getSofascoreIncidents(id))
+    await sofaPause()
+    const shotmapRes = await settle(getSofascoreShotmap(id))
+    await sofaPause()
+    const graphRes = await settle(getSofascoreGraph(id))
+    await sofaPause()
+    const bestPlayersRes = await settle(getSofascoreBestPlayers(id))
 
     teamStats = unwrapSofa(match.id, 'team-stats', teamStatsRes, errors, null)
     lineups = unwrapSofa(match.id, 'lineups', lineupsRes, errors, null)
@@ -586,6 +595,21 @@ function logSofa(
       err instanceof Error ? err.message : 'ismeretlen hiba'
     }`
   )
+}
+
+/**
+ * Wrap a promise into a PromiseSettledResult so sequential callers can use
+ * the same `unwrapSofa` extraction pattern as `Promise.allSettled` does.
+ */
+function settle<T>(p: Promise<T>): Promise<PromiseSettledResult<T>> {
+  return p
+    .then((value): PromiseSettledResult<T> => ({ status: 'fulfilled', value }))
+    .catch((reason): PromiseSettledResult<T> => ({ status: 'rejected', reason }))
+}
+
+/** Inter-request pause that keeps Sofascore RapidAPI calls below ~3 req/s. */
+function sofaPause(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 150))
 }
 
 function deriveDataQuality(details: MatchDetails): DataQuality {
