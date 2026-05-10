@@ -96,7 +96,7 @@ export function DashboardHero({ profile, email }: DashboardHeroProps) {
 
       {/* Greeting copy */}
       <div className="relative min-w-0 flex-1">
-        <p className="font-display text-[11px] uppercase tracking-[0.36em] text-[var(--accent-gold)]">
+        <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
           {today}
         </p>
         <h1

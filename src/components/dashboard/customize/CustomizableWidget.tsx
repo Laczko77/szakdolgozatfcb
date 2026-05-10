@@ -83,8 +83,8 @@ export function CustomizableWidget({
         <div
           className={cn(
             "pointer-events-none absolute inset-0 z-20",
-            "rounded-[var(--radius-lg,1.25rem)]",
-            "ring-2 ring-[var(--accent-gold)]/40 ring-offset-2 ring-offset-[var(--bg-primary,#0A0E1A)]",
+            "rounded-[var(--radius-lg)]",
+            "ring-2 ring-[var(--accent-gold)]/40 ring-offset-2 ring-offset-[var(--bg-primary)]",
             // pulzáló dashed border feeling — háttér nélkül, hogy ne takarja az
             // alatta lévő widgetet.
             "transition-all duration-300",

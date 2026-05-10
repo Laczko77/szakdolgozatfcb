@@ -62,7 +62,7 @@ export default function CTASection() {
   return (
     <section
       aria-label="Csatlakozz"
-      className="relative mx-auto flex w-full max-w-5xl flex-col items-center px-6 py-28 text-center md:py-40"
+      className="relative mx-auto flex w-full max-w-5xl flex-col items-center px-4 py-28 text-center sm:px-6 lg:px-10 md:py-40"
     >
       {/* Ambient red+blue halo */}
       <div
@@ -75,15 +75,18 @@ export default function CTASection() {
         }}
       />
 
+      {/* Eyebrow — canonical form. Symmetric gold rules anchor the centred
+          composition, mirroring the AboutSection treatment. */}
       <motion.span
         initial={reduced ? false : { opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.6 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="mb-5 inline-flex items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-1 text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)] backdrop-blur"
+        className="mb-6 inline-flex items-center gap-3 font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]"
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-red)]" />
+        <span aria-hidden className="block h-px w-6 bg-[var(--accent-gold)]/60" />
         Csatlakozz
+        <span aria-hidden className="block h-px w-6 bg-[var(--accent-gold)]/60" />
       </motion.span>
 
       {/*

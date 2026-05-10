@@ -111,7 +111,7 @@ export function ActivePollWidget({
                   <motion.span
                     className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                      "bg-[var(--accent-gold)] text-[#0a0e1a]",
+                      "bg-[var(--accent-gold)] text-[var(--bg-primary)]",
                     )}
                     initial={{ scale: 0, rotate: -90 }}
                     animate={{ scale: 1, rotate: 0 }}

@@ -195,7 +195,7 @@ function ShopPageInner() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="mb-8 sm:mb-10"
       >
-        <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+        <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
           Forca Barça Shop
         </p>
         <h1 className="mt-2 font-display text-4xl leading-none tracking-wider text-[var(--text-primary)] sm:text-6xl">

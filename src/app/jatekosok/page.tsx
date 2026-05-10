@@ -112,7 +112,7 @@ function JatekosokPageInner() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="mb-8 sm:mb-12"
       >
-        <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+        <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
           Forca Barça // A keret
         </p>
         <h1
@@ -143,9 +143,9 @@ function JatekosokPageInner() {
         <Link
           href="/jatekosok/almomcsapat"
           className={cn(
-            "group relative flex items-center gap-4 overflow-hidden",
-            "rounded-2xl border border-[var(--accent-gold)]/40 bg-[var(--glass-bg)]",
-            "px-5 py-4 backdrop-blur-md transition-all duration-200",
+            "glass-card group relative flex items-center gap-4 overflow-hidden",
+            "border-[var(--accent-gold)]/40",
+            "px-5 py-4 transition-all duration-200",
             "hover:border-[var(--accent-gold)] hover:shadow-[var(--shadow-glow-gold)]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]",
           )}
@@ -161,7 +161,7 @@ function JatekosokPageInner() {
           />
           <span
             aria-hidden
-            className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[var(--accent-gold)] bg-[var(--accent-gold)]/15 font-display text-lg text-[var(--accent-gold)] sm:h-14 sm:w-14"
+            className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent-gold)] bg-[var(--accent-gold)]/15 font-display text-lg text-[var(--accent-gold)] sm:h-14 sm:w-14"
           >
             XI
           </span>
@@ -230,10 +230,7 @@ function JatekosokPageInner() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className={cn(
-              "rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)]",
-              "p-8 text-center",
-            )}
+            className={cn("glass-card p-8 text-center")}
             role="alert"
           >
             <h2 className="font-display text-2xl text-[var(--text-primary)]">
@@ -260,10 +257,7 @@ function JatekosokPageInner() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className={cn(
-              "rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)]",
-              "p-10 text-center",
-            )}
+            className={cn("glass-card p-10 text-center")}
           >
             <p className="font-display text-3xl tracking-wide text-[var(--text-primary)]">
               Üres a pálya

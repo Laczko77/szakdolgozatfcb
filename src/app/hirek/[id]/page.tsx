@@ -132,12 +132,14 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   return (
     <article className="mx-auto max-w-[1280px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
       {/* Back navigation — minimal, monochrome, doesn't compete with the
-          title. The arrow translates left on hover for a tactile cue. */}
+          title. Pattern matches /jatekosok/[id] for a consistent
+          detail-page chrome across the portal. */}
       <Link
         href="/hirek"
         className={cn(
-          "group inline-flex items-center gap-2 text-sm",
+          "group inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em]",
           "text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-gold)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
         )}
       >
         <ArrowLeft
@@ -154,7 +156,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           className={cn(
             "relative mt-6 overflow-hidden",
             "aspect-[16/9] sm:aspect-[21/9]",
-            "rounded-2xl border border-[var(--glass-border)]",
+            "rounded-[var(--radius-lg)] border border-[var(--glass-border)]",
             "bg-[var(--bg-secondary)]",
           )}
         >
@@ -230,7 +232,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         <Link
           href="/hirek"
           className={cn(
-            "group inline-flex items-center gap-2 text-sm",
+            "group inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em]",
             "text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-gold)]",
           )}
         >

@@ -121,7 +121,7 @@ export default function JegyekPage() {
         transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="space-y-4"
       >
-        <p className="font-display text-[11px] uppercase tracking-[0.5em] text-[var(--accent-gold)]">
+        <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
           Jegyrendszer
         </p>
         <h1 className="font-display text-5xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-6xl lg:text-7xl">

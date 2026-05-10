@@ -444,7 +444,7 @@ function DreamTeamPageInner() {
             ← Keret
           </Link>
           <span className="text-[var(--text-secondary)]">/</span>
-          <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+          <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
             Álomcsapatom
           </p>
         </div>
@@ -500,12 +500,12 @@ function DreamTeamPageInner() {
             {/* Pitch — wraps in glass card with subtle gold inner border */}
             <div
               className={cn(
-                "relative overflow-hidden rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-strong)]",
-                "p-2 sm:p-3 shadow-[var(--shadow-md)]",
+                "glass-card-strong relative overflow-hidden",
+                "p-2 sm:p-3",
               )}
             >
               {loadingTeam ? (
-                <div className="aspect-[8/11] w-full animate-pulse rounded-xl bg-[var(--glass-bg-hover)]" />
+                <div className="aspect-[8/11] w-full animate-pulse rounded-[var(--radius-md)] bg-[var(--glass-bg-hover)]" />
               ) : (
                 <PitchSVG
                   formation={formation}
@@ -527,7 +527,7 @@ function DreamTeamPageInner() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 className={cn(
-                  "rounded-xl border border-[var(--accent-gold)] bg-[var(--glass-bg-strong)]",
+                  "rounded-[var(--radius-md)] border border-[var(--accent-gold)] bg-[var(--glass-bg-strong)]",
                   "px-4 py-2 text-xs text-[var(--text-primary)] shadow-[var(--shadow-glow-gold)]",
                   "flex items-center justify-between gap-3",
                 )}

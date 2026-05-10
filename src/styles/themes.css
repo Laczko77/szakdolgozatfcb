@@ -21,8 +21,10 @@
   /* Brand accents */
   --accent-blue: #1d4ed8; /* vivid blue (dark mode) */
   --accent-blue-subtle: #003366;
+  --accent-blue-soft: #7aa6ff; /* desaturated blue — used by stat tiles, side-by-side comparisons */
   --accent-red: #dc2626; /* vivid red */
   --accent-red-subtle: #8c0038;
+  --accent-red-soft: #ff8aa6; /* desaturated red — pairs with --accent-blue-soft */
   --accent-gold: #f59e0b; /* vivid gold */
   --accent-gold-subtle: #c4a34d;
 
@@ -62,8 +64,10 @@
 
   --accent-blue: #154284;
   --accent-blue-subtle: #1d4ed8;
+  --accent-blue-soft: #5b85d6; /* light-mode soft blue — readable on cream surfaces */
   --accent-red: #a50044;
   --accent-red-subtle: #dc2626;
+  --accent-red-soft: #d6638a; /* light-mode soft red — pairs with blue-soft */
   --accent-gold: #d4a84b;
   --accent-gold-subtle: #f59e0b;
 

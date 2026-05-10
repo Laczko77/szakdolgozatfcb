@@ -48,15 +48,14 @@ export function Navbar() {
       <nav
         aria-label="Főnavigáció"
         className={[
-          // Pill geometry
-          "mx-auto flex w-full max-w-6xl items-center justify-between gap-6",
+          // Pill geometry — container width unified with the rest of the
+          // site at 1280px so the navbar lines up with hero/about/cta.
+          "mx-auto flex w-full max-w-[1280px] items-center justify-between gap-6",
           "rounded-full px-6 py-2.5",
-          // Glass: always materialized. Border, translucent fill, backdrop
-          // blur and shadow render from the first paint regardless of
-          // scroll position.
-          "border border-[var(--glass-border)] bg-[var(--glass-bg-strong)]",
-          "supports-[backdrop-filter]:backdrop-blur-xl",
-          "shadow-[var(--shadow-md)]",
+          // Glass: canonical `.glass-nav` utility — same recipe used by the
+          // mobile header and bottom tab bar, so the floating frosted-glass
+          // language is identical across surfaces.
+          "glass-nav",
         ].join(" ")}
       >
         {/* ─────────────── LEFT: BRAND ─────────────── */}

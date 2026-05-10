@@ -29,7 +29,7 @@ export function RelatedArticles({ articles }: RelatedArticlesProps) {
     >
       <div className="mb-8 flex items-end justify-between gap-4">
         <div>
-          <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+          <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
             Tovább olvasnál
           </p>
           <h2

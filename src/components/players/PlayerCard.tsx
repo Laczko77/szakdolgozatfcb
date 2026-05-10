@@ -63,13 +63,13 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
         aria-label={`${player.name} profilja`}
         className={cn(
           "player-card group relative block aspect-[3/4] w-full",
-          "rounded-2xl outline-none",
+          "rounded-[var(--radius-lg)] outline-none",
           "focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]",
         )}
       >
         <div className="player-card-inner">
           {/* ──────────── FRONT ──────────── */}
-          <div className="player-card-face player-card-front overflow-hidden rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-strong)] backdrop-blur-md shadow-[var(--shadow-md)]">
+          <div className="player-card-face player-card-front overflow-hidden rounded-[var(--radius-lg)] border border-[var(--glass-border)] bg-[var(--glass-bg-strong)] backdrop-blur-md shadow-[var(--shadow-md)]">
             {/* Photo layer */}
             <div className="absolute inset-0">
               {player.image_url ? (
@@ -169,7 +169,7 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
           </div>
 
           {/* ──────────── BACK (hover-only) ──────────── */}
-          <div className="player-card-face player-card-back overflow-hidden rounded-2xl border border-[var(--accent-gold)] bg-[var(--glass-bg-strong)] backdrop-blur-md p-6 shadow-[var(--shadow-glow-gold)]">
+          <div className="player-card-face player-card-back overflow-hidden rounded-[var(--radius-lg)] border border-[var(--accent-gold)] bg-[var(--glass-bg-strong)] backdrop-blur-md p-6 shadow-[var(--shadow-glow-gold)]">
             {/* Subtle radial accent */}
             <div
               aria-hidden
@@ -304,7 +304,7 @@ function BackStat({
   return (
     <li
       className={cn(
-        "rounded-lg border bg-[var(--glass-bg)] px-3 py-2.5",
+        "rounded-[var(--radius-md)] border bg-[var(--glass-bg)] px-3 py-2.5",
         accentClass ?? "border-[var(--glass-border)]",
       )}
     >

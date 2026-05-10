@@ -89,12 +89,12 @@ export function RecommendedProductsWidget({
             <li
               key={i}
               className={cn(
-                "flex items-center gap-3 rounded-xl",
+                "flex items-center gap-3 rounded-[var(--radius-md)]",
                 "border border-[var(--glass-border)] bg-[var(--glass-bg)]",
                 "p-3",
               )}
             >
-              <div className="h-14 w-14 shrink-0 animate-pulse rounded-lg bg-[var(--bg-secondary)]" />
+              <div className="h-14 w-14 shrink-0 animate-pulse rounded-[var(--radius-md)] bg-[var(--bg-secondary)]" />
               <div className="flex-1 space-y-2">
                 <div className="h-3 w-3/4 animate-pulse rounded bg-[var(--bg-secondary)]" />
                 <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--bg-secondary)]" />
@@ -118,7 +118,7 @@ export function RecommendedProductsWidget({
               <Link
                 href={`/shop/${p.product_id}`}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl",
+                  "group flex items-center gap-3 rounded-[var(--radius-md)]",
                   "border border-[var(--glass-border)] bg-[var(--glass-bg)]",
                   "p-3",
                   "transition-all duration-200",
@@ -128,7 +128,7 @@ export function RecommendedProductsWidget({
               >
                 <div
                   className={cn(
-                    "relative h-14 w-14 shrink-0 overflow-hidden rounded-lg",
+                    "relative h-14 w-14 shrink-0 overflow-hidden rounded-[var(--radius-md)]",
                     "bg-[var(--bg-secondary)]",
                   )}
                 >

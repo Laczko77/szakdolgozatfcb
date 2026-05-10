@@ -476,7 +476,7 @@ function MobilePlayerCard({
   const totalLabel = String(total).padStart(2, "0");
 
   return (
-    <article className="relative overflow-hidden rounded-3xl">
+    <article className="relative overflow-hidden rounded-[var(--radius-lg)]">
       <div className="relative aspect-[4/5] w-full">
         <Image
           src={player.image}

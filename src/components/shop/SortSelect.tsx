@@ -167,7 +167,7 @@ export function SortSelect({
             transition={{ duration: 0.16, ease: [0.25, 0.46, 0.45, 0.94] }}
             className={cn(
               "absolute right-0 z-30 mt-2 min-w-[220px] origin-top-right",
-              "glass-modal overflow-hidden rounded-2xl p-1.5",
+              "glass-modal overflow-hidden p-1.5",
             )}
           >
             <ul

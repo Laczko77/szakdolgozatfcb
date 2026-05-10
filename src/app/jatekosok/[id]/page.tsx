@@ -96,7 +96,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
       <section
         aria-labelledby="player-name"
         className={cn(
-          "relative mt-6 overflow-hidden rounded-3xl",
+          "relative mt-6 overflow-hidden rounded-[var(--radius-lg)]",
           "glass-card-strong",
         )}
       >
@@ -179,7 +179,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
           {/* Info — desktop side panel */}
           <div className="hidden flex-col justify-between gap-8 p-10 lg:flex">
             <div>
-              <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+              <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
                 {positionShort && `#${positionShort} //`} {positionLabel}
               </p>
               <h1
@@ -226,7 +226,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
           className="space-y-5"
         >
           <header>
-            <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+            <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
               Bemutatkozás
             </p>
             <h2
@@ -253,7 +253,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
           className="space-y-6"
         >
           <header>
-            <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+            <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
               Szezon teljesítmény
             </p>
             <h2
@@ -264,12 +264,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
             </h2>
           </header>
 
-          <div
-            className={cn(
-              "rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)]",
-              "p-4 backdrop-blur sm:p-6",
-            )}
-          >
+          <div className={cn("glass-card p-4 sm:p-6")}>
             <PlayerStatRadar stats={stats} />
           </div>
 
@@ -292,7 +287,7 @@ function SnapshotStat({
   available: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur">
+    <div className="glass-card p-4">
       <dt className="text-[10px] uppercase tracking-[0.25em] text-[var(--text-secondary)]">
         {label}
       </dt>

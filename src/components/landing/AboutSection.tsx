@@ -59,7 +59,7 @@ export default function AboutSection() {
   return (
     <section
       aria-label="Rólunk"
-      className="relative mx-auto flex w-full max-w-6xl flex-col items-center px-6 py-24 md:py-36"
+      className="relative mx-auto flex w-full max-w-[1280px] flex-col items-center px-4 py-24 sm:px-6 lg:px-10 md:py-36"
     >
       <div
         aria-hidden
@@ -78,13 +78,16 @@ export default function AboutSection() {
         variants={containerVariants}
         className="flex w-full flex-col items-center"
       >
-        {/* Eyebrow */}
+        {/* Eyebrow — canonical: font-display, 11px, 0.4em tracking, gold.
+            A single decorative gold rule replaces the previous pill capsule
+            so the editorial dark canvas isn't competing with extra chrome. */}
         <motion.span
           variants={slideUpVariants}
-          className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-1 text-xs uppercase tracking-[0.2em] text-[var(--text-secondary)] backdrop-blur"
+          className="mb-5 inline-flex items-center gap-3 font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]"
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-gold)]" />
+          <span aria-hidden className="block h-px w-6 bg-[var(--accent-gold)]/60" />
           Rólunk
+          <span aria-hidden className="block h-px w-6 bg-[var(--accent-gold)]/60" />
         </motion.span>
 
         {/*

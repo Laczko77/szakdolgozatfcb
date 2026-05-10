@@ -116,7 +116,7 @@ export function HeroArticle({ article }: HeroArticleProps) {
           {/* Copy side */}
           <div className="flex flex-col justify-between gap-6 p-6 sm:p-10">
             <div className="space-y-5">
-              <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+              <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
                 {formatDate(article.created_at)}
               </p>
 

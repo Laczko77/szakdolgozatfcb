@@ -65,7 +65,7 @@ export function PopularProducts() {
         <div>
           <p
             className={cn(
-              "font-display text-[11px] uppercase tracking-[0.32em]",
+              "font-display text-[11px] uppercase tracking-[0.4em]",
               "text-[var(--accent-gold)]",
             )}
           >

@@ -20,7 +20,7 @@ export default function BarcaText() {
   return (
     <section
       aria-label="FC Barcelona"
-      className="relative mx-auto flex w-full max-w-7xl items-center justify-center overflow-hidden px-6 py-20 md:py-28"
+      className="relative mx-auto flex w-full max-w-7xl items-center justify-center overflow-hidden px-4 py-20 sm:px-6 lg:px-10 md:py-28"
     >
       {/* Decorative crest-like top rule */}
       <div className="absolute left-1/2 top-10 -translate-x-1/2">

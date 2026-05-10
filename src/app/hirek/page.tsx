@@ -123,7 +123,7 @@ function HirekPageInner() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="mb-8 sm:mb-12"
       >
-        <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+        <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
           Forca Barça // Hírek
         </p>
         <h1

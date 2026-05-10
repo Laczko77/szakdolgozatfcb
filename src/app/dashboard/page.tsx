@@ -478,7 +478,7 @@ function EmptyDashboard({
         "glass-card mt-8 flex flex-col items-center gap-3 px-6 py-12 text-center",
       )}
     >
-      <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
+      <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
         Üres dashboard
       </p>
       <h2 className="font-display text-2xl tracking-wide text-[var(--text-primary)]">

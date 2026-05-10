@@ -143,7 +143,7 @@ export default function HeroSection() {
         initial={reduced ? false : "hidden"}
         animate="visible"
         variants={containerVariants}
-        className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 text-center"
+        className="relative z-10 mx-auto flex max-w-[1280px] flex-col items-center px-4 text-center sm:px-6 lg:px-10"
       >
         <h1
           className="font-display text-[14vw] leading-[0.95] tracking-tight text-white sm:text-7xl md:text-8xl lg:text-[clamp(6rem,10vw,11rem)]"

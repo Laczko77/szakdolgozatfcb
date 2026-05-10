@@ -74,7 +74,7 @@ export function PlayerStatGrid({ stats }: PlayerStatGridProps) {
               ease: [0.22, 1, 0.36, 1],
               delay: i * 0.05,
             }}
-            className="rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur"
+            className="glass-card p-4"
           >
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-[10px] uppercase tracking-[0.25em] text-[var(--text-secondary)]">
@@ -126,9 +126,8 @@ export function PlayerStatsEmpty() {
   return (
     <div
       className={[
-        "flex flex-col items-center justify-center gap-3",
-        "rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)]",
-        "px-6 py-10 text-center backdrop-blur opacity-60",
+        "glass-card flex flex-col items-center justify-center gap-3",
+        "px-6 py-10 text-center opacity-60",
       ].join(" ")}
       role="status"
       aria-live="polite"

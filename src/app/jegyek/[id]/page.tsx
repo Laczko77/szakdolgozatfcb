@@ -456,7 +456,7 @@ function MatchDetailSkeleton() {
 function NotFoundState() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">
-      <p className="font-display text-[11px] uppercase tracking-[0.5em] text-[var(--text-muted)]">
+      <p className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
         Hiba
       </p>
       <h1 className="mt-3 font-display text-4xl tracking-wide text-[var(--text-primary)] sm:text-5xl">

@@ -28,8 +28,10 @@
   /* Accent colors */
   --color-accent-blue: var(--accent-blue);
   --color-accent-blue-subtle: var(--accent-blue-subtle);
+  --color-accent-blue-soft: var(--accent-blue-soft);
   --color-accent-red: var(--accent-red);
   --color-accent-red-subtle: var(--accent-red-subtle);
+  --color-accent-red-soft: var(--accent-red-soft);
   --color-accent-gold: var(--accent-gold);
   --color-accent-gold-subtle: var(--accent-gold-subtle);
 
