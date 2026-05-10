@@ -14,7 +14,8 @@ import { FormChips } from "@/components/season/FormChips";
 import { GoalDifferenceChart } from "@/components/season/GoalDifferenceChart";
 import { TopScorersSnapshot } from "@/components/season/TopScorersSnapshot";
 import { MatchesTimeline } from "@/components/season/MatchesTimeline";
-import { SeasonStatBar } from "@/components/season/SeasonStatBar";
+import { TeamStatsWidget } from "@/components/season/TeamStatsWidget";
+import { TransfersWidget } from "@/components/season/TransfersWidget";
 import {
   fetchTeamForm,
   tallyForm,
@@ -24,19 +25,25 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * /season — La Liga season story page (F31, magazine redesign).
+ * /season — La Liga season story page.
  *
- * Cinematic, scroll-driven layout:
- *   1. Hero — radial blaugrana wash, oversized Bebas Neue title.
- *   2. SeasonStatBar — full-width animated counter strip.
- *   3. Magazine rows — alternating column counts separated by diagonal
- *      blaugrana dividers, each charted section with its own eyebrow
- *      and editorial framing.
- *   4. Sticky mini-header — appears after 200px of scroll, condenses
- *      season + W/D/L into a glass pill at the top of the viewport.
+ * Layout (post-redesign):
+ *   1. Glass hero card — section-styled, no radial gradient washes.
+ *      Holds the eyebrow, headline, copy, season select and three
+ *      snapshot stat tiles inside a single .glass-card.
+ *   2. Sticky mini-header — pill that surfaces W/D/L + season switcher
+ *      after 200px of scroll.
+ *   3. Charts row 1 — Pontok evolúciója + Forma chipek (3-col grid).
+ *   4. Csapat statisztikák — 6-tile Sofascore snapshot.
+ *   5. Gólkülönbség — area chart.
+ *   6. Top gólszerzők — bar list.
+ *   7. Átigazolások — érkezők/távozók 2-col panel.
+ *   8. Meccsek timeline.
  *
- * URL state is preserved (`?season=YYYY`) and the page re-mounts the
- * SeasonStatBar on season change to retrigger its counter animation.
+ * The original "blaugrana magazine" treatment (radial hero, diagonal
+ * dividers, oversized type) was replaced to match the rest of the
+ * portal's dark glass language. Charts now default to 200/240px tall
+ * with a "Nagyítás" affordance on each card opening a 600px modal.
  */
 
 const SEASON_OPTIONS: ReadonlyArray<SeasonOption> = [
@@ -85,16 +92,19 @@ function SeasonPageInner() {
   );
 
   // ---------------------------------------------------------------------
-  // Derive W/D/L + goals for the hero stat bar.
-  // The endpoint is server-cached; fetching here in addition to
-  // MatchesTimeline still hits the same Supabase cache, so it's cheap.
+  // Derive W/D/L + goals for the hero stat tiles. The endpoint is
+  // server-cached so polling it here is essentially free.
   // ---------------------------------------------------------------------
   const [totals, setTotals] = useState<DerivedSeasonTotals>(ZERO_TOTALS);
   const [totalsLoading, setTotalsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
-    setTotalsLoading(true);
+    // Wrap in queueMicrotask to satisfy `react-hooks/set-state-in-effect`
+    // under React 19 — the synchronous setState in an effect body is a
+    // cascading-render foot-gun the lint rule blocks. Microtask defers
+    // the call past the initial render commit.
+    queueMicrotask(() => setTotalsLoading(true));
 
     fetchTeamForm({ season }, controller.signal)
       .then((response) => {
@@ -114,7 +124,7 @@ function SeasonPageInner() {
   }, [season]);
 
   // ---------------------------------------------------------------------
-  // Sticky mini-header — appears after 200px of scroll
+  // Sticky mini-header — appears after 200px of scroll.
   // ---------------------------------------------------------------------
   const { scrollY } = useScroll();
   const [showSticky, setShowSticky] = useState(false);
@@ -136,7 +146,7 @@ function SeasonPageInner() {
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="fixed inset-x-0 top-3 z-50 flex justify-center px-3 sm:top-5"
           >
-            <div className="glass-card flex items-center gap-3 rounded-full px-4 py-2 sm:gap-5 sm:px-5">
+            <div className="glass-nav flex items-center gap-3 rounded-full px-4 py-2 sm:gap-5 sm:px-5">
               <span className="font-display text-[11px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
                 FCB · {seasonLabel}
               </span>
@@ -163,8 +173,8 @@ function SeasonPageInner() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-4 sm:px-6 sm:pt-8 lg:px-10">
-        {/* ─────────────── CINEMATIC HERO ─────────────── */}
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+        {/* ─────────────── HERO CARD ─────────────── */}
         <SeasonHero
           seasonLabel={seasonLabel}
           season={season}
@@ -173,71 +183,49 @@ function SeasonPageInner() {
           totalsLoading={totalsLoading}
         />
 
-        {/* ─────────────── STAT BAR ─────────────── */}
-        {/* Re-key on season → retriggers the counter on season swap. */}
-        <SeasonStatBar
-          key={`statbar-${season}`}
-          wins={totals.wins}
-          draws={totals.draws}
-          losses={totals.losses}
-          goalsScored={totals.goalsScored}
-          goalsConceded={totals.goalsConceded}
-          loading={totalsLoading}
-          className="mt-8 sm:mt-10"
-        />
-
         {/* ─────────────── ROW 1 — POINTS + FORM ─────────────── */}
-        <SectionLabel index={1} eyebrow="Capítulo I" title="A pont-ívek" />
-        <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
-          <PointsEvolutionChart
-            season={season}
-            index={0}
-            className="lg:col-span-2"
-          />
-          <FormChips season={season} index={1} className="lg:col-span-1" />
-        </div>
+        <SectionSpacing>
+          <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
+            <PointsEvolutionChart
+              season={season}
+              index={0}
+              className="lg:col-span-2"
+            />
+            <FormChips season={season} index={1} className="lg:col-span-1" />
+          </div>
+        </SectionSpacing>
 
-        <DiagonalDivider />
+        {/* ─────────────── TEAM STATS ─────────────── */}
+        <SectionSpacing>
+          <TeamStatsWidget season={season} index={0} />
+        </SectionSpacing>
 
-        {/* ─────────────── ROW 2 — GOAL DIFFERENCE ─────────────── */}
-        <SectionLabel index={2} eyebrow="Capítulo II" title="Gólarány" />
-        {/* Decorative blaugrana band sits above the chart */}
-        <div className="relative">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-2 left-0 right-0 h-[3px] rounded-full"
-            style={{
-              background:
-                "linear-gradient(90deg, var(--accent-red) 0%, var(--accent-blue) 50%, var(--accent-gold) 100%)",
-              filter: "drop-shadow(0 0 12px rgba(196,163,77,0.35))",
-              opacity: 0.55,
-            }}
-          />
+        {/* ─────────────── GOAL DIFFERENCE ─────────────── */}
+        <SectionSpacing>
           <GoalDifferenceChart season={season} index={0} />
-        </div>
+        </SectionSpacing>
 
-        <DiagonalDivider />
+        {/* ─────────────── TOP SCORERS ─────────────── */}
+        <SectionSpacing>
+          <TopScorersSnapshot season={season} index={0} />
+        </SectionSpacing>
 
-        {/* ─────────────── ROW 3 — TOP SCORERS, EDITORIAL ─────────────── */}
-        <ScorersHeading />
-        <TopScorersSnapshot season={season} index={0} />
+        {/* ─────────────── TRANSFERS (auto-hides on 404) ─────────────── */}
+        <SectionSpacing>
+          <TransfersWidget index={0} />
+        </SectionSpacing>
 
-        <DiagonalDivider />
-
-        {/* ─────────────── ROW 4 — MATCHES TIMELINE ─────────────── */}
-        <SectionLabel
-          index={3}
-          eyebrow="Capítulo IV"
-          title="Meccsről meccsre"
-        />
-        <MatchesTimeline season={season} index={0} />
-      </div>
+        {/* ─────────────── MATCHES TIMELINE ─────────────── */}
+        <SectionSpacing>
+          <MatchesTimeline season={season} index={0} />
+        </SectionSpacing>
+      </main>
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Hero
+// Hero — single glass card, no radial gradients
 // ---------------------------------------------------------------------------
 
 interface SeasonHeroProps {
@@ -255,174 +243,128 @@ function SeasonHero({
   totals,
   totalsLoading,
 }: SeasonHeroProps) {
-  const totalMatches =
-    totals.wins + totals.draws + totals.losses;
+  const totalMatches = totals.wins + totals.draws + totals.losses;
+  const goalDiff = totals.goalsScored - totals.goalsConceded;
 
   return (
-    <section className="relative overflow-hidden rounded-[var(--radius-lg)]">
-      {/* Layered atmospheric background — blaugrana + gold corner glow */}
+    <motion.section
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="glass-card relative overflow-hidden p-6 sm:p-8 lg:p-10"
+    >
+      {/* Subtle top hairline — keeps the gold accent without the radial wash */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 0% 0%, rgba(165,0,68,0.28), transparent 55%), radial-gradient(circle at 100% 100%, rgba(0,77,152,0.32), transparent 55%), radial-gradient(circle at 80% 0%, rgba(196,163,77,0.10), transparent 40%)",
-        }}
-      />
-      {/* Diagonal noise/highlight band */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent-gold)]/50 to-transparent"
-      />
-      {/* Subtle vertical scan line on the right edge */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-[var(--accent-gold)]/20 to-transparent"
+        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent-gold)]/45 to-transparent"
       />
 
-      <div className="relative px-5 pb-10 pt-12 sm:px-10 sm:pb-14 sm:pt-16 lg:px-14 lg:pt-20">
-        {/* Eyebrow row — season meta */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="flex flex-wrap items-center gap-x-4 gap-y-2"
-        >
-          <span className="font-display text-[11px] uppercase tracking-[0.5em] text-[var(--accent-gold)]">
-            Forca Barça
+      {/* Eyebrow + headline */}
+      <p className="font-display text-[11px] uppercase tracking-[0.5em] text-[var(--accent-gold)]">
+        Forca Barça // La Liga {seasonLabel}
+      </p>
+      <h1
+        className={cn(
+          "mt-4 font-display leading-[0.95] tracking-wide",
+          "text-[var(--text-primary)]",
+          "text-4xl sm:text-6xl lg:text-7xl",
+        )}
+      >
+        A teljes szezon
+        <br />
+        <span className="text-[var(--accent-gold)]">egy pillantásra</span>
+      </h1>
+
+      {/* Copy + season select */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-end lg:gap-10">
+        <p className="lg:col-span-8 max-w-2xl text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
+          Pontok, gólkülönbség, forma és gólkirályok — fordulóról fordulóra
+          követjük az FCB szezonjának ívét. Görgess végig az adatokon, vagy
+          válts másik szezonra.
+        </p>
+
+        <div className="lg:col-span-4 flex flex-col gap-2 lg:items-end">
+          <span className="font-display text-[10px] uppercase tracking-[0.35em] text-[var(--text-muted)]">
+            Szezon
           </span>
-          <span
-            aria-hidden
-            className="hidden h-px w-10 bg-[var(--accent-gold)]/40 sm:block"
+          <SeasonSelect
+            value={season}
+            options={SEASON_OPTIONS}
+            onChange={onSeasonChange}
           />
-          <span className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--text-secondary)]">
-            La Liga · Temporada {seasonLabel}
-          </span>
-        </motion.div>
-
-        {/* Massive headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.7,
-            delay: 0.1,
-            ease: [0.25, 0.46, 0.45, 0.94],
-          }}
-          className={cn(
-            "mt-6 font-display leading-[0.92] tracking-wide",
-            "text-[var(--text-primary)]",
-            "text-[3.25rem] sm:text-7xl lg:text-[7.5rem]",
-          )}
-        >
-          A teljes szezon{" "}
-          <span className="block text-[var(--accent-gold)]">
-            egy pillantásra
-          </span>
-        </motion.h1>
-
-        {/* Editorial blurb + season picker on a magazine-style two-column row */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-          className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-end lg:gap-10"
-        >
-          <p className="lg:col-span-7 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
-            Pontok, gólkülönbség, forma és gólkirályok — fordulóról fordulóra
-            követjük az FCB szezonjának ívét. Görgess végig a vizuális
-            összefoglalón, vagy válts másik szezonra.
-          </p>
-
-          <div className="lg:col-span-5 flex flex-col gap-3 lg:items-end">
-            <span className="font-display text-[11px] uppercase tracking-[0.35em] text-[var(--text-muted)]">
-              Szezon
-            </span>
-            <SeasonSelect
-              value={season}
-              options={SEASON_OPTIONS}
-              onChange={onSeasonChange}
-            />
-          </div>
-        </motion.div>
-
-        {/* Three big snapshot stats — set into the hero for impact */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
-          className="mt-10 grid grid-cols-3 gap-3 sm:mt-14 sm:gap-8"
-        >
-          <HeroSnapshot
-            label="Mérkőzés"
-            value={totalMatches}
-            loading={totalsLoading}
-            tone="text-[var(--text-primary)]"
-          />
-          <HeroSnapshot
-            label="Győzelem"
-            value={totals.wins}
-            loading={totalsLoading}
-            tone="text-[var(--accent-gold)]"
-          />
-          <HeroSnapshot
-            label="Gólarány"
-            value={totals.goalsScored - totals.goalsConceded}
-            loading={totalsLoading}
-            tone="text-[#7aa6ff]"
-            signed
-          />
-        </motion.div>
-
-        {/* Scroll cue */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
-          className="mt-12 flex items-center gap-3 text-[var(--text-muted)] sm:mt-16"
-        >
-          <span className="h-px w-12 bg-[var(--text-muted)]/60" />
-          <span className="font-display text-[10px] uppercase tracking-[0.4em]">
-            Görgess tovább
-          </span>
-        </motion.div>
+        </div>
       </div>
-    </section>
+
+      {/* Snapshot stat tiles — 3 glass cards inside the hero */}
+      <div className="mt-8 grid grid-cols-3 gap-3 sm:mt-10 sm:gap-4">
+        <SnapshotTile
+          label="Mérkőzés"
+          value={totalMatches}
+          loading={totalsLoading}
+          tone="primary"
+        />
+        <SnapshotTile
+          label="Győzelem"
+          value={totals.wins}
+          loading={totalsLoading}
+          tone="gold"
+        />
+        <SnapshotTile
+          label="Gólkülönbség"
+          value={goalDiff}
+          loading={totalsLoading}
+          tone="blue"
+          signed
+        />
+      </div>
+    </motion.section>
   );
 }
 
-interface HeroSnapshotProps {
+interface SnapshotTileProps {
   label: string;
   value: number;
   loading: boolean;
-  tone: string;
+  tone: "primary" | "gold" | "blue";
   signed?: boolean;
 }
 
-function HeroSnapshot({
+function SnapshotTile({
   label,
   value,
   loading,
   tone,
   signed = false,
-}: HeroSnapshotProps) {
+}: SnapshotTileProps) {
   const formatted = signed && value > 0 ? `+${value}` : String(value);
+  const numberTone =
+    tone === "gold"
+      ? "text-[var(--accent-gold)]"
+      : tone === "blue"
+        ? "text-[#7aa6ff]"
+        : "text-[var(--text-primary)]";
+
   return (
-    <div className="flex flex-col">
+    <div
+      className={cn(
+        "rounded-[var(--radius-md)] border border-[var(--glass-border)]",
+        "bg-[var(--glass-bg)] p-4 sm:p-5",
+      )}
+    >
       {loading ? (
-        <span className="block h-[64px] w-20 animate-pulse rounded-md bg-[var(--glass-bg-hover)] sm:h-[96px] sm:w-28" />
+        <span className="block h-10 w-16 animate-pulse rounded-md bg-[var(--glass-bg-hover)] sm:h-14 sm:w-24" />
       ) : (
         <span
           className={cn(
-            "font-display leading-none tabular-nums",
-            "text-[3.5rem] sm:text-[6rem] lg:text-[7rem]",
-            tone,
+            "block font-display leading-none tabular-nums",
+            "text-3xl sm:text-5xl lg:text-6xl",
+            numberTone,
           )}
         >
           {formatted}
         </span>
       )}
-      <span className="mt-3 font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-secondary)] sm:text-[11px]">
+      <span className="mt-3 block font-display text-[10px] uppercase tracking-[0.32em] text-[var(--text-secondary)] sm:text-[11px]">
         {label}
       </span>
     </div>
@@ -430,94 +372,11 @@ function HeroSnapshot({
 }
 
 // ---------------------------------------------------------------------------
-// Section bits
+// Section spacing — replaces the old DiagonalDivider
 // ---------------------------------------------------------------------------
 
-interface SectionLabelProps {
-  index: number;
-  eyebrow: string;
-  title: string;
-}
-
-function SectionLabel({ index, eyebrow, title }: SectionLabelProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="mb-5 mt-12 flex items-end gap-4 sm:mb-7 sm:mt-16"
-    >
-      <span className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
-        {String(index).padStart(2, "0")} · {eyebrow}
-      </span>
-      <span
-        aria-hidden
-        className="mb-1 h-px flex-1 bg-gradient-to-r from-[var(--accent-gold)]/30 via-[var(--glass-border)] to-transparent"
-      />
-      <span className="font-display text-[11px] uppercase tracking-[0.32em] text-[var(--text-muted)]">
-        {title}
-      </span>
-    </motion.div>
-  );
-}
-
-function ScorersHeading() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-      className="mb-5 mt-12 sm:mb-7 sm:mt-16"
-    >
-      <div className="flex items-end gap-4">
-        <span className="font-display text-[11px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
-          03 · Goleadores
-        </span>
-        <span
-          aria-hidden
-          className="mb-1 h-px flex-1 bg-gradient-to-r from-[var(--accent-gold)]/30 via-[var(--glass-border)] to-transparent"
-        />
-      </div>
-      <h2
-        className={cn(
-          "mt-3 font-display leading-[0.95] tracking-wide",
-          "text-[var(--text-primary)]",
-          "text-4xl sm:text-6xl lg:text-[5rem]",
-        )}
-      >
-        Gólkirályok
-      </h2>
-      <p className="mt-3 max-w-xl text-sm text-[var(--text-secondary)]">
-        Kik vitték a hátukon a támadást? A bajnokság gólszerző-rangsora,
-        kiemelve a Barça játékosait.
-      </p>
-    </motion.div>
-  );
-}
-
-/**
- * Editorial divider — diagonal blaugrana stripe with soft glow.
- * Pure CSS gradient, no extra animation work needed.
- */
-function DiagonalDivider() {
-  return (
-    <div
-      aria-hidden
-      className="relative my-12 h-[2px] w-full overflow-visible sm:my-16"
-    >
-      <div
-        className="h-full w-full opacity-50"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 0%, var(--accent-red) 25%, var(--accent-blue) 75%, transparent 100%)",
-          transform: "skewX(-18deg)",
-          filter: "drop-shadow(0 0 6px rgba(196,163,77,0.4))",
-        }}
-      />
-    </div>
-  );
+function SectionSpacing({ children }: { children: React.ReactNode }) {
+  return <div className="mt-8 sm:mt-12 lg:mt-14">{children}</div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -582,7 +441,7 @@ function deriveTotals(matches: FormMatch[]): DerivedSeasonTotals {
 }
 
 // ---------------------------------------------------------------------------
-// Suspense wrapper — required because we read useSearchParams() in the inner.
+// Suspense wrapper
 // ---------------------------------------------------------------------------
 
 export default function SeasonPage() {
@@ -595,21 +454,19 @@ export default function SeasonPage() {
 
 function SeasonFallback() {
   return (
-    <div className="mx-auto max-w-[1280px] px-4 pb-20 pt-6 sm:px-6 sm:pt-10 lg:px-10">
-      <div className="rounded-[var(--radius-lg)] bg-[var(--glass-bg-hover)] p-10 sm:p-14">
-        <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--glass-bg)]" />
-        <div className="mt-6 h-20 w-3/4 animate-pulse rounded-md bg-[var(--glass-bg)] sm:h-32" />
-        <div className="mt-4 h-3 w-1/2 animate-pulse rounded-full bg-[var(--glass-bg)]" />
+    <div className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+      <div className="glass-card p-8 sm:p-10">
+        <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+        <div className="mt-6 h-16 w-3/4 animate-pulse rounded-md bg-[var(--glass-bg-hover)] sm:h-24" />
+        <div className="mt-4 h-3 w-1/2 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
       </div>
-      <div className="mt-8 h-32 animate-pulse rounded-[var(--radius-lg)] bg-[var(--glass-bg-hover)] sm:mt-10" />
-      <div className="mt-12 grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="mt-10 grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
             className={cn(
-              "h-80 animate-pulse rounded-[var(--radius-lg)] bg-[var(--glass-bg-hover)]",
+              "glass-card h-64 animate-pulse",
               i === 0 && "lg:col-span-2",
-              i >= 2 && "lg:col-span-3",
             )}
           />
         ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, type Variants } from "framer-motion";
+import { Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChartShellProps {
@@ -20,6 +21,10 @@ interface ChartShellProps {
   emphasized?: boolean;
   /** Footer area pinned below the body — e.g. legend / disclaimer. */
   footer?: React.ReactNode;
+  /** Show a "Nagyítás" button in the top-right corner. */
+  zoomable?: boolean;
+  /** Click handler for the zoom button. Required when `zoomable` is true. */
+  onZoom?: () => void;
   children: React.ReactNode;
 }
 
@@ -42,6 +47,8 @@ export function ChartShell({
   className,
   emphasized = false,
   footer,
+  zoomable = false,
+  onZoom,
   children,
 }: ChartShellProps) {
   return (
@@ -94,11 +101,31 @@ export function ChartShell({
             </p>
           )}
         </div>
-        {meta && (
-          <div className="shrink-0 text-right text-xs text-[var(--text-secondary)]">
-            {meta}
-          </div>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {meta && (
+            <div className="text-right text-xs text-[var(--text-secondary)]">
+              {meta}
+            </div>
+          )}
+          {zoomable && onZoom && (
+            <button
+              type="button"
+              onClick={onZoom}
+              aria-label="Nagyítás"
+              title="Nagyítás"
+              className={cn(
+                "inline-flex h-9 w-9 items-center justify-center",
+                "rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)]",
+                "text-[var(--text-secondary)]",
+                "transition-colors duration-200",
+                "hover:border-[var(--accent-gold)]/60 hover:bg-[var(--glass-bg-hover)] hover:text-[var(--accent-gold)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
+              )}
+            >
+              <Maximize2 size={14} aria-hidden />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-1">{children}</div>

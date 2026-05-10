@@ -3,12 +3,11 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { CheckCircle2, Ticket as TicketIcon } from "lucide-react";
+import { CheckCircle2, QrCode, Ticket as TicketIcon } from "lucide-react";
 import type { Match, Ticket } from "@/types/database";
 import type { SectorWithAvailability } from "@/lib/tickets-api";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { TeamCrest } from "./TeamCrest";
 
 interface PurchaseSuccessProps {
   match: Match;
@@ -24,17 +23,12 @@ interface PurchaseSuccessProps {
 /**
  * Confirmation screen rendered when `/api/tickets/purchase` resolves.
  *
- * Visually treated as a stack of "digital tickets" — each Ticket row
- * gets its own card with the side-stub cutouts (negative-space dots
- * + perforation gradient) so it reads as a torn-off paper ticket
- * rather than another generic glass panel.
- *
- * Includes:
- *  - Top: success badge with the seat count.
- *  - Per-ticket card with seat number, sector, kickoff, ticket id snippet.
- *  - Footer: subtotal / discount / final total summary, optional warning
- *    if the coupon was rejected after the tickets were already minted,
- *    and CTAs to view "Saját jegyeim" or buy more.
+ * The visual centrepiece is the {@link DigitalTicketCard} — a black,
+ * gold-bordered "torn paper" card laid out exactly like a physical match
+ * ticket: club lockup top-left, ÉRVÉNYES BELÉPŐ caption, perforated tear
+ * line down the right side, and a square QR placeholder on the stub. This
+ * replaces the prior glass-panel treatment so the success screen reads
+ * instantly as "you have a ticket" rather than "your transaction worked".
  */
 export function PurchaseSuccess({
   match,
@@ -58,7 +52,7 @@ export function PurchaseSuccess({
       transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="space-y-8"
     >
-      {/* Headline banner */}
+      {/* Headline banner — stays glass to anchor the celebration */}
       <div className="relative overflow-hidden glass-card-strong p-7 text-center sm:p-9">
         <div
           aria-hidden
@@ -102,7 +96,7 @@ export function PurchaseSuccess({
       </div>
 
       {/* Stacked digital tickets */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {tickets.map((ticket, i) => (
           <DigitalTicketCard
             key={ticket.id}
@@ -161,7 +155,7 @@ export function PurchaseSuccess({
 }
 
 // ---------------------------------------------------------------------------
-// DigitalTicketCard — the visual centerpiece of the success screen
+// DigitalTicketCard — physical-feeling jegy
 // ---------------------------------------------------------------------------
 
 interface DigitalTicketCardProps {
@@ -193,84 +187,84 @@ function DigitalTicketCard({
       }}
       className={cn(
         "relative overflow-hidden",
-        "rounded-[var(--radius-lg)] border border-[var(--glass-border-hover)]",
-        "bg-[var(--glass-bg-strong)] backdrop-blur-md",
-        "shadow-[var(--shadow-md)]",
+        "rounded-[var(--radius-lg)] border-2 border-[var(--accent-gold)]",
+        // Solid black ticket body — independent of dark/light theme so the
+        // jegy reads correctly on both. Light theme would otherwise wash
+        // the gold accent against the cream page.
+        "bg-[#0a0d18]",
+        "shadow-[0_18px_44px_-16px_rgba(0,0,0,0.65),0_0_28px_-4px_rgba(196,163,77,0.18)]",
       )}
     >
-      {/* Perforation gradient running down the middle "tear" line */}
+      {/* Background ⚽ watermark — large, faint Bebas Neue letters spelling FCB */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+      >
+        <span className="font-display text-[12rem] tracking-[0.4em] text-[var(--accent-gold)]/[0.04] sm:text-[16rem]">
+          FCB
+        </span>
+      </div>
+
+      {/* Half-circle cutouts that "tear" the ticket along the perforation */}
       <div
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-y-3 z-[1]",
-          "left-[68%] hidden md:block",
-          "border-l border-dashed border-[var(--glass-border-hover)]",
+          "pointer-events-none absolute hidden md:block",
+          "left-[calc(72%-9px)] -top-2 size-4 rounded-full bg-[var(--bg-primary)]",
         )}
       />
-      {/* Side cutouts — half-circles eating into the top + bottom edges,
-          giving the card a torn-paper silhouette. */}
       <div
         aria-hidden
         className={cn(
-          "pointer-events-none absolute -top-2 hidden md:block",
-          "left-[calc(68%-8px)] size-4 rounded-full",
-          "bg-[var(--bg-primary)]",
-        )}
-      />
-      <div
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute -bottom-2 hidden md:block",
-          "left-[calc(68%-8px)] size-4 rounded-full",
-          "bg-[var(--bg-primary)]",
+          "pointer-events-none absolute hidden md:block",
+          "left-[calc(72%-9px)] -bottom-2 size-4 rounded-full bg-[var(--bg-primary)]",
         )}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto]">
-        {/* Main face */}
+      <div className="relative grid grid-cols-1 md:grid-cols-[1fr_auto]">
+        {/* MAIN FACE */}
         <div className="space-y-5 p-6 sm:p-7">
+          {/* Top row — club lockup + ticket index */}
           <div className="flex items-center justify-between gap-3">
-            <p className="font-display text-[10px] uppercase tracking-[0.4em] text-[var(--accent-gold)]">
-              FCB Digital Ticket #{String(index + 1).padStart(2, "0")}
-            </p>
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-full",
+                  "border border-[var(--accent-gold)] bg-[var(--accent-gold)]/10",
+                  "font-display text-base text-[var(--accent-gold)]",
+                )}
+              >
+                ⚽
+              </span>
+              <span className="font-display text-[11px] uppercase tracking-[0.42em] text-white/85">
+                FC Barcelona
+              </span>
+            </div>
             <span
               className={cn(
-                "rounded-full border border-[var(--glass-border)]",
-                "bg-[var(--glass-bg)] px-2.5 py-0.5",
-                "text-[10px] uppercase tracking-[0.18em] text-[var(--text-secondary)]",
+                "rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5",
+                "text-[10px] uppercase tracking-[0.18em] text-white/70",
               )}
             >
-              {totalSeats} db rendelés
+              {String(index + 1).padStart(2, "0")} / {String(totalSeats).padStart(2, "0")}
             </span>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <TeamCrest
-                url={match.home_team_crest}
-                teamName={match.home_team}
-                size={40}
-              />
-              <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
-                {match.home_team}
-              </p>
-            </div>
-            <p className="pl-[16px] font-display text-[10px] uppercase tracking-[0.4em] text-[var(--text-muted)]">
-              vs.
-            </p>
-            <div className="flex items-center gap-3">
-              <TeamCrest
-                url={match.away_team_crest}
-                teamName={match.away_team}
-                size={40}
-              />
-              <p className="font-display text-2xl leading-[1.05] tracking-wide text-[var(--text-primary)] sm:text-3xl">
-                {match.away_team}
-              </p>
-            </div>
-          </div>
+          {/* Ticket headline — VALID ENTRY */}
+          <p className="font-display text-[10px] uppercase tracking-[0.55em] text-[var(--accent-gold)]">
+            Érvényes belépő
+          </p>
 
-          <div className="grid grid-cols-2 gap-4 pt-1 sm:grid-cols-3">
+          {/* Match line */}
+          <h3 className="font-display text-2xl leading-[1.05] tracking-wide text-white sm:text-[1.75rem]">
+            {match.home_team}
+            <span className="mx-2 text-[var(--accent-gold)]">vs.</span>
+            {match.away_team}
+          </h3>
+
+          {/* Detail grid */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-1 sm:grid-cols-3">
             <DigitalDetail label="Mikor" value={formatTicketDate(match.date)} />
             <DigitalDetail label="Hol" value={match.venue ?? "—"} />
             <DigitalDetail label="Ár" value={formatPrice(Number(sector.price))} />
@@ -278,24 +272,51 @@ function DigitalTicketCard({
             <DigitalDetail label="Ülés" value={`#${ticket.seat_number}`} accent />
             <DigitalDetail label="Csoport" value={`Üléssor: ${allSeats}`} />
           </div>
+
+          {/* Bottom legalese — always last */}
+          <p className="border-t border-white/10 pt-3 text-[10px] uppercase tracking-[0.22em] text-white/50">
+            FC Barcelona · Demo bemutató · Nem átruházható
+          </p>
         </div>
 
-        {/* Right stub — barcode-style filler. */}
+        {/* RIGHT STUB — perforated, with QR placeholder */}
         <div
           className={cn(
-            "relative flex flex-col items-center justify-between",
-            "border-t border-dashed border-[var(--glass-border-hover)]",
-            "bg-[var(--accent-blue)]/15 p-5",
-            "md:min-w-[180px] md:border-l md:border-t-0",
+            "relative flex flex-col items-center justify-between gap-4",
+            "border-t-2 border-dashed border-[var(--accent-gold)]/45 p-5",
+            "bg-[var(--accent-gold)]/[0.04]",
+            "md:min-w-[180px] md:border-l-2 md:border-t-0",
           )}
         >
-          <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[var(--text-muted)]">
+          <p className="font-display text-[10px] uppercase tracking-[0.32em] text-[var(--accent-gold)]">
             Belépőkód
           </p>
-          <BarcodePlaceholder seed={ticket.id} />
-          <p className="text-center text-[10px] tracking-[0.18em] text-[var(--text-secondary)]">
-            {shortId(ticket.id)}
-          </p>
+
+          {/* QR placeholder — checkered grid for plausible pixelated look */}
+          <div
+            role="img"
+            aria-label="QR kód helyőrző"
+            className={cn(
+              "relative flex size-20 shrink-0 items-center justify-center",
+              "rounded-md border border-white/15 bg-white/[0.06]",
+            )}
+          >
+            <QrCheckerboard seed={ticket.id} />
+            <QrCode
+              size={26}
+              className="absolute text-white/40"
+              aria-hidden
+            />
+          </div>
+
+          <div className="text-center">
+            <p className="font-display text-[10px] uppercase tracking-[0.28em] text-white/55">
+              Azonosító
+            </p>
+            <p className="mt-1 font-mono text-[11px] tracking-[0.18em] text-white/85">
+              {shortId(ticket.id)}
+            </p>
+          </div>
         </div>
       </div>
     </motion.article>
@@ -313,7 +334,7 @@ function DigitalDetail({
 }) {
   return (
     <div className="space-y-1">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
+      <p className="text-[9px] uppercase tracking-[0.28em] text-white/45">
         {label}
       </p>
       <p
@@ -321,7 +342,7 @@ function DigitalDetail({
           "truncate text-sm font-medium",
           accent
             ? "font-display text-base tracking-wide text-[var(--accent-gold)]"
-            : "text-[var(--text-primary)]",
+            : "text-white/95",
         )}
       >
         {value}
@@ -331,37 +352,33 @@ function DigitalDetail({
 }
 
 /**
- * Deterministic "barcode" — generated from the ticket id so the same
- * ticket always renders the same stripes. Purely decorative; the real
- * scannable belépőkód lives in `Saját jegyeim` (F10) where it can be
- * re-issued on demand.
+ * Decorative QR-style 5x5 checkerboard. Purely visual — the real entry code
+ * lives on `Saját jegyeim`. The pattern is seeded by the ticket id so the
+ * same ticket renders the same arrangement, which makes screenshots feel
+ * stable across re-renders.
  */
-function BarcodePlaceholder({ seed }: { seed: string }) {
-  const stripes = useMemo(() => {
-    const widths: number[] = [];
+function QrCheckerboard({ seed }: { seed: string }) {
+  const cells = useMemo(() => {
+    const out: boolean[] = [];
     let acc = 0;
-    for (let i = 0; i < seed.length && i < 36; i += 1) {
-      acc = (acc * 31 + seed.charCodeAt(i)) >>> 0;
-      // 1 to 4 px wide — keeps the rhythm visually irregular but stable.
-      widths.push((acc % 4) + 1);
+    for (let i = 0; i < 25; i += 1) {
+      acc = (acc * 31 + (seed.charCodeAt(i % seed.length) || 0)) >>> 0;
+      out.push((acc & 1) === 0);
     }
-    return widths;
+    return out;
   }, [seed]);
 
   return (
     <div
       aria-hidden
-      className="my-3 flex h-12 items-stretch gap-[2px]"
+      className="absolute inset-1.5 grid grid-cols-5 grid-rows-5 gap-[2px]"
     >
-      {stripes.map((w, i) => (
+      {cells.map((on, i) => (
         <span
           key={i}
-          style={{ width: `${w}px` }}
           className={cn(
-            "block rounded-[1px]",
-            i % 3 === 0
-              ? "bg-[var(--text-primary)]"
-              : "bg-[var(--text-secondary)]/70",
+            "rounded-[1px]",
+            on ? "bg-white/25" : "bg-transparent",
           )}
         />
       ))}

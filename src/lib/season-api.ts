@@ -139,6 +139,84 @@ export interface MatchTeamStats {
   away: TeamStatSnapshot;
 }
 
+// ---------------------------------------------------------------------------
+// Sofascore-sourced extras (added in BE iter 28).
+//
+// All four payloads are independent — `data_quality === "partial"` means at
+// least one of them is missing while the others may still be present, so
+// every UI section has to fall back gracefully on its own.
+// ---------------------------------------------------------------------------
+
+export interface SofascoreLineupPlayer {
+  id: number;
+  name: string;
+  jerseyNumber: number | null;
+  /** "G" | "D" | "M" | "F" — Sofascore's coarse position bucket. */
+  position: string | null;
+  substitute: boolean;
+  stats: {
+    rating: number | null;
+    minutesPlayed: number | null;
+    goals: number | null;
+    assists: number | null;
+    yellowCard: boolean;
+    redCard: boolean;
+    saves: number | null;
+    totalPass: number | null;
+    accuratePass: number | null;
+  };
+}
+
+export interface SofascoreLineupsPayload {
+  confirmed: boolean;
+  /** Stylised formation string, e.g. "4-3-3". */
+  homeFormation: string | null;
+  awayFormation: string | null;
+  home: SofascoreLineupPlayer[];
+  away: SofascoreLineupPlayer[];
+}
+
+export interface SofascoreIncident {
+  /** "goal" | "card" | "substitution" | "varDecision" | "period" | string */
+  type: string;
+  time: number;
+  addedTime: number | null;
+  isHome: boolean | null;
+  playerName: string | null;
+  playerInName: string | null;
+  playerOutName: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  cardType: string | null;
+  goalType: string | null;
+  description: string | null;
+}
+
+export interface SofascoireShotmapEntry {
+  playerId: number | null;
+  playerName: string | null;
+  isHome: boolean;
+  /** "goal" | "save" | "miss" | "post" | "block" */
+  shotType: string;
+  bodyPart: string | null;
+  situation: string | null;
+  xg: number | null;
+  /** Raw 0-100 pitch coordinates as Sofascore reports them. */
+  playerCoordinates: { x: number; y: number } | null;
+  goalMouthCoordinates: { x: number; y: number } | null;
+}
+
+export interface SofascoreGraphPoint {
+  minute: number;
+  /** -100 (full home pressure) ... +100 (full away pressure). */
+  value: number;
+}
+
+export interface SofascoireBestPlayers {
+  home: { id: number; name: string; rating: number | null } | null;
+  away: { id: number; name: string; rating: number | null } | null;
+}
+
 export interface MatchDetailsResponse {
   match: {
     id: number;
@@ -159,6 +237,16 @@ export interface MatchDetailsResponse {
    *  - Sofascore didn't return a stats payload.
    */
   team_stats: MatchTeamStats | null;
+  /** Sofascore lineups payload (kickoff XI + bench). `null` when unavailable. */
+  lineups: SofascoreLineupsPayload | null;
+  /** Sofascore incident timeline (goals, cards, subs, VAR, period markers). */
+  incidents: SofascoreIncident[];
+  /** Per-shot map with optional xG and pitch coordinates. */
+  shotmap: SofascoireShotmapEntry[];
+  /** Per-minute momentum points (-100..+100). */
+  graph: SofascoreGraphPoint[];
+  /** Sofascore "man of the match" picks per side. */
+  best_players: SofascoireBestPlayers | null;
   data_quality: "full" | "partial" | "unavailable";
   cached_at: string;
   stale?: boolean;

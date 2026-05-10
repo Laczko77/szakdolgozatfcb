@@ -217,7 +217,7 @@ export function TicketSelectionPanel({
         )}
       </section>
 
-      {/* CTA */}
+      {/* CTA — gold gradient pill, prominent */}
       <button
         type="button"
         onClick={() =>
@@ -228,8 +228,16 @@ export function TicketSelectionPanel({
         }
         disabled={!canBuy}
         className={cn(
-          "glass-button-primary mt-6 w-full",
-          !canBuy && "cursor-not-allowed opacity-50 hover:translate-y-0",
+          "mt-6 inline-flex w-full items-center justify-center gap-2",
+          "rounded-[var(--radius-pill)]",
+          "bg-gradient-to-r from-[var(--accent-gold)] to-amber-400",
+          "px-6 py-3 font-display text-sm font-semibold uppercase tracking-[0.18em]",
+          "text-black shadow-[var(--shadow-glow-gold)]",
+          "transition-[opacity,transform,box-shadow] duration-200",
+          "hover:-translate-y-[1px] hover:opacity-95",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]",
+          !canBuy &&
+            "cursor-not-allowed opacity-50 hover:translate-y-0 hover:opacity-50",
         )}
       >
         {isSubmitting ? (

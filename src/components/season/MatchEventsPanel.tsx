@@ -2,14 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRightLeft, AlertTriangle, Goal, Square } from "lucide-react";
+import {
+  ArrowRightLeft,
+  AlertTriangle,
+  Goal,
+  Square,
+  Tv,
+} from "lucide-react";
 import {
   fetchMatchDetails,
   type MatchDetailsResponse,
   type MatchTeamStats,
+  type SofascoreIncident,
 } from "@/lib/season-api";
 import { cn } from "@/lib/utils";
 import { ErrorBlock } from "./primitives";
+import { LineupsPanel } from "./LineupsPanel";
+import { ShotmapPanel } from "./ShotmapPanel";
+import { MomentumChart } from "./MomentumChart";
+import { BestPlayersBar } from "./BestPlayersBar";
 
 interface MatchEventsPanelProps {
   matchId: number;
@@ -75,55 +86,127 @@ export function MatchEventsPanel({ matchId, fcbId }: MatchEventsPanelProps) {
     events.bookings.length +
     events.substitutions.length;
 
+  // Sofascore extras — each may be `null` / empty independently of the
+  // others, so every panel below decides on its own whether to render.
+  const lineups = data.lineups;
+  const incidents = data.incidents ?? [];
+  const shotmap = data.shotmap ?? [];
+  const graph = data.graph ?? [];
+  const bestPlayers = data.best_players;
+  const isFinal = data.match.status === "FT" || data.match.status === "FINISHED";
+
+  // Decide whether to use Sofascore incidents as the primary timeline.
+  // We only swap out the football-data goals/bookings/substitutions block
+  // when the incident stream actually contains a goal — otherwise we keep
+  // both, with incidents leading, so we never silently drop scoring info.
+  const incidentsHaveGoal = incidents.some((i) => i.type === "goal");
+  const useIncidentsAsPrimary = incidentsHaveGoal;
+
+  const homeTeamName = data.match.homeTeam.name;
+  const awayTeamName = data.match.awayTeam.name;
+
   if (data_quality === "unavailable" || totalEvents === 0) {
-    // Even when events are unavailable the team-stats payload may exist
-    // — the api-football.com endpoints are independent — so render the
-    // stats section above the fallback notice when we have it.
-    return (
-      <div className="space-y-4">
-        {data.team_stats && (
-          <TeamStatsSection
-            stats={data.team_stats}
-            homeTeam={data.match.homeTeam.name}
-            awayTeam={data.match.awayTeam.name}
-          />
-        )}
-        <div
-          className={cn(
-            "flex items-center gap-3 rounded-[var(--radius-md)]",
-            "border border-dashed border-[var(--glass-border)]",
-            "bg-[var(--glass-bg)] px-4 py-3 text-sm text-[var(--text-secondary)]",
-          )}
-        >
-          <AlertTriangle
-            size={16}
-            aria-hidden
-            className="shrink-0 text-[var(--accent-gold)]"
-          />
-          <span>
-            Részletes események nem elérhetők ehhez a meccshez. Csak a
-            végeredményt tudjuk megjeleníteni.
-          </span>
+    // Even when football-data events are unavailable, Sofascore extras
+    // may still be present — render whichever panels we have, then fall
+    // through to the friendly notice if we have nothing else either.
+    const hasAnyExtras =
+      data.team_stats ||
+      (lineups && (lineups.home.length > 0 || lineups.away.length > 0)) ||
+      shotmap.length > 0 ||
+      graph.length > 0 ||
+      (bestPlayers && (bestPlayers.home || bestPlayers.away)) ||
+      incidents.length > 0;
+
+    if (!hasAnyExtras) {
+      return (
+        <div className="space-y-4">
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-[var(--radius-md)]",
+              "border border-dashed border-[var(--glass-border)]",
+              "bg-[var(--glass-bg)] px-4 py-3 text-sm text-[var(--text-secondary)]",
+            )}
+          >
+            <AlertTriangle
+              size={16}
+              aria-hidden
+              className="shrink-0 text-[var(--accent-gold)]"
+            />
+            <span>
+              Részletes események nem elérhetők ehhez a meccshez. Csak a
+              végeredményt tudjuk megjeleníteni.
+            </span>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    // fall through to the rich-render branch — extras carry the panel.
   }
 
   return (
     <div className="space-y-4">
+      {/* 1. Best players (FT only — pre-match the rating doesn't exist) */}
+      {isFinal && (
+        <BestPlayersBar
+          bestPlayers={bestPlayers}
+          homeTeam={homeTeamName}
+          awayTeam={awayTeamName}
+          index={0}
+        />
+      )}
+
+      {/* 2. Team stats (existing) */}
       {data.team_stats && (
         <TeamStatsSection
           stats={data.team_stats}
-          homeTeam={data.match.homeTeam.name}
-          awayTeam={data.match.awayTeam.name}
+          homeTeam={homeTeamName}
+          awayTeam={awayTeamName}
         />
       )}
+
+      {/* 3. Lineups */}
+      <LineupsPanel
+        lineups={lineups}
+        homeTeam={homeTeamName}
+        awayTeam={awayTeamName}
+        index={1}
+      />
+
+      {/* 4. Momentum */}
+      <MomentumChart
+        graph={graph}
+        homeTeam={homeTeamName}
+        awayTeam={awayTeamName}
+        index={2}
+      />
+
+      {/* 5. Shotmap */}
+      <ShotmapPanel
+        shotmap={shotmap}
+        homeTeam={homeTeamName}
+        awayTeam={awayTeamName}
+        index={3}
+      />
+
       {data_quality === "partial" && (
         <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-muted)]">
           Részleges adat — egy vagy több eseménytípus hiányzik.
         </p>
       )}
 
+      {/* 6. Incidents (Sofascore) — placed BEFORE football-data events when
+          the stream contains a goal so it reads as the canonical timeline. */}
+      {useIncidentsAsPrimary && incidents.length > 0 && (
+        <IncidentsTimeline
+          incidents={incidents}
+          homeTeam={homeTeamName}
+          awayTeam={awayTeamName}
+        />
+      )}
+
+      {/* 7. football-data.org events (goals / bookings / substitutions). We
+          keep these visible alongside the incident timeline because each
+          source occasionally drops a row the other captures. */}
       {events.goals.length > 0 && (
         <EventGroup
           title="Gólok"
@@ -188,8 +271,278 @@ export function MatchEventsPanel({ matchId, fcbId }: MatchEventsPanelProps) {
           ))}
         </EventGroup>
       )}
+
+      {/* If we did NOT promote incidents above, render them below as a
+          supplementary "Sofascore eseménysor" so VAR/period markers still
+          land somewhere on the panel. */}
+      {!useIncidentsAsPrimary && incidents.length > 0 && (
+        <IncidentsTimeline
+          incidents={incidents}
+          homeTeam={homeTeamName}
+          awayTeam={awayTeamName}
+        />
+      )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Sofascore incidents timeline
+// ---------------------------------------------------------------------------
+
+/**
+ * Render the Sofascore incident stream as a single chronological list.
+ *
+ * Goals carry the running scoreline; cards show the colour; subs use the
+ * up/down arrow convention; VAR rows pin a leading TV icon and use the
+ * `description` payload as the headline. `period` markers (HT, FT, ET,
+ * pen) become full-width gold-tinted dividers so the half-time break and
+ * extra-time periods read as section breaks rather than ordinary rows.
+ */
+function IncidentsTimeline({
+  incidents,
+  homeTeam,
+  awayTeam,
+}: {
+  incidents: SofascoreIncident[];
+  homeTeam: string;
+  awayTeam: string;
+}) {
+  return (
+    <div>
+      <p
+        className={cn(
+          "mb-2 inline-flex items-center gap-2",
+          "font-display text-[11px] uppercase tracking-[0.25em]",
+          "text-[var(--accent-gold)]",
+        )}
+      >
+        Sofascore eseménysor
+      </p>
+      <ul className="space-y-1.5">
+        {incidents.map((inc, i) => {
+          if (inc.type === "period") {
+            return (
+              <li key={`p-${i}`} className="py-1.5">
+                <div
+                  aria-hidden
+                  className="flex items-center gap-3 text-[10px] uppercase tracking-[0.32em] text-[var(--accent-gold)]"
+                >
+                  <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[var(--accent-gold)]/40" />
+                  <span>{inc.description ?? "Szakasz"}</span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[var(--accent-gold)]/40" />
+                </div>
+              </li>
+            );
+          }
+          return (
+            <IncidentRow
+              key={`i-${i}`}
+              incident={inc}
+              homeTeam={homeTeam}
+              awayTeam={awayTeam}
+            />
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function IncidentRow({
+  incident,
+  homeTeam,
+  awayTeam,
+}: {
+  incident: SofascoreIncident;
+  homeTeam: string;
+  awayTeam: string;
+}) {
+  const teamLabel =
+    incident.isHome === true
+      ? homeTeam
+      : incident.isHome === false
+        ? awayTeam
+        : null;
+  const minuteLabel =
+    incident.addedTime != null && incident.addedTime > 0
+      ? `${incident.time}+${incident.addedTime}'`
+      : `${incident.time}'`;
+
+  let icon: React.ReactNode = null;
+  let body: React.ReactNode = null;
+
+  if (incident.type === "goal") {
+    icon = (
+      <span
+        aria-hidden
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-gold)]/20 text-[var(--accent-gold)]"
+      >
+        ⚽
+      </span>
+    );
+    body = (
+      <>
+        <span className="font-medium text-[var(--text-primary)]">
+          {incident.playerName ?? "Ismeretlen"}
+        </span>
+        {incident.goalType && (
+          <span className="text-[var(--text-muted)]">
+            ({translateGoalType(incident.goalType)})
+          </span>
+        )}
+        {incident.homeScore != null && incident.awayScore != null && (
+          <span
+            className={cn(
+              "rounded-[var(--radius-sm)] border border-[var(--accent-gold)]/40",
+              "bg-[var(--accent-gold)]/10 px-2 py-0.5",
+              "font-display text-xs tabular-nums text-[var(--accent-gold)]",
+            )}
+          >
+            {incident.homeScore}-{incident.awayScore}
+          </span>
+        )}
+        {teamLabel && (
+          <span className="text-[var(--text-muted)]">{teamLabel}</span>
+        )}
+      </>
+    );
+  } else if (incident.type === "card") {
+    const isRed =
+      incident.cardType === "red" || incident.cardType === "yellowRed";
+    icon = (
+      <span
+        aria-hidden
+        className={cn(
+          "block h-3.5 w-2.5 shrink-0 rounded-sm",
+          isRed ? "bg-rose-500" : "bg-amber-400",
+        )}
+      />
+    );
+    body = (
+      <>
+        <span className="font-medium text-[var(--text-primary)]">
+          {incident.playerName ?? "Ismeretlen"}
+        </span>
+        <span className="text-[var(--text-muted)]">
+          {isRed ? "Piros lap" : "Sárga lap"}
+        </span>
+        {teamLabel && (
+          <span className="text-[var(--text-muted)]">{teamLabel}</span>
+        )}
+      </>
+    );
+  } else if (incident.type === "substitution") {
+    icon = (
+      <ArrowRightLeft
+        size={14}
+        aria-hidden
+        className="shrink-0 text-[var(--text-secondary)]"
+      />
+    );
+    body = (
+      <>
+        {incident.playerInName && (
+          <span className="text-emerald-300">
+            ↑ {incident.playerInName}
+          </span>
+        )}
+        {incident.playerOutName && (
+          <span className="text-rose-300">↓ {incident.playerOutName}</span>
+        )}
+        {teamLabel && (
+          <span className="text-[var(--text-muted)]">{teamLabel}</span>
+        )}
+      </>
+    );
+  } else if (incident.type === "varDecision") {
+    icon = (
+      <Tv
+        size={14}
+        aria-hidden
+        className="shrink-0 text-[var(--accent-blue)]"
+      />
+    );
+    body = (
+      <>
+        <span className="font-medium text-[var(--text-primary)]">VAR</span>
+        {incident.description && (
+          <span className="text-[var(--text-secondary)]">
+            {incident.description}
+          </span>
+        )}
+        {incident.playerName && (
+          <span className="text-[var(--text-muted)]">
+            {incident.playerName}
+          </span>
+        )}
+      </>
+    );
+  } else {
+    // Unknown / untyped incident — render whatever description we have.
+    icon = (
+      <span
+        aria-hidden
+        className="block h-2 w-2 shrink-0 rounded-full bg-[var(--text-muted)]"
+      />
+    );
+    body = (
+      <>
+        <span className="text-[var(--text-secondary)]">
+          {incident.description ?? incident.type}
+        </span>
+        {incident.playerName && (
+          <span className="text-[var(--text-muted)]">
+            {incident.playerName}
+          </span>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, x: incident.isHome ? -8 : 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={cn(
+        "flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 text-sm",
+        "border border-transparent",
+        "bg-[var(--glass-bg)]",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-7 w-9 shrink-0 items-center justify-center rounded-full",
+          "border border-[var(--glass-border)] bg-[var(--bg-primary)]",
+          "font-display text-[11px] tabular-nums text-[var(--text-secondary)]",
+        )}
+      >
+        {minuteLabel}
+      </span>
+      {icon}
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        {body}
+      </span>
+    </motion.li>
+  );
+}
+
+function translateGoalType(goalType: string): string {
+  switch (goalType) {
+    case "regular":
+      return "rendes játékidő";
+    case "penalty":
+      return "tizenegyes";
+    case "owngoal":
+      return "öngól";
+    case "header":
+      return "fejes";
+    case "freekick":
+      return "szabadrúgás";
+    default:
+      return goalType;
+  }
 }
 
 // ---------------------------------------------------------------------------

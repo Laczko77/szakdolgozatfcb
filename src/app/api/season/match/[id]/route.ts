@@ -11,8 +11,18 @@ import {
   ApiFootballConfigError,
   ApiFootballRequestError,
   findSofascoreEventId,
+  getSofascoreBestPlayers,
+  getSofascoreGraph,
+  getSofascoreIncidents,
+  getSofascoreLineups,
   getSofascoreMatchStats,
+  getSofascoreShotmap,
   type FixtureTeamStats,
+  type SofascoreBestPlayers,
+  type SofascoreGraphPoint,
+  type SofascoreIncident,
+  type SofascoreLineupsPayload,
+  type SofascoreShotmapEntry,
 } from '@/lib/api-football'
 import { buildCacheKey, isFresh, mapUpstreamError } from '../../_shared'
 
@@ -62,6 +72,11 @@ interface MatchEventsPayload {
     substitutions: MatchDetails['substitutions']
   }
   team_stats: FixtureTeamStats | null
+  lineups: SofascoreLineupsPayload | null
+  incidents: SofascoreIncident[]
+  shotmap: SofascoreShotmapEntry[]
+  graph: SofascoreGraphPoint[]
+  best_players: SofascoreBestPlayers | null
   data_quality: DataQuality
 }
 
@@ -164,16 +179,27 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       substitutions: details.substitutions,
     },
     team_stats: null,
+    lineups: null,
+    incidents: [],
+    shotmap: [],
+    graph: [],
+    best_players: null,
     data_quality: deriveDataQuality(details),
   }
 
-  // ---- 3a. Team statistics (only meaningful for finished matches) -------
-  // Source: Sofascore (via RapidAPI) — football-data.org's free tier does
-  // not expose possession / shots / corners. Lejátszott meccsek
-  // statisztikái nem változnak, ezért egyszer letöltjük és permanensen
-  // tároljuk.
+  // ---- 3a. Sofascore-backed match data (only for finished matches) ------
+  // Source: Sofascore (via RapidAPI). Lejátszott meccsek statisztikái nem
+  // változnak — a JSONB cache permanensen tárolja őket; a relációs
+  // `match_team_stats` tábla továbbra is csak a numerikus team-snapshotot
+  // őrzi (visszafelé kompatibilitás miatt).
   if (details.status === 'FT' || details.status === 'AWD') {
-    payload.team_stats = await resolveTeamStats(supabase, matchId, details.utcDate)
+    const sofascore = await resolveSofascoreData(supabase, matchId, details.utcDate)
+    payload.team_stats = sofascore.team_stats
+    payload.lineups = sofascore.lineups
+    payload.incidents = sofascore.incidents
+    payload.shotmap = sofascore.shotmap
+    payload.graph = sofascore.graph
+    payload.best_players = sofascore.best_players
   }
 
   const nowIso = new Date().toISOString()
@@ -216,21 +242,48 @@ function ttlForStatus(status: MatchDetails['status']): number {
  *                  expected and the data quality marker should not flag
  *                  them as a deficiency.
  */
+interface SofascoreMatchBundle {
+  team_stats: FixtureTeamStats | null
+  lineups: SofascoreLineupsPayload | null
+  incidents: SofascoreIncident[]
+  shotmap: SofascoreShotmapEntry[]
+  graph: SofascoreGraphPoint[]
+  best_players: SofascoreBestPlayers | null
+}
+
+const EMPTY_BUNDLE: SofascoreMatchBundle = {
+  team_stats: null,
+  lineups: null,
+  incidents: [],
+  shotmap: [],
+  graph: [],
+  best_players: null,
+}
+
 /**
- * Look up persisted team statistics for `matchId`; if absent, fetch from
- * Sofascore and store them. Returns `null` (and logs a warning) on any
- * non-fatal failure — the match payload should still render without stats.
+ * Resolve every Sofascore-sourced piece of match data for a finished match.
  *
- * The legacy `apifootball_fixture_id` column now holds the Sofascore event
- * ID — the column was kept under its original name to avoid a destructive
- * migration; semantically it is "the upstream stats-provider event id".
+ * Order of operations:
+ *   1. If `match_team_stats` already has a row, reuse the persisted team
+ *      snapshot AND fetch the auxiliary endpoints (lineups / incidents /
+ *      shotmap / graph / best_players) once — they are not persisted to a
+ *      relational table; the JSONB cache row at `match_details_cache` is
+ *      authoritative for them. We still need the eventId to fetch them, so
+ *      we resolve it once.
+ *   2. Otherwise resolve the eventId once, fan out 5 fetches in parallel
+ *      with `Promise.all`, then persist the team-stats snapshot to the
+ *      relational table for backward compatibility.
+ *
+ * Any non-fatal Sofascore failure logs a warning and returns the empty
+ * bundle (or partial — if the team-stats row exists but the auxiliary fetch
+ * fails, we keep the team-stats portion).
  */
-async function resolveTeamStats(
+async function resolveSofascoreData(
   supabase: ReturnType<typeof createServiceRoleClient>,
   matchId: number,
   utcDate: string
-): Promise<FixtureTeamStats | null> {
-  // 1. DB lookup
+): Promise<SofascoreMatchBundle> {
+  // 1. Check the persisted relational team-stats row first
   const { data: existingStats, error: lookupError } = await supabase
     .from('match_team_stats' as never)
     .select(
@@ -249,75 +302,120 @@ async function resolveTeamStats(
     )
   }
 
-  if (existingStats) {
-    return rowToFixtureStats(existingStats)
-  }
-
-  // 2. Upstream fetch + persist
   try {
-    const eventId = await findSofascoreEventId(utcDate)
+    // Reuse the persisted Sofascore eventId when available — saves the
+    // expensive `findSofascoreEventId` pagination.
+    let eventId: number | null = existingStats?.apifootball_fixture_id ?? null
+    if (eventId === null) {
+      eventId = await findSofascoreEventId(utcDate)
+    }
     if (!eventId) {
       console.log(
         `${LOG_PREFIX} no Sofascore event for match=${matchId} on ${utcDate.slice(0, 10)}`
       )
-      return null
+      return existingStats
+        ? { ...EMPTY_BUNDLE, team_stats: rowToFixtureStats(existingStats) }
+        : EMPTY_BUNDLE
     }
 
-    const stats = await getSofascoreMatchStats(eventId)
-    if (!stats) {
-      console.warn(
-        `${LOG_PREFIX} Sofascore returned no stats for event=${eventId} (match=${matchId})`
-      )
-      return null
+    // Parallel fetch — every call wraps a single upstream HTTP request.
+    // `getSofascoreMatchStats` is skipped when we already have the row.
+    const [statsRes, lineupsRes, incidentsRes, shotmapRes, graphRes, bestRes] =
+      await Promise.all([
+        existingStats
+          ? Promise.resolve(rowToFixtureStats(existingStats))
+          : getSofascoreMatchStats(eventId).catch((err) => {
+              warnSofascore(matchId, 'team-stats', err)
+              return null
+            }),
+        getSofascoreLineups(eventId).catch((err) => {
+          warnSofascore(matchId, 'lineups', err)
+          return null
+        }),
+        getSofascoreIncidents(eventId).catch((err) => {
+          warnSofascore(matchId, 'incidents', err)
+          return [] as SofascoreIncident[]
+        }),
+        getSofascoreShotmap(eventId).catch((err) => {
+          warnSofascore(matchId, 'shotmap', err)
+          return [] as SofascoreShotmapEntry[]
+        }),
+        getSofascoreGraph(eventId).catch((err) => {
+          warnSofascore(matchId, 'graph', err)
+          return [] as SofascoreGraphPoint[]
+        }),
+        getSofascoreBestPlayers(eventId).catch((err) => {
+          warnSofascore(matchId, 'best-players', err)
+          return null
+        }),
+      ])
+
+    // Persist team_stats to the relational table (only if it wasn't already
+    // there and we actually got a snapshot back).
+    if (!existingStats && statsRes) {
+      const { error: upsertError } = await supabase
+        .from('match_team_stats' as never)
+        .upsert(
+          {
+            football_data_match_id: matchId,
+            apifootball_fixture_id: eventId,
+            home_possession: statsRes.home.possession,
+            away_possession: statsRes.away.possession,
+            home_shots: statsRes.home.shots,
+            away_shots: statsRes.away.shots,
+            home_shots_on_target: statsRes.home.shots_on_target,
+            away_shots_on_target: statsRes.away.shots_on_target,
+            home_corners: statsRes.home.corners,
+            away_corners: statsRes.away.corners,
+            home_fouls: statsRes.home.fouls,
+            away_fouls: statsRes.away.fouls,
+            home_pass_accuracy: statsRes.home.pass_accuracy,
+            away_pass_accuracy: statsRes.away.pass_accuracy,
+          } as never,
+          { onConflict: 'football_data_match_id' }
+        )
+      if (upsertError) {
+        console.warn(
+          `${LOG_PREFIX} match_team_stats upsert failed for match=${matchId}:`,
+          upsertError.message
+        )
+      }
     }
 
-    const { error: upsertError } = await supabase
-      .from('match_team_stats' as never)
-      .upsert(
-        {
-          football_data_match_id: matchId,
-          apifootball_fixture_id: eventId,
-          home_possession: stats.home.possession,
-          away_possession: stats.away.possession,
-          home_shots: stats.home.shots,
-          away_shots: stats.away.shots,
-          home_shots_on_target: stats.home.shots_on_target,
-          away_shots_on_target: stats.away.shots_on_target,
-          home_corners: stats.home.corners,
-          away_corners: stats.away.corners,
-          home_fouls: stats.home.fouls,
-          away_fouls: stats.away.fouls,
-          home_pass_accuracy: stats.home.pass_accuracy,
-          away_pass_accuracy: stats.away.pass_accuracy,
-        } as never,
-        { onConflict: 'football_data_match_id' }
-      )
-
-    if (upsertError) {
-      console.warn(
-        `${LOG_PREFIX} match_team_stats upsert failed for match=${matchId}:`,
-        upsertError.message
-      )
+    return {
+      team_stats: statsRes,
+      lineups: lineupsRes,
+      incidents: incidentsRes,
+      shotmap: shotmapRes,
+      graph: graphRes,
+      best_players: bestRes,
     }
-
-    return stats
   } catch (err) {
     if (
       err instanceof ApiFootballConfigError ||
       err instanceof ApiFootballRequestError
     ) {
       console.warn(
-        `${LOG_PREFIX} team stats fetch failed for match=${matchId}:`,
+        `${LOG_PREFIX} Sofascore data fetch failed for match=${matchId}:`,
         err.message
       )
-      return null
+    } else {
+      console.warn(
+        `${LOG_PREFIX} unexpected Sofascore error for match=${matchId}:`,
+        err instanceof Error ? err.message : err
+      )
     }
-    console.warn(
-      `${LOG_PREFIX} unexpected team stats error for match=${matchId}:`,
-      err instanceof Error ? err.message : err
-    )
-    return null
+    return existingStats
+      ? { ...EMPTY_BUNDLE, team_stats: rowToFixtureStats(existingStats) }
+      : EMPTY_BUNDLE
   }
+}
+
+function warnSofascore(matchId: number, label: string, err: unknown): void {
+  console.warn(
+    `${LOG_PREFIX} Sofascore ${label} failed for match=${matchId}:`,
+    err instanceof Error ? err.message : err
+  )
 }
 
 function rowToFixtureStats(row: MatchTeamStatsRow): FixtureTeamStats {

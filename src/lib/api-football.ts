@@ -693,3 +693,763 @@ function passAccuracy(
   if (total <= 0) return null
   return Math.round((accurate / total) * 100)
 }
+
+// ---------------------------------------------------------------------------
+// Extended single-match endpoints — lineups / incidents / shotmap / graph /
+// best players. Used by /api/season/match/[id] alongside the team stats
+// snapshot to render a rich match-detail page.
+//
+// All five endpoints share the same upstream contract:
+//   - HTTP 200 with the documented payload on success
+//   - HTTP 200 with `{ "error": { "code": 404, ... } }` envelope when the
+//     event has no data (treated as null / empty)
+//   - non-2xx HTTP statuses are propagated as ApiFootballRequestError
+// ---------------------------------------------------------------------------
+
+// Public types -------------------------------------------------------------
+
+export interface SofascoreLineupsPayload {
+  confirmed: boolean
+  homeFormation: string | null
+  awayFormation: string | null
+  home: SofascoreLineupPlayer[]
+  away: SofascoreLineupPlayer[]
+}
+
+export interface SofascoreLineupPlayer {
+  id: number
+  name: string
+  jerseyNumber: number | null
+  position: string | null
+  substitute: boolean
+  stats: {
+    rating: number | null
+    minutesPlayed: number | null
+    goals: number | null
+    assists: number | null
+    yellowCard: boolean
+    redCard: boolean
+    saves: number | null
+    totalPass: number | null
+    accuratePass: number | null
+  }
+}
+
+export interface SofascoreIncident {
+  type: string
+  time: number
+  addedTime: number | null
+  isHome: boolean | null
+  playerName: string | null
+  playerInName: string | null
+  playerOutName: string | null
+  homeScore: number | null
+  awayScore: number | null
+  cardType: string | null
+  goalType: string | null
+  description: string | null
+}
+
+export interface SofascoreShotmapEntry {
+  playerId: number | null
+  playerName: string | null
+  isHome: boolean
+  shotType: string
+  bodyPart: string | null
+  situation: string | null
+  xg: number | null
+  playerCoordinates: { x: number; y: number } | null
+  goalMouthCoordinates: { x: number; y: number } | null
+}
+
+export interface SofascoreGraphPoint {
+  minute: number
+  value: number
+}
+
+export interface SofascoreBestPlayer {
+  id: number
+  name: string
+  rating: number | null
+}
+
+export interface SofascoreBestPlayers {
+  home: SofascoreBestPlayer | null
+  away: SofascoreBestPlayer | null
+}
+
+export interface SofascoreTeamStatistics {
+  goalsScored: number | null
+  goalsConceded: number | null
+  assists: number | null
+  shots: number | null
+  shotsOnTarget: number | null
+  bigChances: number | null
+  successfulDribbles: number | null
+  totalPasses: number | null
+  accuratePassesPercentage: number | null
+  cleanSheets: number | null
+  tackles: number | null
+  interceptions: number | null
+  saves: number | null
+  duelsWon: number | null
+  avgRating: number | null
+}
+
+export interface SofascoreTransferEntry {
+  playerName: string
+  playerId: number | null
+  direction: 'in' | 'out'
+  fromTeam: string | null
+  toTeam: string | null
+  transferDate: string | null
+  fee: number | null
+  feeCurrency: string | null
+  transferType: string | null
+}
+
+export interface SofascoreTransfersPayload {
+  transfersIn: SofascoreTransferEntry[]
+  transfersOut: SofascoreTransferEntry[]
+}
+
+// Raw upstream shapes ------------------------------------------------------
+
+interface RawLineupPlayerStats {
+  rating?: number | null
+  minutesPlayed?: number | null
+  goals?: number | null
+  goalAssist?: number | null
+  saves?: number | null
+  totalPass?: number | null
+  accuratePass?: number | null
+}
+
+interface RawLineupPlayerWrapper {
+  player?: {
+    id?: number | null
+    name?: string | null
+    jerseyNumber?: string | number | null
+    position?: string | null
+  } | null
+  jerseyNumber?: string | number | null
+  position?: string | null
+  substitute?: boolean | null
+  statistics?: RawLineupPlayerStats | null
+  shirtNumber?: number | null
+}
+
+interface RawLineupSide {
+  formation?: string | null
+  players?: RawLineupPlayerWrapper[] | null
+}
+
+interface RawLineupsResponse {
+  confirmed?: boolean | null
+  home?: RawLineupSide | null
+  away?: RawLineupSide | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawIncident {
+  incidentType?: string | null
+  incidentClass?: string | null
+  time?: number | null
+  addedTime?: number | null
+  isHome?: boolean | null
+  player?: { name?: string | null } | null
+  playerIn?: { name?: string | null } | null
+  playerOut?: { name?: string | null } | null
+  homeScore?: number | null
+  awayScore?: number | null
+  text?: string | null
+  description?: string | null
+  reason?: string | null
+}
+
+interface RawIncidentsResponse {
+  incidents?: RawIncident[] | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawShot {
+  player?: { id?: number | null; name?: string | null } | null
+  isHome?: boolean | null
+  shotType?: string | null
+  bodyPart?: string | null
+  situation?: string | null
+  xg?: number | null
+  expectedGoals?: number | null
+  playerCoordinates?: { x?: number | null; y?: number | null } | null
+  goalMouthCoordinates?: { x?: number | null; y?: number | null } | null
+}
+
+interface RawShotmapResponse {
+  shotmap?: RawShot[] | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawGraphPoint {
+  minute?: number | null
+  value?: number | null
+}
+
+interface RawGraphResponse {
+  graphPoints?: RawGraphPoint[] | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawBestPlayer {
+  player?: { id?: number | null; name?: string | null } | null
+  value?: string | number | null
+  rating?: number | null
+}
+
+interface RawBestPlayersResponse {
+  bestHomeTeamPlayer?: RawBestPlayer | null
+  bestAwayTeamPlayer?: RawBestPlayer | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawTeamStatItem {
+  name?: string | null
+  value?: number | string | null
+}
+
+interface RawTeamStatGroup {
+  group?: string | null
+  groupName?: string | null
+  statisticsItems?: RawTeamStatItem[] | null
+}
+
+interface RawTeamStatisticsResponse {
+  statistics?: RawTeamStatGroup[] | RawTeamStatItem[] | null
+  error?: { code?: number; message?: string } | null
+}
+
+interface RawTransfer {
+  player?: { id?: number | null; name?: string | null } | null
+  transferFrom?: { name?: string | null } | null
+  transferTo?: { name?: string | null } | null
+  fromTeamName?: string | null
+  toTeamName?: string | null
+  transferDateTimestamp?: number | null
+  transferDate?: number | null
+  transferFee?: number | null
+  transferFeeRaw?: { value?: number | null; currency?: string | null } | null
+  transferFeeDescription?: string | null
+  type?: number | null
+  transferType?: string | null
+}
+
+interface RawTransfersResponse {
+  transfersIn?: RawTransfer[] | null
+  transfersOut?: RawTransfer[] | null
+  error?: { code?: number; message?: string } | null
+}
+
+// Generic fetch helper -----------------------------------------------------
+
+/**
+ * Issue a GET against a Sofascore endpoint, parse JSON, and return the body
+ * plus a "soft-not-found" hint. The hint is true when the upstream answers
+ * 200 with its `{ "error": { "code": 404 } }` envelope OR the parser fails;
+ * callers translate that into `null` / `[]` per their public contract.
+ *
+ * @throws {ApiFootballRequestError} on non-2xx HTTP statuses (other than 404
+ *         which is mapped to softNotFound) or network errors.
+ */
+async function sofascoreGet<T>(
+  path: string,
+  apiKey: string
+): Promise<{ body: T | null; softNotFound: boolean }> {
+  const url = `${SOFASCORE_BASE_URL}${path}`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: sofascoreHeaders(apiKey),
+      cache: 'no-store',
+    })
+  } catch (err) {
+    throw new ApiFootballRequestError(
+      err instanceof Error
+        ? `network error contacting Sofascore: ${err.message}`
+        : 'network error contacting Sofascore',
+      null
+    )
+  }
+
+  if (response.status === 404) {
+    return { body: null, softNotFound: true }
+  }
+
+  if (!response.ok) {
+    throw new ApiFootballRequestError(
+      `Sofascore returned HTTP ${response.status} for ${path}`,
+      response.status
+    )
+  }
+
+  let body: T & { error?: { code?: number } | null }
+  try {
+    body = (await response.json()) as T & { error?: { code?: number } | null }
+  } catch {
+    return { body: null, softNotFound: true }
+  }
+
+  if (body && typeof body === 'object' && body.error && typeof body.error === 'object') {
+    return { body: null, softNotFound: true }
+  }
+
+  return { body, softNotFound: false }
+}
+
+function nullableNumber(n: unknown): number | null {
+  return typeof n === 'number' && Number.isFinite(n) ? n : null
+}
+
+function parseJersey(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw === 'string') {
+    const parsed = Number.parseInt(raw, 10)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+// Lineups ------------------------------------------------------------------
+
+/**
+ * Starting XI + substitutes + per-player match statistics for both sides.
+ *
+ * Returns `null` when the upstream has no published lineup for the event
+ * (common for very old or future matches) — caller renders an "unavailable"
+ * state.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreLineups(
+  eventId: number
+): Promise<SofascoreLineupsPayload | null> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawLineupsResponse>(
+    `/matches/get-lineups?matchId=${eventId}`,
+    apiKey
+  )
+  if (softNotFound || !body) return null
+
+  return {
+    confirmed: body.confirmed === true,
+    homeFormation: body.home?.formation ?? null,
+    awayFormation: body.away?.formation ?? null,
+    home: extractLineupPlayers(body.home?.players ?? []),
+    away: extractLineupPlayers(body.away?.players ?? []),
+  }
+}
+
+function extractLineupPlayers(
+  raw: RawLineupPlayerWrapper[]
+): SofascoreLineupPlayer[] {
+  const out: SofascoreLineupPlayer[] = []
+  for (const entry of raw) {
+    const playerId = entry.player?.id
+    const name = (entry.player?.name ?? '').trim()
+    if (typeof playerId !== 'number' || !Number.isFinite(playerId)) continue
+    if (name.length === 0) continue
+
+    const stats = entry.statistics ?? {}
+    out.push({
+      id: playerId,
+      name,
+      jerseyNumber:
+        parseJersey(entry.jerseyNumber) ??
+        parseJersey(entry.shirtNumber) ??
+        parseJersey(entry.player?.jerseyNumber),
+      position: entry.position ?? entry.player?.position ?? null,
+      substitute: entry.substitute === true,
+      stats: {
+        rating: nullableNumber(stats.rating),
+        minutesPlayed: nullableNumber(stats.minutesPlayed),
+        goals: nullableNumber(stats.goals),
+        assists: nullableNumber(stats.goalAssist),
+        yellowCard: false, // populated from incidents on the consumer side
+        redCard: false,
+        saves: nullableNumber(stats.saves),
+        totalPass: nullableNumber(stats.totalPass),
+        accuratePass: nullableNumber(stats.accuratePass),
+      },
+    })
+  }
+  return out
+}
+
+// Incidents ----------------------------------------------------------------
+
+/**
+ * Match timeline events (goals, cards, substitutions, VAR decisions, period
+ * markers). Returns an empty array when the upstream has nothing or returns
+ * its 404 envelope.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreIncidents(
+  eventId: number
+): Promise<SofascoreIncident[]> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawIncidentsResponse>(
+    `/matches/get-incidents?matchId=${eventId}`,
+    apiKey
+  )
+  if (softNotFound || !body) return []
+
+  const incidents = Array.isArray(body.incidents) ? body.incidents : []
+  const out: SofascoreIncident[] = []
+  for (const inc of incidents) {
+    const type = (inc.incidentType ?? '').trim()
+    if (type.length === 0) continue
+    const time = nullableNumber(inc.time)
+    if (time === null) continue
+
+    out.push({
+      type,
+      time,
+      addedTime: nullableNumber(inc.addedTime),
+      isHome: typeof inc.isHome === 'boolean' ? inc.isHome : null,
+      playerName: inc.player?.name ?? null,
+      playerInName: inc.playerIn?.name ?? null,
+      playerOutName: inc.playerOut?.name ?? null,
+      homeScore: nullableNumber(inc.homeScore),
+      awayScore: nullableNumber(inc.awayScore),
+      cardType: type === 'card' ? inc.incidentClass ?? null : null,
+      goalType: type === 'goal' ? inc.incidentClass ?? null : null,
+      description: inc.text ?? inc.description ?? inc.reason ?? null,
+    })
+  }
+  return out
+}
+
+// Shotmap ------------------------------------------------------------------
+
+/**
+ * Spatial shot data (player, location, body part, xG). Returns an empty
+ * array on soft-not-found.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreShotmap(
+  eventId: number
+): Promise<SofascoreShotmapEntry[]> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawShotmapResponse>(
+    `/matches/get-shotmap?matchId=${eventId}`,
+    apiKey
+  )
+  if (softNotFound || !body) return []
+
+  const shots = Array.isArray(body.shotmap) ? body.shotmap : []
+  const out: SofascoreShotmapEntry[] = []
+  for (const shot of shots) {
+    const shotType = (shot.shotType ?? '').trim()
+    if (shotType.length === 0) continue
+
+    out.push({
+      playerId: nullableNumber(shot.player?.id),
+      playerName: shot.player?.name ?? null,
+      isHome: shot.isHome === true,
+      shotType,
+      bodyPart: shot.bodyPart ?? null,
+      situation: shot.situation ?? null,
+      xg: nullableNumber(shot.xg) ?? nullableNumber(shot.expectedGoals),
+      playerCoordinates: extractCoords(shot.playerCoordinates),
+      goalMouthCoordinates: extractCoords(shot.goalMouthCoordinates),
+    })
+  }
+  return out
+}
+
+function extractCoords(
+  raw: { x?: number | null; y?: number | null } | null | undefined
+): { x: number; y: number } | null {
+  if (!raw) return null
+  const x = nullableNumber(raw.x)
+  const y = nullableNumber(raw.y)
+  if (x === null || y === null) return null
+  return { x, y }
+}
+
+// Graph (momentum) ---------------------------------------------------------
+
+/**
+ * Match momentum chart — minute-by-minute pressure values where positive
+ * favors the home side.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreGraph(
+  eventId: number
+): Promise<SofascoreGraphPoint[]> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawGraphResponse>(
+    `/matches/get-graph?matchId=${eventId}`,
+    apiKey
+  )
+  if (softNotFound || !body) return []
+
+  const points = Array.isArray(body.graphPoints) ? body.graphPoints : []
+  const out: SofascoreGraphPoint[] = []
+  for (const p of points) {
+    const minute = nullableNumber(p.minute)
+    const value = nullableNumber(p.value)
+    if (minute === null || value === null) continue
+    out.push({ minute, value })
+  }
+  return out
+}
+
+// Best players -------------------------------------------------------------
+
+/**
+ * "Player of the match" pick for each side, with their Sofascore rating.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreBestPlayers(
+  eventId: number
+): Promise<SofascoreBestPlayers | null> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawBestPlayersResponse>(
+    `/matches/get-best-players?matchId=${eventId}`,
+    apiKey
+  )
+  if (softNotFound || !body) return null
+
+  return {
+    home: pickBestPlayer(body.bestHomeTeamPlayer ?? null),
+    away: pickBestPlayer(body.bestAwayTeamPlayer ?? null),
+  }
+}
+
+function pickBestPlayer(raw: RawBestPlayer | null): SofascoreBestPlayer | null {
+  if (!raw) return null
+  const id = nullableNumber(raw.player?.id)
+  const name = raw.player?.name ?? null
+  if (id === null || !name) return null
+
+  // `value` is a string like "8.4" on this endpoint; `rating` may also be
+  // present numerically depending on locale.
+  let rating: number | null = nullableNumber(raw.rating)
+  if (rating === null && typeof raw.value === 'string') {
+    const parsed = Number.parseFloat(raw.value)
+    rating = Number.isFinite(parsed) ? parsed : null
+  } else if (rating === null && typeof raw.value === 'number') {
+    rating = Number.isFinite(raw.value) ? raw.value : null
+  }
+
+  return { id, name, rating }
+}
+
+// Team season statistics ---------------------------------------------------
+
+/**
+ * FCB season aggregates for a single competition (`tournamentId` /
+ * `seasonId`). Returns `null` on soft-not-found.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreTeamStatistics(
+  tournamentId: number,
+  seasonId: number
+): Promise<SofascoreTeamStatistics | null> {
+  const apiKey = requireSofascoreKey()
+  const path =
+    `/teams/get-statistics` +
+    `?teamId=${FCB_TEAM_ID_SOFASCORE}` +
+    `&tournamentId=${tournamentId}` +
+    `&seasonId=${seasonId}` +
+    `&type=overall`
+  const { body, softNotFound } = await sofascoreGet<RawTeamStatisticsResponse>(
+    path,
+    apiKey
+  )
+  if (softNotFound || !body) return null
+
+  // The endpoint may return either a flat `statistics` object, an array of
+  // groups, or an array of items — flatten everything into a name→value map.
+  const map = flattenTeamStatItems(body.statistics)
+
+  return {
+    goalsScored: pickStat(map, ['goalsScored', 'goals']),
+    goalsConceded: pickStat(map, ['goalsConceded']),
+    assists: pickStat(map, ['assists']),
+    shots: pickStat(map, ['shots', 'totalShots']),
+    shotsOnTarget: pickStat(map, ['shotsOnTarget']),
+    bigChances: pickStat(map, ['bigChances', 'bigChancesCreated']),
+    successfulDribbles: pickStat(map, ['successfulDribbles']),
+    totalPasses: pickStat(map, ['totalPasses', 'passes']),
+    accuratePassesPercentage: pickStat(map, [
+      'accuratePassesPercentage',
+      'accuratePassPercentage',
+    ]),
+    cleanSheets: pickStat(map, ['cleanSheets']),
+    tackles: pickStat(map, ['tackles']),
+    interceptions: pickStat(map, ['interceptions']),
+    saves: pickStat(map, ['saves']),
+    duelsWon: pickStat(map, ['duelsWon']),
+    avgRating: pickStat(map, ['avgRating', 'averageRating']),
+  }
+}
+
+function flattenTeamStatItems(
+  raw: RawTeamStatGroup[] | RawTeamStatItem[] | null | undefined
+): Map<string, number> {
+  const out = new Map<string, number>()
+  if (!Array.isArray(raw)) {
+    // Direct object form: each property = stat key
+    if (raw && typeof raw === 'object') {
+      for (const [key, value] of Object.entries(raw)) {
+        const n = nullableNumber(value)
+        if (n !== null && !out.has(key)) out.set(key, n)
+      }
+    }
+    return out
+  }
+
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    // Group form: { groupName, statisticsItems: [...] }
+    const items = (entry as RawTeamStatGroup).statisticsItems
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const key = item.name?.trim()
+        if (!key) continue
+        const num = parseStatNumber(item.value)
+        if (num !== null && !out.has(key)) out.set(key, num)
+      }
+      continue
+    }
+    // Flat-item form: { name, value }
+    const flat = entry as RawTeamStatItem
+    const key = flat.name?.trim()
+    if (!key) continue
+    const num = parseStatNumber(flat.value)
+    if (num !== null && !out.has(key)) out.set(key, num)
+  }
+  return out
+}
+
+function parseStatNumber(raw: unknown): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw === 'string') {
+    const parsed = Number.parseFloat(raw.replace('%', ''))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function pickStat(map: Map<string, number>, keys: string[]): number | null {
+  for (const key of keys) {
+    const v = map.get(key)
+    if (typeof v === 'number') return v
+  }
+  return null
+}
+
+// Transfers ----------------------------------------------------------------
+
+/**
+ * Latest FCB transfer activity, split into incoming and outgoing moves.
+ * Always returns a payload with both arrays — empty when the upstream has
+ * nothing to report.
+ *
+ * @throws {ApiFootballConfigError} when `SOFASCORE_RAPIDAPI_KEY` is missing
+ * @throws {ApiFootballRequestError} on network / HTTP errors
+ */
+export async function getSofascoreTransfers(): Promise<SofascoreTransfersPayload> {
+  const apiKey = requireSofascoreKey()
+  const { body, softNotFound } = await sofascoreGet<RawTransfersResponse>(
+    `/teams/get-transfers?teamId=${FCB_TEAM_ID_SOFASCORE}`,
+    apiKey
+  )
+  if (softNotFound || !body) {
+    return { transfersIn: [], transfersOut: [] }
+  }
+
+  return {
+    transfersIn: (body.transfersIn ?? []).map((t) => mapTransfer(t, 'in')),
+    transfersOut: (body.transfersOut ?? []).map((t) => mapTransfer(t, 'out')),
+  }
+}
+
+function mapTransfer(
+  raw: RawTransfer,
+  direction: 'in' | 'out'
+): SofascoreTransferEntry {
+  const ts = nullableNumber(raw.transferDateTimestamp) ?? nullableNumber(raw.transferDate)
+  const transferDate = ts !== null ? new Date(ts * 1000).toISOString() : null
+
+  const fromTeam =
+    raw.transferFrom?.name ?? raw.fromTeamName ?? null
+  const toTeam = raw.transferTo?.name ?? raw.toTeamName ?? null
+
+  // `type` is sometimes a numeric enum (1=Transfer, 2=Loan, 3=Free); when
+  // missing we pass through the textual `transferType` if upstream provides
+  // it. The frontend handles either.
+  let transferType: string | null = null
+  if (typeof raw.transferType === 'string' && raw.transferType.trim().length > 0) {
+    transferType = raw.transferType.trim()
+  } else if (typeof raw.type === 'number') {
+    transferType = mapTransferTypeCode(raw.type)
+  } else if (raw.transferFeeDescription) {
+    transferType = raw.transferFeeDescription
+  }
+
+  return {
+    playerName: raw.player?.name ?? '',
+    playerId: nullableNumber(raw.player?.id),
+    direction,
+    fromTeam,
+    toTeam,
+    transferDate,
+    fee:
+      nullableNumber(raw.transferFeeRaw?.value) ??
+      nullableNumber(raw.transferFee),
+    feeCurrency: raw.transferFeeRaw?.currency ?? null,
+    transferType,
+  }
+}
+
+function mapTransferTypeCode(code: number): string | null {
+  switch (code) {
+    case 1:
+      return 'Transfer'
+    case 2:
+      return 'Loan'
+    case 3:
+      return 'Free'
+    default:
+      return null
+  }
+}
+
+/**
+ * Public read of the season-id mapping — used by routes that need to look up
+ * a tournament/season pair from the user-facing year.
+ */
+export function getSofascoreSeasonIds(season: number):
+  | { laLiga: number; championsLeague: number }
+  | null {
+  return SOFASCORE_SEASON_IDS[season] ?? null
+}
+
+export const SOFASCORE_TOURNAMENT_IDS = {
+  laLiga: LA_LIGA_TOURNAMENT_ID,
+  championsLeague: CHAMPIONS_LEAGUE_TOURNAMENT_ID,
+} as const

@@ -20,6 +20,7 @@ import {
 } from "@/lib/season-api";
 import { cn } from "@/lib/utils";
 import { ChartShell } from "./ChartShell";
+import { ChartZoomModal } from "./ChartZoomModal";
 import {
   CacheLabel,
   ChartSkeleton,
@@ -95,152 +96,157 @@ export function GoalDifferenceChart({
     return rows.reduce((mx, r) => (r.gd > mx ? r.gd : mx), -Infinity);
   }, [rows]);
 
-  return (
-    <ChartShell
-      eyebrow="Gólkülönbség"
-      title="A támadójáték mérlege"
-      description="Kumulatív gólkülönbség a szezon során. Pozitív értéknél zöld zóna, negatívnál piros — a nulla vonal a vízszintes mérce."
-      meta={<CacheLabel cachedAt={data?.cached_at} stale={data?.stale} />}
-      index={index}
-      className={className}
-      footer={
-        rows.length > 0 ? (
-          <p>
-            Csúcs gólkülönbség az eddigi szezonban:{" "}
-            <span className="font-display text-base text-[var(--accent-gold)]">
-              {peakGd >= 0 ? `+${peakGd}` : peakGd}
-            </span>
-          </p>
-        ) : null
-      }
-    >
-      {!loaded ? (
-        <ChartSkeleton height={320} />
-      ) : errorMessage ? (
-        <ErrorBlock
-          message={errorMessage}
-          onRetry={() => setRetryNonce((n) => n + 1)}
-        />
-      ) : rows.length === 0 ? (
-        <EmptyBlock message="Nincs még lejátszott meccs ebben a szezonban." />
-      ) : (
-        <div className="-mx-2 overflow-x-auto px-2 pb-1">
-          <div
-            className="h-[300px] sm:h-[360px]"
-            style={{ minWidth: Math.max(rows.length * 22, 320) }}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={rows}
-                margin={{ top: 12, right: 16, bottom: 12, left: 0 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="gd-pos-fill"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--accent-gold)"
-                      stopOpacity={0.55}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--accent-gold)"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                  <linearGradient
-                    id="gd-neg-fill"
-                    x1="0"
-                    y1="1"
-                    x2="0"
-                    y2="0"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--accent-red)"
-                      stopOpacity={0.55}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--accent-red)"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
+  const [zoomOpen, setZoomOpen] = useState(false);
 
-                <CartesianGrid
-                  stroke="var(--glass-border)"
-                  strokeDasharray="2 4"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="matchday"
-                  stroke="var(--glass-border)"
-                  tick={{
-                    fill: "var(--text-muted)",
-                    fontSize: 11,
-                    fontFamily: "var(--font-display), sans-serif",
-                    letterSpacing: "0.08em",
-                  }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  stroke="var(--glass-border)"
-                  tick={{
-                    fill: "var(--text-muted)",
-                    fontSize: 11,
-                    fontFamily: "var(--font-display), sans-serif",
-                  }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                />
-                <ReferenceLine
-                  y={0}
-                  stroke="var(--glass-border-hover)"
-                  strokeWidth={1}
-                />
-                <Tooltip
-                  cursor={{
-                    stroke: "var(--accent-gold)",
-                    strokeOpacity: 0.4,
-                    strokeDasharray: "3 4",
-                  }}
-                  content={<GdTooltip />}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="gd_pos"
-                  stroke="var(--accent-gold)"
-                  strokeWidth={2}
-                  fill="url(#gd-pos-fill)"
-                  isAnimationActive={!reduced}
-                  animationDuration={1100}
-                  connectNulls
-                />
-                <Area
-                  type="monotone"
-                  dataKey="gd_neg"
-                  stroke="var(--accent-red)"
-                  strokeWidth={2}
-                  fill="url(#gd-neg-fill)"
-                  isAnimationActive={!reduced}
-                  animationDuration={1100}
-                  connectNulls
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+  // The chart body is rendered twice (compact + zoom-modal). We extract it
+  // here so the two heights stay in sync and the Recharts config doesn't
+  // diverge between renders.
+  const chartBody = (heightMode: "compact" | "full") => (
+    <div
+      className={cn(
+        "-mx-2 overflow-x-auto px-2 pb-1",
+        heightMode === "full" && "flex h-full flex-col",
       )}
-    </ChartShell>
+    >
+      <div
+        className={cn(
+          heightMode === "full"
+            ? "h-full min-h-[480px] flex-1"
+            : "h-[200px] sm:h-[240px]",
+        )}
+        style={{ minWidth: Math.max(rows.length * 22, 320) }}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={rows}
+            margin={{ top: 12, right: 16, bottom: 12, left: 0 }}
+          >
+            <defs>
+              <linearGradient id="gd-pos-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent-gold)" stopOpacity={0.55} />
+                <stop offset="100%" stopColor="var(--accent-gold)" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="gd-neg-fill" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stopColor="var(--accent-red)" stopOpacity={0.55} />
+                <stop offset="100%" stopColor="var(--accent-red)" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid
+              stroke="var(--glass-border)"
+              strokeDasharray="2 4"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="matchday"
+              stroke="var(--glass-border)"
+              tick={{
+                fill: "var(--text-muted)",
+                fontSize: 11,
+                fontFamily: "var(--font-display), sans-serif",
+                letterSpacing: "0.08em",
+              }}
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              stroke="var(--glass-border)"
+              tick={{
+                fill: "var(--text-muted)",
+                fontSize: 11,
+                fontFamily: "var(--font-display), sans-serif",
+              }}
+              tickLine={false}
+              axisLine={false}
+              width={32}
+            />
+            <ReferenceLine
+              y={0}
+              stroke="var(--glass-border-hover)"
+              strokeWidth={1}
+            />
+            <Tooltip
+              cursor={{
+                stroke: "var(--accent-gold)",
+                strokeOpacity: 0.4,
+                strokeDasharray: "3 4",
+              }}
+              content={<GdTooltip />}
+            />
+            <Area
+              type="monotone"
+              dataKey="gd_pos"
+              stroke="var(--accent-gold)"
+              strokeWidth={2}
+              fill="url(#gd-pos-fill)"
+              isAnimationActive={!reduced}
+              animationDuration={1100}
+              connectNulls
+            />
+            <Area
+              type="monotone"
+              dataKey="gd_neg"
+              stroke="var(--accent-red)"
+              strokeWidth={2}
+              fill="url(#gd-neg-fill)"
+              isAnimationActive={!reduced}
+              animationDuration={1100}
+              connectNulls
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <ChartShell
+        eyebrow="Gólkülönbség"
+        title="A támadójáték mérlege"
+        description="Kumulatív gólkülönbség a szezon során. Pozitív értéknél arany zóna, negatívnál piros — a nulla vonal a vízszintes mérce."
+        meta={<CacheLabel cachedAt={data?.cached_at} stale={data?.stale} />}
+        index={index}
+        className={className}
+        zoomable={rows.length > 0}
+        onZoom={() => setZoomOpen(true)}
+        footer={
+          rows.length > 0 ? (
+            <p>
+              Csúcs gólkülönbség az eddigi szezonban:{" "}
+              <span className="font-display text-base text-[var(--accent-gold)]">
+                {peakGd >= 0 ? `+${peakGd}` : peakGd}
+              </span>
+            </p>
+          ) : null
+        }
+      >
+        {!loaded ? (
+          <ChartSkeleton height={220} />
+        ) : errorMessage ? (
+          <ErrorBlock
+            message={errorMessage}
+            onRetry={() => setRetryNonce((n) => n + 1)}
+          />
+        ) : rows.length === 0 ? (
+          <EmptyBlock message="Nincs még lejátszott meccs ebben a szezonban." />
+        ) : (
+          chartBody("compact")
+        )}
+      </ChartShell>
+
+      {rows.length > 0 && (
+        <ChartZoomModal
+          open={zoomOpen}
+          onClose={() => setZoomOpen(false)}
+          title="Gólkülönbség"
+          subtitle="Kumulatív gólkülönbség a szezon során — pozitív értéknél arany, negatívnál piros zóna."
+        >
+          {chartBody("full")}
+        </ChartZoomModal>
+      )}
+    </>
   );
 }
 

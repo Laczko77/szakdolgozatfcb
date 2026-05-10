@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, CalendarDays, MapPin } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronDown,
+  MapPin,
+} from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 import {
@@ -216,72 +221,8 @@ export default function MatchDetailPage() {
         Vissza a meccsekhez
       </Link>
 
-      {/* Hero */}
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="mt-6 space-y-5"
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <MatchStatusBadge status={status} />
-          {match.venue && (
-            <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
-              <MapPin size={12} aria-hidden />
-              {match.venue}
-            </span>
-          )}
-        </div>
-
-        <h1 className="flex flex-col font-display text-4xl leading-[0.95] tracking-wide text-[var(--text-primary)] sm:text-5xl lg:flex-row lg:items-center lg:gap-6 lg:text-5xl xl:text-6xl">
-          <span className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <TeamCrest
-              url={match.home_team_crest}
-              teamName={match.home_team}
-              size={64}
-              priority
-              className="hidden shrink-0 sm:inline-flex sm:h-[72px] sm:w-[72px]"
-            />
-            <TeamCrest
-              url={match.home_team_crest}
-              teamName={match.home_team}
-              size={48}
-              priority
-              className="inline-flex shrink-0 sm:hidden"
-            />
-            <span className="min-w-0 truncate">{match.home_team}</span>
-          </span>
-
-          <span className="my-3 flex items-center gap-3 text-base font-normal uppercase tracking-[0.4em] text-[var(--text-muted)] sm:my-4 lg:my-0 lg:mx-2 lg:shrink-0 lg:text-sm">
-            <span aria-hidden className="h-px w-8 bg-[var(--glass-border)] sm:w-12 lg:w-6" />
-            <span>vs.</span>
-            <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)] lg:w-6 lg:flex-none" />
-          </span>
-
-          <span className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <TeamCrest
-              url={match.away_team_crest}
-              teamName={match.away_team}
-              size={64}
-              priority
-              className="hidden shrink-0 sm:inline-flex sm:h-[72px] sm:w-[72px]"
-            />
-            <TeamCrest
-              url={match.away_team_crest}
-              teamName={match.away_team}
-              size={48}
-              priority
-              className="inline-flex shrink-0 sm:hidden"
-            />
-            <span className="min-w-0 truncate">{match.away_team}</span>
-          </span>
-        </h1>
-
-        <p className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-          <CalendarDays size={14} aria-hidden />
-          <time dateTime={match.date}>{formatHero(match.date)}</time>
-        </p>
-      </motion.section>
+      {/* MATCH INFO CARD — single glass surface holds status, teams, score, when, where */}
+      <MatchInfoCard match={match} status={status} />
 
       {/* Either the buying flow or the success screen */}
       <AnimatePresence mode="wait">
@@ -373,6 +314,125 @@ export default function MatchDetailPage() {
 }
 
 // ---------------------------------------------------------------------------
+// MatchInfoCard — prominent header glass card with teams, status, score
+// ---------------------------------------------------------------------------
+
+interface MatchInfoCardProps {
+  match: MatchDetail["match"];
+  status: ReturnType<typeof deriveMatchStatus>;
+}
+
+function MatchInfoCard({ match, status }: MatchInfoCardProps) {
+  const { homeGoals, awayGoals, hasScore } = parseScore(match.score);
+  const isPast = status === "past";
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="glass-card relative mt-6 overflow-hidden p-6 sm:p-8 lg:p-10"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent-gold)]/45 to-transparent"
+      />
+
+      {/* Top meta row — status badge + venue chip */}
+      <div className="flex flex-wrap items-center gap-3">
+        <MatchStatusBadge status={status} />
+        {match.venue && (
+          <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
+            <MapPin size={12} aria-hidden />
+            {match.venue}
+          </span>
+        )}
+      </div>
+
+      {/* Teams + (optional) FT score */}
+      <div className="mt-6 grid items-center gap-5 sm:grid-cols-[1fr_auto_1fr]">
+        {/* Home */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <TeamCrest
+            url={match.home_team_crest}
+            teamName={match.home_team}
+            size={56}
+            priority
+            className="hidden shrink-0 sm:inline-flex sm:h-[64px] sm:w-[64px]"
+          />
+          <TeamCrest
+            url={match.home_team_crest}
+            teamName={match.home_team}
+            size={44}
+            priority
+            className="inline-flex shrink-0 sm:hidden"
+          />
+          <span className="min-w-0 truncate font-display text-2xl leading-tight tracking-wide text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
+            {match.home_team}
+          </span>
+        </div>
+
+        {/* Centre — score for FT, "vs." otherwise */}
+        <div className="flex shrink-0 justify-center">
+          {isPast && hasScore ? (
+            <div className="flex items-baseline gap-3 font-display tabular-nums leading-none">
+              <span className="text-5xl text-[var(--accent-gold)] sm:text-6xl">
+                {homeGoals}
+              </span>
+              <span className="text-2xl text-[var(--text-muted)] sm:text-3xl">
+                –
+              </span>
+              <span className="text-5xl text-[var(--accent-gold)] sm:text-6xl">
+                {awayGoals}
+              </span>
+            </div>
+          ) : (
+            <span className="flex items-center gap-3 font-display text-xs uppercase tracking-[0.4em] text-[var(--text-muted)] sm:text-sm">
+              <span
+                aria-hidden
+                className="h-px w-6 bg-[var(--glass-border)] sm:w-10"
+              />
+              vs.
+              <span
+                aria-hidden
+                className="h-px w-6 bg-[var(--glass-border)] sm:w-10"
+              />
+            </span>
+          )}
+        </div>
+
+        {/* Away */}
+        <div className="flex items-center gap-3 sm:flex-row-reverse sm:gap-4 sm:text-right">
+          <TeamCrest
+            url={match.away_team_crest}
+            teamName={match.away_team}
+            size={56}
+            priority
+            className="hidden shrink-0 sm:inline-flex sm:h-[64px] sm:w-[64px]"
+          />
+          <TeamCrest
+            url={match.away_team_crest}
+            teamName={match.away_team}
+            size={44}
+            priority
+            className="inline-flex shrink-0 sm:hidden"
+          />
+          <span className="min-w-0 truncate font-display text-2xl leading-tight tracking-wide text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
+            {match.away_team}
+          </span>
+        </div>
+      </div>
+
+      {/* When — full Hungarian date */}
+      <p className="mt-6 inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+        <CalendarDays size={14} aria-hidden />
+        <time dateTime={match.date}>{formatHero(match.date)}</time>
+      </p>
+    </motion.section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sub-states
 // ---------------------------------------------------------------------------
 
@@ -414,79 +474,97 @@ function NotFoundState() {
 }
 
 /**
- * Renders for past matches in place of the buying flow.
+ * Past-match content — replaces the buy panel with the events + team-stats
+ * panel. The score itself already lives in the {@link MatchInfoCard} above,
+ * so this view only carries the "Meccs összefoglalója" expandable section.
  *
- * Layered out as two glass cards:
- *   1. Result card — large gold scoreline with the two team names. Falls
- *      back to "Végeredmény nem elérhető" if the persisted `match.score`
- *      isn't a parseable "H-A" string.
- *   2. Events + team-stats card — embeds the season `MatchEventsPanel`,
- *      which itself fetches `/api/season/match/[id]` and handles the
- *      loading / error / empty / partial branches. We only mount it when
- *      the row carries an `api_football_id`; otherwise the underlying
- *      endpoint has nothing to look up and the panel would render its
- *      "unavailable" notice without context.
+ * The MatchEventsPanel is a controlled collapsible glass card with the
+ * stats panel open by default — users see the timeline immediately but can
+ * compact it back to a single header strip if they want to focus on the
+ * scoreline.
  */
 function PastMatchSummary({ match }: { match: MatchDetail["match"] }) {
-  const { homeGoals, awayGoals, hasScore } = parseScore(match.score);
+  const [open, setOpen] = useState(true);
 
-  return (
-    <div className="space-y-6">
-      {/* Result card */}
+  if (match.api_football_id == null) {
+    return (
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="glass-card p-6 sm:p-8"
+        className="glass-card p-6"
       >
-        <p className="mb-4 font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
-          Végeredmény
+        <p className="font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
+          Meccs összefoglalója
         </p>
-        {hasScore ? (
-          <div className="flex items-center justify-between gap-4">
-            <span className="min-w-0 flex-1 truncate font-display text-2xl text-[var(--text-primary)] sm:text-3xl">
-              {match.home_team}
-            </span>
-            <span className="shrink-0 font-display text-4xl tabular-nums text-[var(--accent-gold)] sm:text-5xl">
-              {homeGoals} – {awayGoals}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-right font-display text-2xl text-[var(--text-primary)] sm:text-3xl">
-              {match.away_team}
-            </span>
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Végeredmény nem elérhető.
-          </p>
-        )}
-      </motion.div>
-
-      {/* Events + team stats — only when we have a football-data.org id */}
-      {match.api_football_id != null ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.45,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            delay: 0.1,
-          }}
-          className="glass-card p-5 sm:p-6"
-        >
-          <p className="mb-4 font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
-            Meccs statisztikák
-          </p>
-          <MatchEventsPanel
-            matchId={match.api_football_id}
-            fcbId={FCB_TEAM_ID}
-          />
-        </motion.div>
-      ) : (
-        <p className="text-sm text-[var(--text-muted)]">
+        <p className="mt-3 text-sm text-[var(--text-muted)]">
           Részletes statisztikák nem elérhetők ehhez a meccshez.
         </p>
-      )}
-    </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="glass-card overflow-hidden"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="past-match-events-panel"
+        className={cn(
+          "flex w-full items-center justify-between gap-3 px-5 py-4 sm:px-7 sm:py-5",
+          "text-left",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-gold)]",
+        )}
+      >
+        <div>
+          <p className="font-display text-[10px] uppercase tracking-[0.45em] text-[var(--accent-gold)]">
+            Meccs összefoglalója
+          </p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Gólok, lapok, cserék és csapatszintű statisztikák.
+          </p>
+        </div>
+        <ChevronDown
+          size={20}
+          aria-hidden
+          className={cn(
+            "shrink-0 text-[var(--text-secondary)] transition-transform duration-300",
+            open && "rotate-180 text-[var(--accent-gold)]",
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id="past-match-events-panel"
+            key="panel"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="overflow-hidden"
+          >
+            <div
+              aria-hidden
+              className="mx-5 h-px bg-gradient-to-r from-transparent via-[var(--glass-border)] to-transparent sm:mx-7"
+            />
+            <div className="px-5 pb-6 pt-5 sm:px-7 sm:pb-7">
+              <MatchEventsPanel
+                matchId={match.api_football_id}
+                fcbId={FCB_TEAM_ID}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 

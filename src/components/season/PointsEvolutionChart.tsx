@@ -21,6 +21,7 @@ import {
 } from "@/lib/season-api";
 import { cn } from "@/lib/utils";
 import { ChartShell } from "./ChartShell";
+import { ChartZoomModal } from "./ChartZoomModal";
 import {
   CacheLabel,
   ChartSkeleton,
@@ -85,34 +86,58 @@ export function PointsEvolutionChart({
   }, [season, retryNonce]);
 
   const chart = useMemo(() => buildChartData(data?.evolution ?? []), [data]);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const hasData = !!chart && chart.rows.length > 0;
 
   return (
-    <ChartShell
-      eyebrow="Pontok evolúciója"
-      title="Az FCB szezonjának íve"
-      description="Fordulóról fordulóra kumulatív pontszám — a Barça mellett az aktuális második helyezett csapat."
-      meta={<CacheLabel cachedAt={data?.cached_at} stale={data?.stale} />}
-      index={index}
-      className={className}
-    >
-      {!loaded ? (
-        <ChartSkeleton height={320} />
-      ) : errorMessage ? (
-        <ErrorBlock
-          message={errorMessage}
-          onRetry={() => setRetryNonce((n) => n + 1)}
-        />
-      ) : !chart || chart.rows.length === 0 ? (
-        <EmptyBlock message="A szezon még nem kezdődött el — térj vissza az első forduló után." />
-      ) : (
-        <PointsChartBody
-          rows={chart.rows}
-          fcbName={chart.fcbName}
-          rivalName={chart.rivalName}
-          reduced={reduced}
-        />
+    <>
+      <ChartShell
+        eyebrow="Pontok evolúciója"
+        title="Az FCB szezonjának íve"
+        description="Fordulóról fordulóra kumulatív pontszám — a Barça mellett az aktuális második helyezett csapat."
+        meta={<CacheLabel cachedAt={data?.cached_at} stale={data?.stale} />}
+        index={index}
+        className={className}
+        zoomable={hasData}
+        onZoom={() => setZoomOpen(true)}
+      >
+        {!loaded ? (
+          <ChartSkeleton height={220} />
+        ) : errorMessage ? (
+          <ErrorBlock
+            message={errorMessage}
+            onRetry={() => setRetryNonce((n) => n + 1)}
+          />
+        ) : !chart || chart.rows.length === 0 ? (
+          <EmptyBlock message="A szezon még nem kezdődött el — térj vissza az első forduló után." />
+        ) : (
+          <PointsChartBody
+            rows={chart.rows}
+            fcbName={chart.fcbName}
+            rivalName={chart.rivalName}
+            reduced={reduced}
+            height="compact"
+          />
+        )}
+      </ChartShell>
+
+      {chart && (
+        <ChartZoomModal
+          open={zoomOpen}
+          onClose={() => setZoomOpen(false)}
+          title="Pontok evolúciója"
+          subtitle="Fordulóról fordulóra kumulatív pontszám — a Barça mellett az aktuális második helyezett csapat."
+        >
+          <PointsChartBody
+            rows={chart.rows}
+            fcbName={chart.fcbName}
+            rivalName={chart.rivalName}
+            reduced={reduced}
+            height="full"
+          />
+        </ChartZoomModal>
       )}
-    </ChartShell>
+    </>
   );
 }
 
@@ -185,6 +210,8 @@ interface PointsChartBodyProps {
   fcbName: string;
   rivalName: string | null;
   reduced: boolean;
+  /** "compact" → small inline (200/240px), "full" → fills the parent (zoom modal). */
+  height?: "compact" | "full";
 }
 
 function PointsChartBody({
@@ -192,17 +219,28 @@ function PointsChartBody({
   fcbName,
   rivalName,
   reduced,
+  height = "compact",
 }: PointsChartBodyProps) {
+  // In `full` mode (zoom modal) the parent already enforces a 600px-tall box;
+  // we stretch with h-full so Recharts fills the available canvas.
+  const heightClass =
+    height === "full" ? "h-full min-h-[480px]" : "h-[200px] sm:h-[240px]";
+
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", height === "full" && "flex h-full flex-col")}>
       <Legend fcbName={fcbName} rivalName={rivalName} />
 
       {/* Mobile horizontal scroll wrapper — Recharts stays at 100%
           width but the inner box keeps a `min-width` so each matchday
           gets at least ~22px and the line stays readable. */}
-      <div className="-mx-2 overflow-x-auto px-2 pb-1">
+      <div
+        className={cn(
+          "-mx-2 overflow-x-auto px-2 pb-1",
+          height === "full" && "flex-1",
+        )}
+      >
         <div
-          className="h-[300px] sm:h-[360px]"
+          className={heightClass}
           style={{ minWidth: Math.max(rows.length * 22, 320) }}
         >
           <ResponsiveContainer width="100%" height="100%">
