@@ -95,7 +95,7 @@ export default function CTASection() {
         ref={measureRef}
         aria-hidden="true"
         className="pointer-events-none absolute font-display text-4xl leading-[1.05] sm:text-5xl md:text-7xl"
-        style={{ visibility: "hidden", whiteSpace: "nowrap", top: 0, left: 0 }}
+        style={{ visibility: "hidden", whiteSpace: "nowrap", top: 0, left: "-9999px" }}
       >
         {CYCLING_WORDS.map((w, i) => (
           <span key={i}>{w}</span>

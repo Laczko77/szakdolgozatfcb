@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import { SeasonSelect, type SeasonOption } from "@/components/season/SeasonSelect";
 import { PointsEvolutionChart } from "@/components/season/PointsEvolutionChart";
 import { FormChips } from "@/components/season/FormChips";
@@ -61,57 +60,44 @@ function SeasonPageInner() {
       <motion.header
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative mb-12 overflow-hidden rounded-[var(--radius-lg)] sm:mb-16"
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="mb-8 sm:mb-10"
       >
-        {/* Decorative aura — pure CSS, runs always (cheap radial gradient). */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(ellipse at top right, rgba(196,163,77,0.10), transparent 55%), radial-gradient(ellipse at bottom left, rgba(0,51,102,0.18), transparent 55%)",
-          }}
-        />
-
-        <div className="flex flex-col gap-6 px-1 py-2 sm:px-2 sm:py-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="inline-flex items-center gap-2 font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
-              <Sparkles size={12} aria-hidden />
-              La Liga · {seasonLabel}
-            </p>
-            <h1
-              className={cn(
-                "mt-3 font-display leading-[0.95] tracking-wide",
-                "text-[var(--text-primary)]",
-                "text-[2.75rem] sm:text-[4.5rem] lg:text-[5.25rem]",
-              )}
-            >
-              A teljes szezon
-              <br />
-              <span className="bg-gradient-to-r from-[var(--accent-blue)] via-[var(--accent-gold)] to-[var(--accent-red)] bg-clip-text text-transparent">
-                egy pillantásra.
-              </span>
-            </h1>
-            <p className="mt-5 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
-              Pontok, gólkülönbség, forma és gólkirályok — fordulóról fordulóra
-              követjük az FCB szezonjának ívét. Görgess végig a vizuális
-              összefoglalón, vagy válts másik szezonra.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 self-start lg:self-end">
-            <span className="hidden font-display text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)] sm:inline">
-              Szezon
-            </span>
-            <SeasonSelect
-              value={season}
-              options={SEASON_OPTIONS}
-              onChange={handleSeasonChange}
-            />
-          </div>
-        </div>
+        <p className="font-display text-xs uppercase tracking-[0.4em] text-[var(--accent-gold)]">
+          Forca Barça // Szezon · {seasonLabel}
+        </p>
+        <h1
+          className={cn(
+            "mt-3 font-display leading-none tracking-wider",
+            "text-[var(--text-primary)]",
+            "text-5xl sm:text-7xl lg:text-[5.5rem]",
+          )}
+        >
+          A teljes szezon egy pillantásra
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
+          Pontok, gólkülönbség, forma és gólkirályok — fordulóról fordulóra
+          követjük az FCB szezonjának ívét. Görgess végig a vizuális
+          összefoglalón, vagy válts másik szezonra.
+        </p>
       </motion.header>
+
+      {/* Szezon választó — a filterek sorában, a hirek/shop kategória-filterhez hasonlóan */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
+        className="mb-8 flex items-center gap-3 sm:mb-10"
+      >
+        <span className="font-display text-[11px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+          Szezon
+        </span>
+        <SeasonSelect
+          value={season}
+          options={SEASON_OPTIONS}
+          onChange={handleSeasonChange}
+        />
+      </motion.div>
 
       {/* ─────────────── BODY GRID ─────────────── */}
       <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2">
@@ -181,11 +167,12 @@ export default function SeasonPage() {
 function SeasonFallback() {
   return (
     <div className="mx-auto max-w-[1280px] px-4 pb-20 pt-6 sm:px-6 sm:pt-10 lg:px-10">
-      <div className="mb-12 space-y-4 sm:mb-16">
-        <div className="h-3 w-40 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
-        <div className="h-20 w-3/4 animate-pulse rounded-md bg-[var(--glass-bg-hover)]" />
+      <div className="mb-8 space-y-3 sm:mb-10">
+        <div className="h-3 w-32 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
+        <div className="h-16 w-3/4 animate-pulse rounded-md bg-[var(--glass-bg-hover)]" />
         <div className="h-3 w-1/2 animate-pulse rounded-full bg-[var(--glass-bg-hover)]" />
       </div>
+      <div className="mb-8 h-9 w-36 animate-pulse rounded-full bg-[var(--glass-bg-hover)] sm:mb-10" />
       <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-2">
         {Array.from({ length: 5 }).map((_, i) => (
           <div

@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Tag } from "lucide-react";
 import type { Review } from "@/types/database";
 import {
   fetchProduct,
@@ -289,7 +289,7 @@ export default function ProductDetailPage({ params }: PageProps) {
                 if (saved <= 0) return null;
                 return (
                   <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[var(--accent-red)]">
-                    <span aria-hidden>💸</span>
+                    <Tag size={14} strokeWidth={2} aria-hidden />
                     Megspórolsz:{" "}
                     <span className="font-display font-semibold tracking-wide">
                       −{saved.toLocaleString("hu-HU")} Ft
