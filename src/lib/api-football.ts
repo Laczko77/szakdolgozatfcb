@@ -237,6 +237,43 @@ function safeNumber(n: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) ? n : 0
 }
 
+/**
+ * Run async tasks in parallel with a bounded concurrency.
+ *
+ * Used by `getPlayerStats` to fan out 50+ per-player stats requests without
+ * blowing past Vercel's 60s function timeout. A naive sequential loop took
+ * ~60s for the FCB roster (26 players × 2 tournaments) because Sofascore's
+ * tail latency occasionally spikes to 15s+ on a single request.
+ *
+ * Why bounded (vs. `Promise.all`): the upstream is a shared RapidAPI host
+ * with rate limits — letting all 52 calls hit at once invites 429s. A worker
+ * pool of `limit` keeps in-flight pressure predictable.
+ *
+ * Returns `PromiseSettledResult` so callers can inspect per-task success
+ * without the first failure aborting the rest. Order is preserved: result[i]
+ * corresponds to tasks[i].
+ */
+async function withConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length)
+  let idx = 0
+  async function worker(): Promise<void> {
+    while (idx < tasks.length) {
+      const i = idx++
+      try {
+        results[i] = { status: 'fulfilled', value: await tasks[i]() }
+      } catch (e) {
+        results[i] = { status: 'rejected', reason: e }
+      }
+    }
+  }
+  const workerCount = Math.max(1, Math.min(limit, tasks.length))
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
 function emptyStats(): PlayerStatsPayload {
   return {
     goals: 0,
@@ -487,20 +524,57 @@ export async function getPlayerStats(
     { id: CHAMPIONS_LEAGUE_TOURNAMENT_ID, seasonId: seasonIds.championsLeague },
   ]
 
+  // Pre-seed empty buckets so every roster member ends up in the result map
+  // even if both per-tournament calls reject — the caller relies on this for
+  // deterministic zero-fill behavior.
   for (const member of roster) {
-    const bucket = result.get(member.id) ?? emptyStats()
+    result.set(member.id, emptyStats())
+  }
 
-    for (const t of tournaments) {
+  // Build a flat list of (player × tournament) tasks and fan them out with a
+  // bounded worker pool. Sequential execution previously hit Vercel's 60s
+  // function timeout once a single request stalled (~15s tail latency). With
+  // 52 tasks at concurrency 8 the wall-clock drops to ~7 batches — well below
+  // the limit even with occasional slow responses.
+  const tasks: Array<
+    () => Promise<{
+      playerId: number
+      stats: SofascorePlayerStatistics | null
+    }>
+  > = roster.flatMap((member) =>
+    tournaments.map((t) => async () => {
       const stats = await fetchSofascorePlayerStats(
         member.id,
         t.id,
         t.seasonId,
         apiKey
       )
-      if (stats) accumulateSofascoreStats(bucket, stats)
-    }
+      return { playerId: member.id, stats }
+    })
+  )
 
-    result.set(member.id, bucket)
+  const STATS_CONCURRENCY = 8
+  const settled = await withConcurrency(tasks, STATS_CONCURRENCY)
+
+  for (const outcome of settled) {
+    if (outcome.status === 'fulfilled') {
+      const { playerId, stats } = outcome.value
+      if (stats) {
+        const bucket = result.get(playerId) ?? emptyStats()
+        accumulateSofascoreStats(bucket, stats)
+        result.set(playerId, bucket)
+      }
+    } else {
+      // Per-player tournament failures are non-fatal: that pairing simply
+      // contributes zero. Log so operators can spot widespread upstream
+      // problems in the function logs.
+      console.warn(
+        '[getPlayerStats] per-player stats request rejected:',
+        outcome.reason instanceof Error
+          ? outcome.reason.message
+          : outcome.reason
+      )
+    }
   }
 
   return result
