@@ -9,7 +9,7 @@ import {
   PLAYER_POSITION_LABELS,
   PLAYER_POSITION_SHORT,
 } from "@/lib/player-positions";
-import { readPlayerStats } from "@/lib/players-api";
+import { readPlayerStats, hasStats } from "@/lib/players-api";
 import type { Player } from "@/types/database";
 import { PlayerStatRadar } from "@/components/players/PlayerStatRadar";
 import { PlayerStatGrid } from "@/components/players/PlayerStatGrid";
@@ -66,6 +66,7 @@ export default async function PlayerProfilePage({ params }: PageProps) {
   if (!player) notFound();
 
   const stats = readPlayerStats(player.stats);
+  const statsAvailable = hasStats(stats);
   const positionLabel =
     player.position && isPlayerPosition(player.position)
       ? PLAYER_POSITION_LABELS[player.position]
@@ -209,9 +210,9 @@ export default async function PlayerProfilePage({ params }: PageProps) {
 
             {/* Snapshot stats — three big numbers without progress bars */}
             <dl className="grid grid-cols-3 gap-4">
-              <SnapshotStat label="Gól" value={stats.goals ?? 0} />
-              <SnapshotStat label="Gólpassz" value={stats.assists ?? 0} />
-              <SnapshotStat label="Meccs" value={stats.appearances ?? 0} />
+              <SnapshotStat label="Gól" value={stats.goals ?? 0} available={statsAvailable} />
+              <SnapshotStat label="Gólpassz" value={stats.assists ?? 0} available={statsAvailable} />
+              <SnapshotStat label="Meccs" value={stats.appearances ?? 0} available={statsAvailable} />
             </dl>
           </div>
         </div>
@@ -281,14 +282,27 @@ export default async function PlayerProfilePage({ params }: PageProps) {
 
 /* ---------- sub-components ---------- */
 
-function SnapshotStat({ label, value }: { label: string; value: number }) {
+function SnapshotStat({
+  label,
+  value,
+  available,
+}: {
+  label: string;
+  value: number;
+  available: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4 backdrop-blur">
       <dt className="text-[10px] uppercase tracking-[0.25em] text-[var(--text-secondary)]">
         {label}
       </dt>
-      <dd className="mt-2 font-display text-4xl leading-none tabular-nums text-[var(--text-primary)]">
-        {value}
+      <dd
+        className={cn(
+          "mt-2 font-display text-4xl leading-none tabular-nums",
+          available ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]",
+        )}
+      >
+        {available ? value : "—"}
       </dd>
     </div>
   );

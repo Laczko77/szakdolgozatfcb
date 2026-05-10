@@ -6,29 +6,45 @@ import {
   successResponse,
 } from '@/lib/api-utils'
 import {
-  CHAMPIONS_LEAGUE_COMPETITION_ID,
   FootballDataConfigError,
   FootballDataRequestError,
-  LA_LIGA_COMPETITION_ID,
   currentSeasonStartYear,
-  getScorers,
   getSquad,
-  type NormalizedScorer,
   type SquadPlayer,
 } from '@/lib/football-data'
+import {
+  ApiFootballConfigError,
+  ApiFootballRequestError,
+  getPlayerStats,
+  normalizePlayerName,
+} from '@/lib/api-football'
 import type { Json, TablesInsert } from '@/types/database'
 
 /**
  * POST /api/admin/players/sync
  *
  * Admin-triggered job: pulls the current FC Barcelona squad from
- * football-data.org and aggregates La Liga + Champions League scoring
- * statistics, then upserts every player into `public.players`.
+ * football-data.org and the per-player La Liga + Champions League
+ * statistics from api-football.com, then upserts every player into
+ * `public.players`.
  *
- * Conflict resolution: `api_football_id` (UNIQUE in schema). On re-run we
- * overwrite name/position/number/stats/season — but we DO NOT touch
- * `bio` or `image_url`. Those fields are owned by the admin manual editor
- * (PUT /api/admin/players/[id]).
+ * Why hybrid: football-data.org's `/scorers` endpoint only returns the
+ * top-100 ranked players per competition, so defenders, keepers and low
+ * scorers fell through with all-zero stats. api-football.com's
+ * `/players?team=529` covers the full first-team squad including
+ * appearances, lineups, minutes and cards.
+ *
+ * Squad ↔ stats join: there is no shared player id between the two
+ * providers, so the join is on a normalized full name
+ * (`normalizePlayerName`). Squad members without a stats entry get all
+ * zeros — logged per-player so admins can distinguish "API returned
+ * nothing" from "this player genuinely has zero stats".
+ *
+ * Conflict resolution: `api_football_id` (UNIQUE in schema; populated
+ * with the football-data.org id, kept as-is for backward compat). On
+ * re-run we overwrite name/position/number/stats/season — but we DO NOT
+ * touch `bio` or `image_url`. Those fields are owned by the admin manual
+ * editor (PUT /api/admin/players/[id]).
  *
  * Body: `{ season?: number }`. Default season = `currentSeasonStartYear()`.
  */
@@ -69,18 +85,10 @@ export async function POST(request: NextRequest) {
     return errorResponse('Érvénytelen JSON tartalom', 400)
   }
 
-  // ---- Fetch from football-data.org --------------------------------------
+  // ---- Fetch squad (football-data.org) -----------------------------------
   let squad: SquadPlayer[]
-  let laLigaScorers: NormalizedScorer[]
-  let championsLeagueScorers: NormalizedScorer[]
-
   try {
     squad = await getSquad()
-    laLigaScorers = await getScorers(LA_LIGA_COMPETITION_ID, season)
-    championsLeagueScorers = await getScorers(
-      CHAMPIONS_LEAGUE_COMPETITION_ID,
-      season
-    )
   } catch (err) {
     if (err instanceof FootballDataConfigError) {
       return errorResponse(
@@ -102,66 +110,79 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // ---- Fetch stats (api-football.com) ------------------------------------
+  let statsByPlayerName: Map<string, PlayerStatsPayload>
+  try {
+    statsByPlayerName = await getPlayerStats(season)
+  } catch (err) {
+    if (err instanceof ApiFootballConfigError) {
+      return errorResponse(
+        'Az api-football.com API kulcs nincs beállítva (API_FOOTBALL_KEY)',
+        503
+      )
+    }
+    if (err instanceof ApiFootballRequestError) {
+      return errorResponse(
+        `api-football.com nem elérhető: ${err.message}`,
+        502
+      )
+    }
+    return errorResponse(
+      err instanceof Error
+        ? `api-football.com hiba: ${err.message}`
+        : 'api-football.com hiba',
+      502
+    )
+  }
+
   if (squad.length === 0) {
     console.log(`${LOG_PREFIX} squad empty, nothing to sync`)
     return successResponse({ synced: 0, errors: [], season })
   }
 
-  // ---- Aggregate scorer stats by FCB player id ---------------------------
-  // Only scorers whose player.id matches a squad member contribute. Fallback
-  // to zeros when a player did not appear in either competition.
-  //
-  // ID-mapping: football-data.org returns the same numeric player id from
-  // /teams/{id} (squad) and /competitions/{id}/scorers — so the join key is
-  // simply `player.id`. Players who do not appear in either scorers list end
-  // up with all-zero stats (the /scorers endpoint only returns the top-100
-  // ranked players per competition, so bench/unused squad members are
-  // expected to fall through with zeros — this is an upstream limitation,
-  // NOT a mapping bug).
-  const statsByPlayerId = aggregateScorerStats(
-    squad,
-    laLigaScorers,
-    championsLeagueScorers
-  )
-
-  const squadIds = new Set(squad.map((m) => m.id))
-  const matchedScorerIds = new Set<number>()
-  const unmatchedScorerNames: string[] = []
-  for (const scorer of [...laLigaScorers, ...championsLeagueScorers]) {
-    if (squadIds.has(scorer.playerId)) {
-      matchedScorerIds.add(scorer.playerId)
-    } else {
-      unmatchedScorerNames.push(`${scorer.playerName}#${scorer.playerId}`)
+  // ---- Match stats to squad by normalized full name ----------------------
+  // football-data.org and api-football.com use disjoint player-id spaces, so
+  // we join on a normalized full name (lowercase, NFD-stripped diacritics,
+  // hyphens/apostrophes collapsed to spaces). See `normalizePlayerName` for
+  // details. Squad members with no entry on the api-football side get all
+  // zeros — logged below.
+  const matchedKeys = new Set<string>()
+  let playersWithStatsCount = 0
+  for (const member of squad) {
+    const stats = matchStats(member, statsByPlayerName)
+    if (stats.appearances > 0 || stats.goals > 0 || stats.minutes > 0) {
+      playersWithStatsCount += 1
+      matchedKeys.add(normalizePlayerName(member.name))
     }
   }
-
-  const playersWithStatsCount = Array.from(statsByPlayerId.values()).filter(
-    (s) => s.appearances > 0 || s.goals > 0 || s.assists > 0
-  ).length
   const playersWithoutStatsCount = squad.length - playersWithStatsCount
 
+  // Stats rows present on api-football.com that did not match any squad
+  // member (e.g. mid-season departures, B-team players). Informational only.
+  const squadKeys = new Set(squad.map((m) => normalizePlayerName(m.name)))
+  const orphanStatKeys: string[] = []
+  for (const key of statsByPlayerName.keys()) {
+    if (!squadKeys.has(key)) orphanStatKeys.push(key)
+  }
+
   console.log(
-    `${LOG_PREFIX} scorers fetched: laLiga=${laLigaScorers.length} ` +
-      `cl=${championsLeagueScorers.length}; squadMembers=${squad.length} ` +
-      `matchedToScorer=${matchedScorerIds.size} ` +
+    `${LOG_PREFIX} stats fetched: apiFootballEntries=${statsByPlayerName.size}; ` +
+      `squadMembers=${squad.length} ` +
+      `matched=${matchedKeys.size} ` +
       `noStats=${playersWithoutStatsCount} ` +
-      `(reason: not in either competition's top-100 scorers list)`
+      `(reason: no La Liga/CL row on api-football.com for the requested season)`
   )
-  if (unmatchedScorerNames.length > 0) {
+  if (orphanStatKeys.length > 0) {
     console.log(
-      `${LOG_PREFIX} ${unmatchedScorerNames.length} scorer rows did not match ` +
-        `any FCB squad id (these are non-FCB players in the same competition; ` +
-        `expected and ignored)`
+      `${LOG_PREFIX} ${orphanStatKeys.length} api-football stats rows did not ` +
+        `match any FCB squad name (likely departures or B-team; expected and ignored)`
     )
   }
 
-  // Per-player info log for squad members that did not appear in either
-  // competition's top-100 scorers list. Helps the admin distinguish "the API
-  // returned nothing" from "this player genuinely has zero stats".
   for (const member of squad) {
-    if (!matchedScorerIds.has(member.id)) {
+    if (!matchedKeys.has(normalizePlayerName(member.name))) {
       console.info(
-        `${LOG_PREFIX} no scorer entry for ${member.name} (#${member.id}) — ` +
+        `${LOG_PREFIX} no api-football stats for ${member.name} (#${member.id}) — ` +
           `recording zero stats`
       )
     }
@@ -199,7 +220,7 @@ export async function POST(request: NextRequest) {
       // Guarantee a fully-populated, non-null stats object so the DB never
       // stores `null` for any individual stat field (frontend treats null
       // as "unknown" and renders blanks instead of "0").
-      const stats = sanitizeStats(statsByPlayerId.get(member.id))
+      const stats = sanitizeStats(matchStats(member, statsByPlayerName))
 
       // Build the insert payload. For existing players we omit `bio` and
       // `image_url` so the admin's manual edits survive a re-sync; for
@@ -257,8 +278,8 @@ export async function POST(request: NextRequest) {
       `elapsedMs=${elapsedMs}`
   )
   console.log(
-    `${LOG_PREFIX} note: games_started, minutes, yellow_cards, red_cards are ` +
-      `not provided by /competitions/{id}/scorers — stored as 0`
+    `${LOG_PREFIX} stats source: api-football.com (La Liga 140 + CL 2); ` +
+      `squad source: football-data.org`
   )
 
   return successResponse({ synced, errors, season })
@@ -315,28 +336,14 @@ function sanitizeStats(
 }
 
 /**
- * Build a `playerId → stats` map summing La Liga + Champions League rows
- * for every squad member. Players who do not appear in either scorers
- * list end up with an all-zero stats payload (they have not yet scored,
- * assisted or played enough to be ranked — not a hard error).
+ * Look up a squad member's stats in the api-football map by normalized full
+ * name. Returns the empty stats sentinel when no entry exists — callers must
+ * still pass the result through `sanitizeStats()` before persisting.
  */
-function aggregateScorerStats(
-  squad: SquadPlayer[],
-  laLigaScorers: NormalizedScorer[],
-  championsLeagueScorers: NormalizedScorer[]
-): Map<number, PlayerStatsPayload> {
-  const result = new Map<number, PlayerStatsPayload>()
-  for (const member of squad) {
-    result.set(member.id, emptyStats())
-  }
-
-  for (const scorer of [...laLigaScorers, ...championsLeagueScorers]) {
-    const target = result.get(scorer.playerId)
-    if (!target) continue // scorer is not on the FCB squad — skip
-    target.goals += scorer.goals
-    target.assists += scorer.assists
-    target.appearances += scorer.playedMatches
-  }
-
-  return result
+function matchStats(
+  squadMember: SquadPlayer,
+  statsByName: Map<string, PlayerStatsPayload>
+): PlayerStatsPayload {
+  const key = normalizePlayerName(squadMember.name)
+  return statsByName.get(key) ?? emptyStats()
 }

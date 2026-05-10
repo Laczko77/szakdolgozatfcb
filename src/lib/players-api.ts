@@ -27,6 +27,7 @@ export interface PlayerStats {
   goals?: number;
   assists?: number;
   appearances?: number;
+  games_started?: number;
   minutes?: number;
   yellow_cards?: number;
   red_cards?: number;
@@ -117,6 +118,7 @@ export function readPlayerStats(stats: Player["stats"]): PlayerStats {
     goals: num("goals"),
     assists: num("assists"),
     appearances: num("appearances"),
+    games_started: num("games_started"),
     minutes: num("minutes"),
     yellow_cards: num("yellow_cards"),
     red_cards: num("red_cards"),
@@ -137,6 +139,7 @@ export function hasStats(stats: PlayerStats): boolean {
   return (
     (stats.goals ?? 0) > 0 ||
     (stats.assists ?? 0) > 0 ||
-    (stats.appearances ?? 0) > 0
+    (stats.appearances ?? 0) > 0 ||
+    (stats.minutes ?? 0) > 0
   );
 }

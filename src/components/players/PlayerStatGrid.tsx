@@ -31,6 +31,7 @@ const BARS: ReadonlyArray<BarDef> = [
   { key: "goals", label: "Gól", max: 40, accent: "var(--accent-red)" },
   { key: "assists", label: "Gólpassz", max: 25, accent: "var(--accent-gold)" },
   { key: "appearances", label: "Meccs", max: 50, accent: "var(--accent-blue)" },
+  { key: "games_started", label: "Kezdőként", max: 50, accent: "var(--accent-blue)" },
   {
     key: "minutes",
     label: "Játékperc",
