@@ -204,7 +204,7 @@ function RegisterPageInner() {
                 size={16}
                 className="mt-0.5 shrink-0 text-[var(--accent-gold)]"
               />
-              Visszairányítunk a Barça oldalra
+              Visszairányítunk a portálra
             </li>
           </ul>
           <p className="text-text-muted mt-3 text-center text-xs">

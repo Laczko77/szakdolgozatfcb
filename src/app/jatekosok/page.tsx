@@ -125,7 +125,7 @@ function JatekosokPageInner() {
           Játékosaink
         </h1>
         <p className="mt-4 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
-          A teljes első csapat egy helyen — kapusoktól a támadókig. Vidd
+          A teljes első csapat egy helyen — kapusoktól a támadókig. Vidd a
           kurzort egy kártya fölé a részletes statisztikákért, vagy
           kattints a teljes profilért.
         </p>

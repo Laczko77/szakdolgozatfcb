@@ -524,11 +524,11 @@ function SectorFormDialog({
     const priceNum = Number.parseFloat(price);
 
     if (!Number.isInteger(totalSeatsNum) || totalSeatsNum < 0) {
-      setError("Az összes hely nemnegatív egész szám kell legyen");
+      setError("Az összes helynek nemnegatív egész számnak kell lennie");
       return;
     }
     if (Number.isNaN(priceNum) || priceNum < 0) {
-      setError("Az ár nemnegatív szám kell legyen");
+      setError("Az árnak nemnegatív számnak kell lennie");
       return;
     }
 

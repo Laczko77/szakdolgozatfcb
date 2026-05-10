@@ -469,7 +469,7 @@ function IssuanceStatsCell({
   if (stats.total_issued === 0) {
     return (
       <span className="text-xs tabular-nums text-[var(--text-muted)]">
-        Nincs kibocsátva
+        Nincs kiállítva
       </span>
     );
   }
@@ -535,15 +535,15 @@ function CouponFormDialog({
       discountType !== "free_shipping" &&
       (Number.isNaN(parsedDiscountValue) || parsedDiscountValue < 0)
     ) {
-      setError("Az érték nemnegatív szám kell legyen");
+      setError("Az értéknek nemnegatív számnak kell lennie");
       return;
     }
     if (discountType === "percentage" && parsedDiscountValue > 100) {
-      setError("A százalékos kedvezmény értéke nem lehet 100 felett");
+      setError("A százalékos kedvezmény legfeljebb 100 lehet");
       return;
     }
     if (!Number.isInteger(parsedPointCost) || parsedPointCost < 0) {
-      setError("A pontár nemnegatív egész szám kell legyen");
+      setError("A pontárnak nemnegatív egész számnak kell lennie");
       return;
     }
 

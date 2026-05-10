@@ -82,7 +82,7 @@ function SuccessContent() {
         transition={{ duration: 0.5, delay: 0.3 }}
         className="relative z-10 mt-4 max-w-md text-sm text-[var(--text-secondary)] sm:text-base"
       >
-        A demo rendelésed sikeresen leadtuk. A részleteket bármikor megtalálod a
+        Rendelésedet sikeresen leadtuk. A részleteket bármikor megtalálod a
         profilodban a &quot;Rendeléseim&quot; fül alatt.
       </motion.p>
 

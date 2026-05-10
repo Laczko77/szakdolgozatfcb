@@ -70,7 +70,7 @@ export function CustomizeToolbar({
             >
               <RotateCcw size={14} aria-hidden />
               <span className="hidden sm:inline">Visszaállítás</span>
-              <span className="sm:hidden">Reset</span>
+              <span className="sm:hidden">Visszaállítás</span>
             </button>
 
             {/* Mentés */}

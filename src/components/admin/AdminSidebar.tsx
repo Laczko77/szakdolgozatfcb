@@ -96,7 +96,7 @@ export function AdminSidebar({ onNavigate, mobile = false }: AdminSidebarProps) 
         />
         <div className="flex flex-col leading-tight">
           <span className="font-display text-base uppercase tracking-[0.1em] text-[var(--text-primary)]">
-            Admin Panel
+            Admin felület
           </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
             Barcapulse

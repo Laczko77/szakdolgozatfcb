@@ -155,7 +155,7 @@ export function PlayerCard({ player, index = 0, priority = false }: PlayerCardPr
                   available={statsAvailable}
                 />
                 <MiniStat
-                  label="Assist"
+                  label="Gólpassz"
                   value={stats.assists ?? 0}
                   available={statsAvailable}
                 />

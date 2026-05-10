@@ -309,7 +309,7 @@ function PlayerEditDialog({ player, onClose, onSaved }: EditDialogProps) {
     setInfo(null);
 
     if (bio.trim() === (player.bio ?? "").trim() && !imageFile) {
-      setError("Nincs változtatás");
+      setError("Nem történt módosítás — adj meg legalább egy változtatást");
       return;
     }
 

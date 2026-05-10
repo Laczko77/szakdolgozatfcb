@@ -207,7 +207,7 @@ function KpiGrid({ overview }: { overview: Overview | null }) {
       label: "Felhasználók",
       value: numberFormatter.format(overview.total_users),
       icon: Users,
-      sub: `${numberFormatter.format(overview.total_consents)} cookie consent`,
+      sub: `${numberFormatter.format(overview.total_consents)} cookie-hozzájárulás`,
     },
     {
       label: "Rendelések",

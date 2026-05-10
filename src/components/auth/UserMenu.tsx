@@ -206,7 +206,7 @@ export function UserMenu({ className }: UserMenuProps) {
                   accent
                   onSelect={() => setOpen(false)}
                 >
-                  Admin Panel
+                  Admin felület
                 </MenuItem>
               )}
             </ul>

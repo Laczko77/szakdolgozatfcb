@@ -218,7 +218,7 @@ export default function AdminProductsPage() {
             Termékek
           </h1>
           <p className="text-sm text-[var(--text-secondary)]">
-            {total} termék · készlet inline szerkesztéssel.
+            {total} termék · helyszíni készletszerkesztéssel.
           </p>
         </div>
         <AdminButton onClick={handleNew}>

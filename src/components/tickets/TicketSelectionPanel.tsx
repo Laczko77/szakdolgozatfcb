@@ -181,7 +181,7 @@ export function TicketSelectionPanel({
           spellCheck={false}
           value={couponCode}
           onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-          placeholder="PL. CULER25"
+          placeholder="Pl.: CULER25"
           disabled={isSubmitting}
           className={cn(
             "w-full rounded-[var(--radius-md)] px-4 py-2.5",
@@ -197,7 +197,7 @@ export function TicketSelectionPanel({
       {/* Price summary */}
       <section className="mt-6 space-y-2 rounded-[var(--radius-md)] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-4">
         <SummaryRow
-          label="Jegy ár"
+          label="Jegyár"
           value={
             selectedSector
               ? `${formatPrice(Number(selectedSector.price))} × ${quantity}`

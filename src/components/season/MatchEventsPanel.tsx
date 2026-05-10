@@ -798,9 +798,9 @@ function TeamStatsSection({
     { label: "Lövések", home: stats.home.shots, away: stats.away.shots },
     { label: "Kapura", home: stats.home.shots_on_target, away: stats.away.shots_on_target },
     { label: "Szögletek", home: stats.home.corners, away: stats.away.corners },
-    { label: "Falták", home: stats.home.fouls, away: stats.away.fouls },
+    { label: "Szabálytalanság", home: stats.home.fouls, away: stats.away.fouls },
     {
-      label: "Passz %",
+      label: "Passz%",
       home: stats.home.pass_accuracy,
       away: stats.away.pass_accuracy,
       suffix: "%",

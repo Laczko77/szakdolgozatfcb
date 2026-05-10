@@ -203,20 +203,20 @@ const TILES: TileSpec[] = [
   },
   {
     key: "accuratePassesPercentage",
-    label: "Passz pontosság",
+    label: "Passzpontosság",
     Icon: PieChart,
     format: (v) => `${Math.round(v)}%`,
     tone: "text-[var(--text-primary)]",
   },
   {
     key: "cleanSheets",
-    label: "Clean sheet",
+    label: "Kapott gól nélküli",
     Icon: Trophy,
     tone: "text-emerald-300",
   },
   {
     key: "avgRating",
-    label: "Sofascore rating",
+    label: "Sofascore értékelés",
     Icon: Star,
     format: (v) => v.toFixed(2),
     tone: "text-[var(--accent-gold)]",

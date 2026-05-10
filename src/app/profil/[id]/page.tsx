@@ -346,7 +346,7 @@ function ProfileHero({
             <span className="inline-flex items-center gap-1.5">
               <Newspaper size={11} aria-hidden />
               <span className="tabular-nums">{profile.post_count}</span>{" "}
-              {profile.post_count === 1 ? "poszt" : "poszt"}
+              poszt
             </span>
             {profile.role === "admin" && (
               <span className="inline-flex items-center gap-1.5 text-[var(--accent-gold)]">

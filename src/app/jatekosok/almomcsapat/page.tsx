@@ -459,7 +459,7 @@ function DreamTeamPageInner() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
           Válaszd ki a formációt, majd húzd bármelyik játékost bármelyik
-          pozícióra. Inverted full-back, false-9, hátravont csatár — a
+          pozícióra. Inverzszelső, hamis kilences, hátravont csatár — a
           kreativitásnak nincs határa.
         </p>
       </motion.header>
@@ -536,7 +536,7 @@ function DreamTeamPageInner() {
                   <span className="text-[var(--accent-gold)]">
                     {playerById[selectedPoolPlayerId].name}
                   </span>
-                  {" "}— koppints egy slotra a pályán.
+                  {" "}— koppints egy pozícióra a pályán.
                 </span>
                 <button
                   type="button"

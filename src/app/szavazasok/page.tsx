@@ -227,7 +227,7 @@ function SectionHeader({
       </div>
       {!loading && (
         <span className="font-display text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-          {count} {count === 1 ? "elem" : "elem"}
+          {count} elem
         </span>
       )}
     </motion.div>

@@ -158,7 +158,7 @@ export function CacheLabel({ cachedAt, stale = false }: CacheLabelProps) {
           : "text-[var(--text-muted)]",
       )}
     >
-      {stale ? "Cache" : label}
+      {stale ? "Elavult" : label}
     </span>
   );
 }

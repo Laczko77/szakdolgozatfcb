@@ -131,7 +131,7 @@ export default function JegyekPage() {
         </h1>
         <p className="max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
           A teljes szezon hazai és idegenbeli meccsei. Válaszd ki a találkozót,
-          foglalj le a stadion térképén szektort és vidd haza a digitális
+          foglalj le szektort a stadion térképén, és vidd haza a digitális
           jegyedet pár kattintással.
         </p>
       </motion.header>

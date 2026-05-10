@@ -137,8 +137,8 @@ function HirekPageInner() {
         </h1>
         <p className="mt-4 max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
           Átigazolások, meccsösszefoglalók, interjúk és vélemények — minden,
-          ami a blaugrana világában történik. Frissítve, mire a meccs
-          lefújtak után felállsz a foteledből.
+          ami a blaugrana világában történik. Frissítve, mire felállsz a fotelből
+          a meccs lefújása után.
         </p>
       </motion.header>
 
