@@ -284,10 +284,13 @@ function RegisterPageInner() {
             onChange={(e) => setPassword(e.target.value)}
             error={errors.password}
             hint={
-              !errors.password ? "Legalább 8 karakter ajánlott." : undefined
+              !errors.password && password.length === 0
+                ? "Legalább 8 karakter ajánlott."
+                : undefined
             }
             required
           />
+          <PasswordStrengthMeter password={password} reduce={reduce} />
         </FieldRow>
 
         <FieldRow delay={0.15} reduce={reduce}>
@@ -367,6 +370,88 @@ function FieldRow({ children, delay, reduce }: FieldRowProps) {
       transition={{ duration: 0.4, ease: "easeOut", delay }}
     >
       {children}
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Password strength meter
+// ─────────────────────────────────────────────────────────────────────
+
+type StrengthScore = 0 | 1 | 2 | 3 | 4;
+
+function getStrength(pw: string): StrengthScore {
+  if (!pw) return 0;
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  return Math.min(4, score) as StrengthScore;
+}
+
+const STRENGTH_LABELS: Record<Exclude<StrengthScore, 0>, string> = {
+  1: "Gyenge",
+  2: "Mérsékelt",
+  3: "Erős",
+  4: "Nagyon erős",
+};
+
+const STRENGTH_COLORS: Record<Exclude<StrengthScore, 0>, string> = {
+  1: "var(--accent-red)",
+  2: "#f59e0b",
+  3: "#10b981",
+  4: "#06b6d4",
+};
+
+interface PasswordStrengthMeterProps {
+  password: string;
+  reduce: boolean;
+}
+
+function PasswordStrengthMeter({
+  password,
+  reduce,
+}: PasswordStrengthMeterProps) {
+  const score = getStrength(password);
+  if (score === 0) return null;
+
+  const color = STRENGTH_COLORS[score];
+  const label = STRENGTH_LABELS[score];
+
+  return (
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: -2 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      role="status"
+      aria-live="polite"
+      aria-label="Jelszó erőssége"
+      className="mt-2 space-y-1.5"
+    >
+      <div className="flex gap-1" aria-hidden="true">
+        {[1, 2, 3, 4].map((bar) => {
+          const active = bar <= score;
+          return (
+            <span
+              key={bar}
+              className="h-1 flex-1 rounded-full transition-[background-color,box-shadow] duration-300 ease-out"
+              style={{
+                backgroundColor: active ? color : "var(--glass-border)",
+                boxShadow: active ? `0 0 8px ${color}33` : "none",
+              }}
+            />
+          );
+        })}
+      </div>
+      <p
+        className="text-[11.5px] font-medium uppercase tracking-[0.14em]"
+        style={{ color }}
+      >
+        <span className="sr-only">Jelszó erőssége: </span>
+        {label}
+      </p>
     </motion.div>
   );
 }
