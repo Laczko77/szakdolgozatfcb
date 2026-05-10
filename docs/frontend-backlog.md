@@ -59,10 +59,10 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 172 |
-| Completed tasks | 172 |
-| Remaining tasks | 0 |
-| Completion | 100% |
+| Total tasks | 216 |
+| Completed tasks | 190 |
+| Remaining tasks | 26 |
+| Completion | 88,0% |
 
 ---
 
@@ -1326,5 +1326,349 @@ Az FC Barcelona szurkolói portál frontend rétege Next.js App Router + TypeScr
 - Optimista UI frissítések minden új gomb akciónál (kép-eltávolítás, hard delete)
 
 **Dependencies:** F1 (design system), F8 (jegyek), F19 (admin panel), F22 (álomcsapat), F26 (közösségi UI), Backend Iteration 23
+
+---
+
+### Iteration F28 — Webshop: Nézettség Alapú Rendezés & Top 3 Badge
+
+**Status:** DONE
+
+**Goal:** A webshop terméklistája rendezhető legyen a nézettség alapján (legtöbbet megtekintett termékek elöl), és a top 3 termék kapjon vizuális badge-jelzést. A funkció a Backend Iteration 24 új API mezőire épít (`sort=popular`, `top_products`, `view_count`, `is_top_3`).
+
+**Backend dependency:** Backend Iteration 24 (termék nézettség alapú rendezés & top 3 badge)
+
+**Tasks:**
+
+- [x] F28.1 Webshop terméklista rendezés UI (`src/app/shop/page.tsx`):
+  - Új rendezés dropdown / select a terméklista felett: "Legújabbak" (default), "Népszerűek", "Ár: növekvő", "Ár: csökkenő"
+  - A választás hatására a fetch query string módosul (`?sort=popular`)
+  - URL state perzisztens: a rendezés értéke a URL-ben tükröződik (`?sort=...`), oldalfrissítés után megmarad
+  - A rendezés választó liquid glass stílusú select / pill gombok
+
+- [x] F28.2 Top 3 badge megjelenítése (`src/components/shop/ProductCard.tsx` vagy ekvivalens):
+  - Új optional prop: `topRank?: 1 | 2 | 3`
+  - Ha `topRank` van, a kártya bal felső sarkán megjelenik egy arany glass badge: "🥇 Legnépszerűbb", "🥈 #2 népszerű", "🥉 #3 népszerű" (vagy egyszerűen "TOP 1", "TOP 2", "TOP 3")
+  - A badge subtle pulzáló animációval (Framer Motion) hívja fel a figyelmet
+  - A `ProductGrid` komponens a `top_products` listából rangot rendel minden kártyához (ha az ID benne van)
+
+- [x] F28.3 Termék részletes oldal top badge (`src/app/shop/[id]/page.tsx`):
+  - Ha az `is_top_3 = true`, a termékoldal hero szekciójában is megjelenik egy badge a termékkép közelében
+  - Diszkrét, de látható: arany glass kártya a top rang szöveggel
+
+- [x] F28.4 Empty state & loading state:
+  - Ha a `popular` rendezés választott és nincs nézettségi adat (új portál), fallback a `newest` rendezésre + info toast: "Még gyűlnek a nézettségi adatok"
+  - Loading skeleton változatlan, de a badge helyén placeholder
+
+- [x] F28.5 Regressziós tesztelés:
+  - A meglévő terméklista (default sort) változatlanul működik
+  - A wishlist és kosárba tétel funkciók a badge-zett kártyákon is működnek
+  - Mobil layout: a badge nem takarja el a wishlist szív ikont vagy az árat
+
+**Acceptance Criteria:**
+
+- A user a terméklistán választhat "Népszerűek" rendezést, ami a nézettség szerint rangsorol
+- A top 3 termék vizuálisan kiemelve jelenik meg badge-zsel a kártyán és a részletes oldalon
+- A rendezés URL-ben perzisztens, megosztható
+- A meglévő funkcionalitás (kosár, wishlist, értékelések) regressziómentes
+
+**Dependencies:** Iteration F8 (webshop), Backend Iteration 24
+
+---
+
+### Iteration F29 — Webshop: Akciós Ár Megjelenítés & Visszaszámláló
+
+**Status:** DONE
+
+**Goal:** A webshop terméklistája és termékoldala vizuálisan megjelenítse az akciós árakat: a piros akciós ár az áthúzott eredeti ár mellett, és határidős akciónál egy visszaszámláló óra a termékoldalon. A komponensek a Backend Iteration 25 új API mezőit (`sale_price`, `effective_price`, `is_on_sale`, `sale_ends_at`) használják.
+
+**Backend dependency:** Backend Iteration 25 (akciós ár & akcióidőszak)
+
+**Tasks:**
+
+- [x] F29.1 Termékkártya akciós ár megjelenítés (`src/components/shop/ProductCard.tsx`):
+  - Ha `is_on_sale = true`: az akciós ár pirosan, kiemelten (nagyobb font), mellette/alatta az eredeti ár áthúzva (`<s>`) és halványabb színnel
+  - Ha nincs akció: változatlan ár megjelenítés
+  - "AKCIÓS" sale badge a kártya jobb felső sarkán (piros glass badge)
+  - A wishlist szív ikon ne ütközzön a sale badge-zsel (különböző sarok)
+
+- [x] F29.2 Termékoldal akciós ár (`src/app/shop/[id]/page.tsx`):
+  - Hasonló logika: akciós ár pirosan, eredeti áthúzva
+  - A megtakarítás megjelenítése: "Megspórolsz: -X €" vagy "-Y%" felirat
+  - Sale badge a termék hero szekciójában
+
+- [x] F29.3 Visszaszámláló komponens (`src/components/shop/SaleCountdown.tsx`):
+  - Csak ha `is_on_sale = true && sale_ends_at !== null`
+  - Megjelenítés: "Az akció X nap, Y óra, Z perc, W mp múlva ér véget"
+  - Real-time frissülés (`setInterval` 1 mp-enként, cleanup unmounton)
+  - Liquid glass kártya, narancs/piros akcent
+  - Ha a visszaszámláló lejár: a komponens automatikusan eltűnik, a UI revalidálja a termék adatokat (refetch) hogy az akció állapota frissüljön
+  - Mobile: kompakt verzió (csak nap+óra)
+
+- [x] F29.4 Kosár és checkout integráció:
+  - A kosár drawer (`src/components/shop/CartDrawer.tsx`) az `effective_price`-t mutatja az áthúzott eredetivel együtt
+  - Checkout összegző: az akciós ár alapján számolt totál + "Megspórolt összeg" sor
+  - Kupon kedvezmény az akciós árra alkalmazódik (a backend ezt kezeli, de a UI is helyesen jeleníti meg)
+
+- [x] F29.5 Admin termékszerkesztő frissítése (`src/app/admin/termekek/[id]/page.tsx`):
+  - Új akció szekció a formban: "Akciós ár" mező (number, opcionális), "Akció kezdete" (datetime-local), "Akció vége" (datetime-local)
+  - Validáció (zod): `sale_price < price`, `sale_ends_at > sale_starts_at`
+  - "Akció törlése" gomb (a 3 mezőt NULL-ra állítja a `DELETE /api/admin/products/[id]/sale` endpointtal)
+  - Akció állapot vizuális indikátor: "Akció aktív (X napig)" / "Akció ütemezve (X-tól)" / "Akció lejárt"
+
+- [x] F29.6 Admin terméklista akció oszlop:
+  - Az admin termékek táblázatában új oszlop: "Akció" — badge ha aktív akció, üres ha nincs
+  - Szűrő: "Csak akciós termékek" toggle
+
+- [x] F29.7 Dashboard / landing page integráció (opcionális):
+  - "Aktuális akciók" widget a dashboardon vagy a webshop kezdőlapon (max 4-5 akciós termék kiemelése)
+  - Csak akkor jelenik meg ha vannak aktív akciók
+
+- [x] F29.8 Regressziós tesztelés:
+  - Akció nélküli termékek változatlanul jelennek meg
+  - Kosárba tétel és checkout helyesen kalkulál akciós árral
+  - Lejáró countdown frissíti a UI állapotot
+
+**Acceptance Criteria:**
+
+- Akciós termék: piros akciós ár + áthúzott eredeti, "AKCIÓS" badge a kártyán és a termékoldalon
+- Visszaszámláló a termékoldalon real-time mutatja a hátralévő időt
+- Lejárás után a UI automatikusan visszavált a normál árra
+- Admin tud akciót létrehozni, módosítani, törölni a termékszerkesztőben
+- A kosár, checkout, admin terméklista konzisztensen jelzi az akciós állapotot
+
+**Dependencies:** Iteration F8 (webshop), F15 (admin), Backend Iteration 25
+
+---
+
+### Iteration F30 — Dashboard Personalizáció UI (Widget Sorrend & Láthatóság)
+
+**Status:** DONE
+
+**Goal:** A user a dashboard widgeteit testreszabhatja: drag-and-drop sorrend módosítás, widgetek elrejtése/megjelenítése, és a beállítások mentése a Backend Iteration 26-tal.
+
+**Backend dependency:** Backend Iteration 26 (dashboard preferences backend)
+
+**Tasks:**
+
+- [x] F30.1 Widget regiszter (`src/lib/dashboard-widgets.ts`):
+  - A backend katalógusát (Backend 26.3) tükröző frontend widget-regiszter: `{ id, label, component: React.FC, defaultVisible, defaultOrder, gridSpan: 1 | 2 }`
+  - Minden meglévő widget komponens regisztrálva (NextMatch, LatestNews, PointsBalance, Orders, Standings, TopScorers, ActivePolls, RecommendedProducts)
+  - A dashboard oldal a regiszter + user preferences alapján rendereli a widgeteket
+
+- [x] F30.2 Dashboard layout újraépítés (`src/app/dashboard/page.tsx`):
+  - A meglévő hardkódolt widget grid lecserélése egy dinamikus rendszerre: a user preferences alapján szűrt és rendezett widget lista renderelése
+  - `GET /api/dashboard-preferences` lekérdezés (SWR / React Query)
+  - Loading állapot: skeleton grid (a meglévő logika)
+
+- [x] F30.3 "Testreszabás" mód toggle:
+  - A dashboard tetején "Testreszabás" gomb (ceruza ikon)
+  - Aktiválva: a widgetek átlátszóbb állapotba kerülnek, mindegyiken egy kis "fogd & húzd" jelzés és egy "elrejtés" (X) gomb látszik
+  - "Mentés" és "Mégse" gombok a tetején
+
+- [x] F30.4 Drag-and-drop sorrend (`@dnd-kit/core` használatával — már installálva F22-ben):
+  - A widgetek egymás közötti sorrendje húzással átrendezhető
+  - Mobil: long-press → drag (TouchSensor)
+  - Vizuális visszajelzés: drop zone highlight, dragged item árnyékolt
+
+- [x] F30.5 Widget elrejtés / visszahozás:
+  - "Elrejtés" gombra kattintva a widget eltűnik a dashboardról (lokálisan)
+  - "Rejtett widgetek" panel a testreszabási mód alatt: lista a rejtett widgetekről + "Megjelenítés" gomb mindegyiknél
+
+- [x] F30.6 Mentés flow:
+  - "Mentés" gombra `PUT /api/dashboard-preferences` hívás a teljes új konfigurációval
+  - Toast siker / hiba esetén
+  - Sikeres mentés után a testreszabási mód kilép, a preferences a normál nézetben már aktív
+
+- [x] F30.7 Reset to default:
+  - "Visszaállítás alapértelmezettre" gomb a testreszabási módban
+  - Megerősítő dialog → `POST /api/dashboard-preferences/reset`
+  - Refetch + UI frissítés
+
+- [x] F30.8 Új widget hozzáadása szekció (a webshop ajánlókhoz):
+  - A testreszabási módban "Új widget hozzáadása" szekció: a katalógusban szereplő, de még nem hozzáadott widgetek listája (pl. RecommendedProducts ha alapból nem volt)
+  - Kattintásra a widget felkerül a dashboardra (a lista végére)
+
+- [x] F30.9 Mobil testreszabás UX:
+  - Mobil viewen a drag-and-drop helyett "fel/le" nyilak a widget mellett (tap-alapú)
+  - Az elrejtés és megjelenítés ugyanúgy működik
+
+- [x] F30.10 Regressziós tesztelés:
+  - Új user a default widget elrendezést látja
+  - Mentett konfiguráció visszatöltődik oldalfrissítés után
+  - Nem-bejelentkezett user (ha a /dashboard publikus lenne) — nem releváns, ide csak bejelentkezve jut
+
+**Acceptance Criteria:**
+
+- A user a dashboardon "Testreszabás" módba léphet, ahol drag-and-drop sorrendet és láthatóságot állíthat
+- A változások mentődnek a backendre, oldalfrissítés után megmaradnak
+- "Visszaállítás alapértelmezettre" működik
+- Új widgetek hozzáadhatók a meglévő katalógusból
+- Mobil verzió usability-szerű
+
+**Dependencies:** Iteration F5 (dashboard), F22 (dnd-kit már telepítve), Backend Iteration 26
+
+---
+
+### Iteration F31 — /season Oldal: La Liga Szezon Vizualizáció
+
+**Status:** DONE
+
+**Goal:** Egy dedikált `/season` oldal megalkotása, amely a teljes La Liga szezon menetét vizualizálja gazdag, interaktív Recharts diagramokon. A megvalósítás a Backend Iteration 27 új endpointjait használja. **API-Football kompatibilitási megjegyzés:** a free tier football-data.org API-val a fő grafikonok (pont evolúció, forma, gólkülönbség) jól megvalósíthatók, viszont a **bar chart race** időbeli animáció és a **részletes meccs eseménytörténet** korlátozottan elérhető — ezeknél fallback megjelenítést tervezünk.
+
+**Backend dependency:** Backend Iteration 27 (/season API endpointok)
+
+**Tasks:**
+
+- [x] F31.1 `/season` oldal route és layout (`src/app/season/page.tsx`):
+  - Auth nem kötelező (publikus oldal a szezonadatokhoz)
+  - Hero szekció: "La Liga 2025/26 — A teljes szezon egy pillantásra" cím + szezon választó dropdown (ha többet támogatunk később)
+  - Tab navigáció vagy szekciókra bontott egyoldalas görgetés: "Pontok evolúciója", "Forma", "Gólkülönbség", "Top gólszerzők", "Meccsek"
+
+- [x] F31.2 Pont evolúció vonaldiagram (`src/components/season/PointsEvolutionChart.tsx`):
+  - Recharts LineChart
+  - X tengely: forduló (matchday 1-38)
+  - Y tengely: kumulatív pontok
+  - Két vonal: FC Barcelona (kék) + 2. helyezett (piros)
+  - Adatlekérés: `GET /api/season/standings-evolution?competition=2014&season=2025`
+  - Tooltip: forduló, csapat, pont, gólkülönbség
+  - Legend: csapatnevek logókkal
+  - Mobil: scrollable horizontálisan vagy zoom out
+  - Loading: skeleton grafikon
+
+- [x] F31.3 Forma chips utolsó 10 meccs (`src/components/season/FormChips.tsx`):
+  - Adatlekérés: `GET /api/season/team-form?team_id=81`
+  - 10 db kerek chip egymás mellett: zöld G (győzelem), sárga D (döntetlen), piros V (vereség)
+  - Mindegyik chip tooltipben: ellenfél, dátum, eredmény
+  - Vizuálisan: a chips fade-in animációval töltődnek be (Framer Motion stagger)
+  - Összesítő: "Utolsó 10: 7G 2D 1V" felirat alul
+
+- [x] F31.4 Gólkülönbség evolúció (`src/components/season/GoalDifferenceChart.tsx`):
+  - Recharts AreaChart vagy LineChart
+  - X tengely: forduló
+  - Y tengely: kumulatív gólkülönbség (FC Barcelona vs. liga átlag vagy 2. helyezett)
+  - Pozitív értékek zöld kitöltés, negatív piros
+  - Adat ugyanabból az endpointból (Backend 27.3) — a `goal_difference` mező használata
+
+- [x] F31.5 Top gólszerzők (snapshot, NEM bar chart race) (`src/components/season/TopScorersSnapshot.tsx`):
+  - Adatlekérés: `GET /api/season/scorers-snapshot?competition=2014&limit=10`
+  - **API korlát fallback:** mivel az API nem ad fordulónkénti evolúciót, a komponens egy ANIMÁLT BELÉPÉSŰ horizontális bar chart-ot mutat (Framer Motion: a sávok 0-ról animáltan nőnek a végértékre, balról jobbra stagger)
+  - Felirat a komponens alatt: "Az évad pillanatfelvétele — fordulónkénti evolúció a jelenlegi API plan-en nem elérhető"
+  - FC Barcelona játékosok kiemelése (akcent szín)
+  - Kattintás egy játékosra → játékos profil oldal navigáció
+
+- [x] F31.6 Meccsek timeline & részletek (`src/components/season/MatchesTimeline.tsx`):
+  - Az összes szezon meccs listázva (dátum szerint)
+  - Minden meccs egy kompakt sor: dátum, hazai csapat (logó+név), eredmény, vendég csapat, fordulószám
+  - **Kattintásra meccs részletek modal/expandable:**
+    - Adatlekérés: `GET /api/season/match/[id]`
+    - Megjelenítés: gólok (perc + scorer), lapok (perc + player + szín), cserék (perc + ki/be)
+    - **API korlát fallback:** ha a response `data_quality: 'partial'` vagy `'unavailable'`, "Részletes események nem elérhetők ehhez a meccshez" üzenet + alapadatok (score) megjelenítése
+
+- [x] F31.7 Szezon választó (jövőbeli kompatibilitás):
+  - Dropdown a /season oldal tetején: "2025/26", "2024/25", "2023/24" (ha az API-n elérhető)
+  - A választás hatására a query param frissül (`?season=2024`), a komponensek refetchelnek
+
+- [x] F31.8 Loading & error states:
+  - Minden grafikon külön skeleton loaderrel
+  - Error state: barátságos hibaüzenet + retry gomb (pl. "A football-data.org API jelenleg nem elérhető")
+
+- [x] F31.9 Responsive design:
+  - Desktop: 2 oszlopos elrendezés (pl. balra pont evolúció, jobbra forma chips)
+  - Mobil: 1 oszlopos vertikális stack
+  - A grafikonok mobilon scrollable / zoomable ha sok adat van (Recharts ResponsiveContainer)
+
+- [x] F31.10 Navigáció:
+  - A főnavbar-ba új menüpont: "Szezon" → /season
+  - Footer link is
+
+- [x] F31.11 Performance:
+  - SWR / React Query cache 5-10 perc TTL-lel (backend cache mellé kliensoldali)
+  - Lazy loading: a meccs timeline csak amikor a scroll odaér (Intersection Observer)
+
+**Acceptance Criteria:**
+
+- A `/season` oldal megjeleníti a La Liga szezon vizuális összefoglalóját
+- A pont evolúció és gólkülönbség vonaldiagramok fordulónkénti adattal töltődnek
+- A forma chips az utolsó 10 meccs eredményét mutatják
+- A top gólszerzők animált bar chart-tal jelennek meg, a fordulónkénti evolúció hiányát kommunikálva
+- A meccsek timeline kattintható, részletek elérhetők ahol az API ad ki adatot
+- A korlátozott API adatok esetén értelmes fallback üzenet jelenik meg
+- Mobil responsive és perfomant
+
+**Dependencies:** Iteration F1 (design), F2 (navbar), Backend Iteration 27
+
+---
+
+### Iteration F32 — Termék Több Kép Galéria UI
+
+**Status:** DONE
+
+**Goal:** A termék részletes oldal kibővítése egy interaktív képgalériával: nagy fő kép + thumbnail-ek alatta, lapozás (előző/következő), zoom/lightbox, és touch swipe mobilra. A funkció a Backend Iteration 28 új API mezőit használja.
+
+**Backend dependency:** Backend Iteration 28 (több kép & galéria backend)
+
+**Tasks:**
+
+- [x] F32.1 Termékoldal galéria komponens (`src/components/shop/ProductGallery.tsx`):
+  - Bal/fent: nagy fő kép (kiválasztott)
+  - Alatta: thumbnail csíkban a többi kép (max 5 látható, vízszintes scroll ha több)
+  - Aktív thumbnail kiemelve (arany szegély)
+  - Kattintás egy thumbnail-re: a fő kép azonnal arra cserélődik (smooth fade transition)
+  - Előző / következő nyíl gombok a fő kép szélén (csak hover-en látszanak desktopon)
+
+- [x] F32.2 Lightbox / fullscreen view:
+  - A fő képre kattintva fullscreen overlay nyílik (sötét backdrop + glass kontent)
+  - Fullscreen-ben: a kép nagyított nézete, lapozási nyilak, thumbnail strip alul
+  - Bezárás: X gomb, Escape, backdrop kattintás
+  - Animáció: scale-in (Framer Motion)
+
+- [x] F32.3 Touch swipe mobil:
+  - A fő képen balra/jobbra húzás (`framer-motion` `drag="x"` vagy egyszerű touchstart/touchend listener)
+  - Mobil viewen a thumbnail strip lentebb, scrollable
+
+- [x] F32.4 Termékoldal integráció (`src/app/shop/[id]/page.tsx`):
+  - A meglévő egy-képes layout lecserélése a `ProductGallery` komponensre
+  - A galéria a `product.images` tömböt fogyasztja (Backend 28.5 új mező)
+  - Ha csak 1 kép van (vagy a régi `image_url`-rel kompatibilis), egyszerűsített nézet (csak a fő kép, nincs thumbnail)
+
+- [x] F32.5 Admin galéria kezelő (`src/app/admin/termekek/[id]/page.tsx`):
+  - Új szekció "Termékképek": drag-and-drop kép feltöltő (`react-dropzone` vagy natív)
+  - Feltöltött képek thumbnail rácsban, mindegyikkel:
+    - "Cover" rádió gomb (csak egy lehet aktív; átkapcsolás a `PUT /api/admin/products/[id]/images/[imageId]/cover`-ral)
+    - "Törlés" X gomb (megerősítéssel, `DELETE /api/admin/products/[id]/images/[imageId]`)
+    - Drag-handle (sorrendezés `@dnd-kit/sortable`-lal, a `PUT /api/admin/products/[id]/images/order` hívással)
+  - Maximum 10 kép limit jelzése (a backend is enforce-olja)
+
+- [x] F32.6 Új termék létrehozó form frissítése:
+  - Több kép feltöltés egyszerre (multiple file input + preview)
+  - Az első kép automatikusan cover (vagy kézi választás)
+
+- [x] F32.7 Kosár / wishlist / kártya kompatibilitás:
+  - A terméklista, kosár, wishlist továbbra is a cover képet használja (a `image_url` vagy `images.find(i => i.is_cover)` mezőből)
+  - Nincs változás ezeken a felületeken
+
+- [x] F32.8 Performance optimalizáció:
+  - A galéria képek lazy loading-gal (`<Image loading="lazy">`)
+  - A nem aktív thumbnail-ek alacsonyabb felbontásban (next/image `sizes` prop)
+  - A lightbox high-res verziót tölt csak megnyitáskor
+
+- [x] F32.9 Loading & error states:
+  - Skeleton placeholder galéria betöltés alatt
+  - Ha egy kép nem tölthető be (404), placeholder ikon
+
+- [x] F32.10 Regressziós tesztelés:
+  - Régi, egy-képes termékek: a galéria egy képpel jelenik meg, thumbnail strip nélkül
+  - Új, több-képes termékek: minden funkció (lapozás, lightbox, swipe) működik
+  - Admin: kép feltöltés, sorrendezés, cover beállítás, törlés
+
+**Acceptance Criteria:**
+
+- A termékoldalon több kép esetén galéria jelenik meg lapozással
+- Touch swipe működik mobilon
+- Lightbox fullscreen-ben mutatja a kiválasztott képet
+- Admin tud képeket feltölteni, sorrendezni, törölni, cover-t választani
+- Egy-képes termékek (régi adatok) hibamentesen jelennek meg
+
+**Dependencies:** Iteration F8 (webshop), F15 (admin), Backend Iteration 28
 
 ---

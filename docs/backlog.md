@@ -10,10 +10,10 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 
 | Metric              | Value |
 |---------------------|-------|
-| Total tasks         | 113   |
-| Completed tasks     | 113   |
-| Remaining tasks     | 0     |
-| Completion          | 100%  |
+| Total tasks         | 146   |
+| Completed tasks     | 126   |
+| Remaining tasks     | 20    |
+| Completion          | 86,3% |
 
 ---
 
@@ -926,5 +926,297 @@ Egy FC Barcelona szurkolói portál backend rendszere Next.js + Supabase + API-F
 - Csak admin érheti el az új endpointokat
 
 **Dependencies:** Iteration 4 (players), Iteration 10 (coupons), Iteration 12 (RLS)
+
+---
+
+### Iteration 24 — Termék Nézettség Alapú Rendezés & Top 3 Badge
+
+**Status:** DONE
+
+**Goal:** A meglévő `page_views` tábla és tracking infrastruktúra kihasználása arra, hogy a webshop terméklistája automatikusan a legtöbbet megtekintett termékeket emelje a lista elejére, és a top 3 termék badge-jelzést kapjon a publikus API válaszban. A funkció kizárólag a meglévő tracking adatokra épül — új séma nem kell, csak aggregációs view és a listázó endpoint kibővítése.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 24.1 Termék nézettség aggregátum view / RPC (`supabase/migrations/<dátum>_product_view_counts.sql`):
+  - `product_view_counts` view: `SELECT product_id, COUNT(*) AS view_count FROM page_views WHERE product_id IS NOT NULL GROUP BY product_id`
+  - Opcionális időablak paraméter (last_30_days) — RPC `get_product_view_counts(window_days int DEFAULT NULL)` ami szűri a `page_views.created_at >= now() - interval '<n> days'` feltételre
+  - Index: `page_views(product_id, created_at DESC)` ha még nincs (perf)
+
+- [x] 24.2 `GET /api/products` listázó endpoint kibővítése (`src/app/api/products/route.ts`):
+  - Új query param: `sort` — elfogadott értékek `'newest'` (default), `'popular'` (nézettség DESC), `'price_asc'`, `'price_desc'`
+  - `popular` esetén a `product_view_counts` view-val LEFT JOIN, `view_count DESC NULLS LAST` rendezés
+  - A response minden termék objektumában új `view_count: number` mező (default 0 ha nincs adat)
+  - A response top szintű új mező: `top_products: number[]` (a legnézettebb 3 termék ID-ja, függetlenül a lapozástól) — a frontend ezt használja a badge rendereléshez
+  - Backward compatibility: a meglévő hívók (sort param nélkül) változatlanul működnek
+
+- [x] 24.3 `GET /api/products/[id]` endpoint kibővítése:
+  - Response-hoz hozzáadni `view_count: number` és `is_top_3: boolean` (az adott termék benne van-e a top 3-ban) mezőket
+  - A számítás: a 24.1-es view alapján rangsor + ha a termék rangja <= 3, `is_top_3 = true`
+
+- [x] 24.4 Top 3 cache stratégia (opcionális, perf):
+  - A "top 3 termék ID" számítás cache-elhető 5-10 percig (in-memory Map TTL-lel) hogy ne fusson minden listázásnál
+  - Ha a cache-megoldást választjuk: invalidálás a `POST /api/tracking/pageview` endpoint hívásánál (minden 100. event-nél vagy időalapú TTL-lel)
+
+- [x] 24.5 Regressziós tesztelés:
+  - A meglévő terméklista (sort nélkül) változatlanul működik
+  - A `popular` rendezés helyesen rangsorol nézettség alapján
+  - A `top_products` mező pontosan 3 elemet tartalmaz (vagy kevesebb, ha kevés termék van összesen)
+  - Termék nélküli `page_views` rekordok (csak `page_path`) nem zavarják az aggregációt
+  - Cookie consent nélküli userek nem rontják az aggregátumot (a tracking alapból csak consent után rögzít)
+
+**Acceptance Criteria:**
+
+- A `GET /api/products?sort=popular` endpoint a leglátogatottabb termékeket a lista elejére helyezi
+- A response tartalmaz egy `top_products: number[]` mezőt a top 3 termék ID-jával
+- A `GET /api/products/[id]` egy `is_top_3` boolean mezőt ad vissza
+- A meglévő endpointok (sort nélkül) regressziómentesen működnek
+- A nézettség aggregátum kizárólag a `page_views` táblából származik, új tracking nem kell
+
+**Dependencies:** Iteration 5 (webshop), Iteration 11 (page_views tracking)
+
+---
+
+### Iteration 25 — Termék Akciós Ár & Akcióidőszak
+
+**Status:** DONE
+
+**Goal:** A webshop kibővítése akciós ár támogatással. Az admin egy termékhez beállíthat akciós árat és időszakot (kezdő- és végdátumot). A publikus API válaszában mind az eredeti, mind az akciós ár szerepel; a frontend dönti el a megjelenítést. Az akciós idő intervallum logika szerveroldalon érvényesül: ha az aktuális idő az intervallumon kívül esik, az akciós ár inaktív (a frontend visszaszámlálót renderelhet ha `sale_ends_at` van).
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 25.1 Adatbázis migráció (`supabase/migrations/<dátum>_products_sale_pricing.sql`):
+  - `products` tábla bővítése: `sale_price NUMERIC(10,2) NULL`, `sale_starts_at TIMESTAMPTZ NULL`, `sale_ends_at TIMESTAMPTZ NULL`
+  - CHECK constraint: `sale_price IS NULL OR sale_price < price` (akciós ár mindig kisebb mint az eredeti)
+  - CHECK constraint: `sale_starts_at IS NULL OR sale_ends_at IS NULL OR sale_starts_at < sale_ends_at`
+  - Index: `products(sale_starts_at, sale_ends_at)` ha gyakori a szűrés aktív akciókra
+  - TypeScript típusok frissítése `src/types/database.ts`-ben
+
+- [x] 25.2 Admin termékkezelő endpoint kibővítés (`PUT /api/admin/products/[id]`, `POST /api/admin/products`):
+  - Új form mezők: `sale_price` (number, opcionális), `sale_starts_at` (ISO datetime, opcionális), `sale_ends_at` (ISO datetime, opcionális)
+  - Validáció: ha `sale_price` van, akkor `< price` legyen; ha `sale_ends_at` van, akkor `> sale_starts_at` (vagy `> now()`); ha akciót törlünk, mind a 3 mezőt NULL-ra állítja
+  - Új admin akció-törlő endpoint: `DELETE /api/admin/products/[id]/sale` — gyors törlés (mind a 3 mezőt NULL-ra állítja)
+
+- [x] 25.3 Publikus API válasz kibővítése (`GET /api/products`, `GET /api/products/[id]`):
+  - Minden termék objektumban szerveroldali `effective_price` mező: ha `sale_price IS NOT NULL AND now() BETWEEN sale_starts_at AND sale_ends_at` (vagy `sale_starts_at IS NULL`), akkor `sale_price`, egyébként `price`
+  - A response tartalmazza: `price`, `sale_price`, `sale_starts_at`, `sale_ends_at`, `effective_price`, `is_on_sale: boolean`
+  - A frontend a `is_on_sale` és `sale_ends_at` alapján dönt visszaszámlálóról
+
+- [x] 25.4 Checkout integráció (`POST /api/orders`):
+  - A rendelés létrehozásakor az `order_items.unit_price` mező az akciós ár alapján számolódik (ha aktív az akció), nem az eredeti `price`
+  - A kupon kedvezmény az akciós árra alkalmazódik (additív, NEM stack-elhető — a kupon az `effective_price`-t csökkenti tovább)
+  - Race condition kezelése: ha az akció a checkout során lejár, a rendelés még az akciós áron rögzítődik (a kosárba tételekor mentett ár nem változik checkoutkor)
+
+- [x] 25.5 Admin akció lista endpoint (opcionális, dashboardhoz):
+  - `GET /api/admin/products/sales` — aktív és közeljövőbeli akciók listája (admin overview)
+
+- [x] 25.6 Regressziós tesztelés:
+  - Akció nélküli termékek (sale_price = NULL) változatlanul működnek
+  - Akciós termék rendelése helyes árral rögzül
+  - Lejárt akció után a publikus API automatikusan az eredeti árat adja vissza
+  - Admin tudja akciót létrehozni, módosítani, törölni
+
+**Acceptance Criteria:**
+
+- Admin tud egy terméknek akciós árat és időszakot beállítani
+- A publikus API a `is_on_sale`, `effective_price`, `sale_ends_at` mezőket konzisztensen visszaadja
+- Lejárt vagy még el nem indult akció esetén az `effective_price` az eredeti ár
+- A rendelések az akciós áron rögzülnek ha az akció aktív
+- A CHECK constraint-ek megakadályozzák az érvénytelen adatokat
+
+**Dependencies:** Iteration 5 (webshop)
+
+---
+
+### Iteration 26 — Dashboard Widget Personalizáció Backend
+
+**Status:** DONE
+
+**Goal:** A bejelentkezett user maga dönthesse el, mely dashboard widgeteket szeretné látni és milyen sorrendben. A beállítás user-szinten perzisztens, RLS-szel védett. A widget-katalógus szerveroldali konstansként él, a user csak a sorrendet és láthatóságot menti.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 26.1 Adatbázis migráció (`supabase/migrations/<dátum>_dashboard_preferences.sql`):
+  - `dashboard_preferences` tábla: `id UUID PK`, `user_id UUID FK profiles UNIQUE`, `widget_config JSONB NOT NULL`, `created_at`, `updated_at`
+  - A `widget_config` JSONB struktúrája: `[{ widget_id: string, visible: boolean, order: number }, ...]`
+  - Index: `dashboard_preferences(user_id)` (UNIQUE constraint elég)
+  - Trigger: `updated_at` autoupdate
+
+- [x] 26.2 RLS policy-k:
+  - User csak a sajátját olvashatja (`user_id = auth.uid()`)
+  - User csak a sajátját módosíthatja (insert/update — `user_id = auth.uid()`)
+  - Admin minden sort lát (analitika célra)
+
+- [x] 26.3 Widget katalógus konstans (`src/lib/constants/dashboard-widgets.ts`):
+  - Minden elérhető widget exportálva: `{ id, label, defaultVisible, defaultOrder }`
+  - Példa widgetek: `next_match`, `latest_news`, `points_balance`, `orders`, `standings`, `top_scorers`, `active_polls`, `recommended_products`
+  - A widget katalógus az egyetlen igazságforrás — a backend ezt validálja, a frontend ezt rendereli
+
+- [x] 26.4 CRUD endpointok (`src/app/api/dashboard-preferences/`):
+  - `GET /api/dashboard-preferences` — a bejelentkezett user widget-konfigurációja; ha még nincs (új user), a default katalógus alapján generált tömb visszaadása (nem 404)
+  - `PUT /api/dashboard-preferences` — teljes widget_config frissítése (upsert szemantika)
+  - Validáció: a `widget_config` minden eleme valid `widget_id`-t tartalmaz a katalógusból; az `order` mezők egyediek; a `visible` boolean
+
+- [x] 26.5 Részleges frissítés / reset endpoint:
+  - `POST /api/dashboard-preferences/reset` — visszaállítja a default katalógusra (a sor törlése elég, a `GET` legközelebb a default-ot adja)
+
+- [x] 26.6 Regressziós tesztelés:
+  - Új user `GET` hívása a default katalógust adja
+  - Mentett konfiguráció helyesen visszatöltődik
+  - Érvénytelen widget_id-vel a `PUT` 400-at ad
+  - RLS megakadályozza idegen user beállítás olvasását/módosítását
+
+**Acceptance Criteria:**
+
+- User mentheti a saját dashboard widget sorrendjét és láthatóságát
+- Új user a default katalógust kapja (nem üres dashboard)
+- A katalógus konstans központi helyen él, frontend és backend közösen használja
+- RLS védi a beállításokat
+
+**Dependencies:** Iteration 2 (auth)
+
+---
+
+### Iteration 27 — /season Oldal Backend (La Liga Szezon Vizualizáció API-k)
+
+**Status:** DONE
+
+**Goal:** A `/season` oldal backend támogatása: a szükséges adatok aggregálása a football-data.org-ról, cache-elt endpointokon át. A funkció a meglévő `getMatches`, `getStandings`, `getScorers` hívásokat használja, kiegészítve egy meccs-szintű részlet endpointtal. **API-Football kompatibilitás megjegyzés:** a projekt már football-data.org-on van, az alábbi adatok elérhetősége vegyes (lásd lent).
+
+> **API-támogatottság vizsgálat (football-data.org free tier):**
+> - **Pont evolúció fordulóról fordulóra:** TÁMOGATOTT — a `/competitions/2014/matches?season=X` endpoint visszaadja az ÖSSZES La Liga meccset matchday-jel; a kumulatív pontok kliens vagy szerver oldali aggregációval számolhatók minden csapatra
+> - **2. helyezett összehasonlítás:** TÁMOGATOTT — ugyanazon adatból a 2. helyezett kumulatív pontjai kiszámolhatók fordulónként
+> - **Forma utolsó 10 meccs (G/D/V):** TÁMOGATOTT — a `/teams/81/matches?season=X&status=FINISHED` utolsó 10 elemének score-ja alapján
+> - **Gólkülönbség evolúció:** TÁMOGATOTT — meccsenkénti score-okból kumulatív
+> - **Top gólszerzők bar chart race (időbeli animáció):** **CSAK RÉSZBEN TÁMOGATOTT** — a `/competitions/2014/scorers` endpoint csak az AKTUÁLIS snapshot-ot adja, NEM tartalmaz fordulónkénti evolúciót; valódi bar chart race-hez minden meccs scorer adata kell. A `/matches/{id}` endpoint a free tier-en a `goals[]` tömböt **változó mértékben** adja vissza, ezért a fordulónkénti player-szintű gól-evolúció **nem garantáltan rekonstruálható**. Javasolt fallback: jelenlegi snapshot animált megjelenése (entry animation) bar chart race vizuál helyett, vagy az utolsó N forduló cumulative gólszámának közelítése
+> - **Egyes meccs eseményei (timeline: gólok, lapok, cserék):** **KORLÁTOZOTTAN TÁMOGATOTT** — a `/matches/{id}` endpoint a free tier-en `goals[]`, `bookings[]`, `substitutions[]` mezőket **fizetős vagy magasabb tier-en** szolgáltat következetesen. Free tier-en sok meccsnél hiányos vagy üres. Javasolt fallback: meccs score + scorers info, "részletek nem elérhetők" üzenet ahol az API nem ad adatot
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 27.1 `getCompetitionMatches(competitionId, season)` függvény hozzáadása `src/lib/football-data.ts`-hez:
+  - `GET /competitions/{competitionId}/matches?season=<season>` hívás
+  - Visszaadja az ÖSSZES meccset a bajnokságból minden csapattal (nem csak FCB)
+  - Mező: `id`, `matchday` (forduló szám), `utcDate`, `status`, `homeTeam.id`, `homeTeam.name`, `awayTeam.id`, `awayTeam.name`, `score.fullTime`
+  - Rate limit + hibakezelés a meglévő `apiFetch` wrapperen át
+
+- [x] 27.2 `getMatchDetails(matchId)` függvény:
+  - `GET /matches/{matchId}` hívás
+  - Visszaadja a `goals[]` (scorer.id, scorer.name, minute, type), `bookings[]` (player, card, minute), `substitutions[]` (playerOut, playerIn, minute) mezőket
+  - **Megjegyzés**: a free tier-en ezek a mezők változó mértékben adottak; a függvény null-safe módon adja vissza ami van, hiányzó mezőket üres tömbként
+  - A response shape egyértelműen jelzi a frontend felé hogy az adatok hiányosak lehetnek (`partial: true` flag opcionálisan)
+
+- [x] 27.3 `GET /api/season/standings-evolution` publikus endpoint:
+  - Query: `competition` (default 2014), `season`
+  - Belül: `getCompetitionMatches()` hívás, majd szerver oldali aggregálás: minden fordulóra (`matchday` 1-38) kumulatív pontok kiszámolása minden csapatra
+  - Response: `[{ matchday: 1, teams: [{ team_id, team_name, points, goal_difference, position }, ...] }, ...]`
+  - Cache: `season_evolution_cache` tábla vagy in-memory Map TTL 12 óra (a meglévő standings/scorers cache mintával — Iteration 15)
+
+- [x] 27.4 `GET /api/season/team-form` publikus endpoint:
+  - Query: `competition` (default 2014), `season`, `team_id` (default FCB = 81)
+  - Visszaadja a csapat utolsó 10 lejátszott meccsét (FINISHED) és minden meccshez egy `result: 'W' | 'D' | 'L'` mezőt
+  - Cache TTL 1 óra (gyakrabban frissül mint a teljes standings)
+
+- [x] 27.5 `GET /api/season/scorers-snapshot` endpoint:
+  - Query: `competition` (default 2014), `season`, `limit` (default 10)
+  - A meglévő `getScorers()` hívását használja (vagy akár a `getTopScorers()`-t)
+  - Megjegyzés a response-ban: `evolution_supported: false` — egyértelműen jelzi a frontendnek hogy nem rekonstruálható időbeli evolúció
+  - Cache: már létezik a `scorers_cache` (Iteration 15), újrahasznosítva
+
+- [x] 27.6 `GET /api/season/match/[id]` endpoint:
+  - A meccs részletes eseményei: a `getMatchDetails(matchId)` hívás visszaadása
+  - A meccs ID itt a football-data.org `match.id` (ami az adatbázisban az `api_football_id` mezőnek felel meg, történelmi okokból)
+  - Cache: per-meccs TTL 24 óra a befejezett meccsekre, 5 perc a folyamatban lévőkre
+  - Response figyelmeztetés ha az adatok részlegesek: `{ events: [...], data_quality: 'full' | 'partial' | 'unavailable' }`
+
+- [x] 27.7 Cache séma migráció (ha Supabase tábla a választás): `supabase/migrations/<dátum>_season_caches.sql`:
+  - `season_evolution_cache`, `season_form_cache`, `match_details_cache` táblák
+  - `id`, `cache_key` (pl. `competition_id|season|team_id`), `data` JSONB, `fetched_at`
+  - RLS: read mindenkinek, write csak service role
+
+- [x] 27.8 Admin cache invalidálás endpoint:
+  - `POST /api/admin/season/refresh` — a 4 cache törlése (admin manuálisan triggerelheti)
+
+- [x] 27.9 Hibakezelés és degradáció:
+  - Ha a football-data.org elérhetetlen, az endpointok 503-at adnak értelmes üzenettel
+  - A meccs események endpointja (`/api/season/match/[id]`) graceful módon kezeli a hiányzó adatokat (pl. `goals: []`)
+  - Logging minden cache miss / API hiba esetén
+
+**Acceptance Criteria:**
+
+- A `GET /api/season/standings-evolution` helyesen ad vissza fordulónkénti kumulatív pont adatokat minden csapatra
+- A `GET /api/season/team-form` az utolsó 10 meccs G/D/V eredményét adja
+- A `GET /api/season/scorers-snapshot` a top gólszerzők snapshot-ját adja, jelezve hogy az időbeli evolúció nem támogatott (free tier korlát)
+- A `GET /api/season/match/[id]` a meccs eseményeit adja vissza (gólok, lapok, cserék) ha elérhetők, egyébként `data_quality: 'partial'` jelzéssel
+- Cache stratégia tiszteli a 10 hívás/perc rate limitet
+- A FREE TIER korlátozottság (bar chart race, részletes timeline) dokumentálva van a frontend felé átadott response-okban
+
+**Dependencies:** Iteration 13 (football-data.org wrapper), Iteration 15 (cache mintázat)
+
+---
+
+### Iteration 28 — Termék Több Kép & Galéria Backend
+
+**Status:** DONE
+
+**Goal:** Egy termékhez több kép feltölthető, a publikus API egy rendezett képgalériát ad vissza. A meglévő `products.image_url` (egyedüli kép) átalakul egy elsődleges (cover) képpé, a többi kép egy új `product_images` táblába kerül `display_order` mezővel. A migráció backward-compatible: a meglévő `image_url` mezőt megőrizzük cover-nek.
+
+**UI required:** No
+
+**Tasks:**
+
+- [x] 28.1 Adatbázis migráció (`supabase/migrations/<dátum>_product_images.sql`):
+  - Új tábla `product_images`: `id UUID PK`, `product_id UUID FK products ON DELETE CASCADE`, `image_url TEXT NOT NULL`, `display_order INT NOT NULL DEFAULT 0`, `is_cover BOOLEAN DEFAULT false`, `created_at TIMESTAMPTZ`
+  - Index: `product_images(product_id, display_order)`
+  - Constraint: egy termékhez maximum 1 cover (`UNIQUE (product_id) WHERE is_cover = true` — partial unique index)
+  - Adatmigráció: minden meglévő `products.image_url`-t insert-elni a `product_images`-be `is_cover = true, display_order = 0` értékkel
+  - A `products.image_url` oszlop megőrizve (nem droppoljuk), backward compatibility-ért — szinkronban tartva a cover képpel (trigger-rel)
+  - TypeScript típusok frissítése
+
+- [x] 28.2 RLS policy-k:
+  - `product_images`: read mindenkinek (publikus), write csak admin
+
+- [x] 28.3 Admin kép feltöltő endpoint kibővítés (`POST /api/admin/products/[id]/images`):
+  - Több kép egyidejű feltöltése (multipart form-data, `images[]`)
+  - Az első kép vagy a `cover_index` paraméter alapján beállítható melyik a cover
+  - A `product-images` Storage bucketbe kerül, az URL a `product_images` táblába
+  - Maximum 10 kép / termék limit
+
+- [x] 28.4 Admin képkezelő endpointok:
+  - `DELETE /api/admin/products/[id]/images/[imageId]` — egy kép törlése (Storage-ból is)
+  - `PUT /api/admin/products/[id]/images/order` — sorrend frissítése (body: `[{ image_id, display_order }, ...]`)
+  - `PUT /api/admin/products/[id]/images/[imageId]/cover` — egy kép kijelölése covernek (a többi `is_cover = false`-ra állítása atomic módon)
+
+- [x] 28.5 Publikus API válasz kibővítése (`GET /api/products`, `GET /api/products/[id]`):
+  - A response minden termék objektumában új `images: [{ id, image_url, display_order, is_cover }, ...]` mező, `display_order ASC` rendezve
+  - A meglévő `image_url` mező megőrzve a cover képre (backward compat) — a frontend választhat melyiket használja
+  - A listázó endpoint csak a cover képet adhatja vissza optimalizációért (`?include=images` paraméter ha kell a teljes galéria)
+
+- [x] 28.6 Új termék létrehozó endpoint frissítése (`POST /api/admin/products`):
+  - Több kép feltöltése egyszerre (a 28.3-as flow-val)
+  - Az első feltöltött kép automatikusan cover, ha nincs explicit jelölve
+
+- [x] 28.7 Regressziós tesztelés:
+  - Meglévő egy-képes termékek továbbra is helyesen jelennek meg (a cover kép visszaadódik az `image_url`-ben is)
+  - Új több-képes termék létrehozása működik
+  - Kép sorrend módosítható, cover állítható
+  - Kép törlésekor a Storage fájl is törlődik
+  - Termék törlésekor cascade-del a `product_images` is törlődik
+
+**Acceptance Criteria:**
+
+- Admin tud egy termékhez több képet feltölteni, sorrendezni, törölni
+- A cover kép egyértelműen jelölhető és visszaadódik az `image_url` mezőben (backward compat)
+- A publikus API a teljes galéria adatokat visszaadja (display_order szerint rendezve)
+- A meglévő egy-képes termékek hibamentesen működnek (no breaking change)
+- Storage és DB konzisztens: kép törlésekor mindkét helyről eltávolítódik
+
+**Dependencies:** Iteration 5 (webshop)
 
 ---
