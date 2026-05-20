@@ -248,3 +248,4 @@ A backlog fájl semmilyen körülmények között nem cserélhető le egy újonn
 Alapértelmezett szabály
 
 Ha bizonytalan vagy a teendőkben, kérdezd meg a product-owner-t hogy a kérés a jelenlegi iterációhoz tartozik-e, vagy új backlog tételt igényel.
+
